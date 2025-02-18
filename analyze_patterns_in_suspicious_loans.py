@@ -90,8 +90,8 @@ class XGBoostAnalyzer:
                 'Gender',           # Demographic
                 'Ethnicity',        # Demographic
                 'BorrowerState',    # State-level geography
-                'BorrowerCity',     # City-level geography (new)
-                'NAICSCode',        # Detailed industry (new, replaces NAICSSector)
+                'BorrowerCity',     # City-level geography
+                'NAICSCode',        # Detailed industry
                 'OriginatingLender' # Lender behavior
             ]
             self.categorical_features = categorical_features
@@ -109,15 +109,15 @@ class XGBoostAnalyzer:
                 
                 # Special handling for high-cardinality features
                 if feature == 'OriginatingLender':
-                    top_lenders = value_counts.head(50).index  # Top 50 lenders
+                    top_lenders = value_counts.head(20).index
                     df[feature] = df[feature].apply(lambda x: x if x in top_lenders else 'Other_Lender')
                     common_categories = top_lenders.union(['Other_Lender'])
                 elif feature == 'BorrowerCity':
-                    top_cities = value_counts.head(500).index  # Top 500 cities
+                    top_cities = value_counts.head(100).index
                     df[feature] = df[feature].apply(lambda x: x if x in top_cities else 'Other_City')
                     common_categories = top_cities.union(['Other_City'])
                 elif feature == 'NAICSCode':
-                    top_codes = value_counts.head(300).index  # Top 300 NAICS codes
+                    top_codes = value_counts.head(50).index
                     df[feature] = df[feature].apply(lambda x: x if x in top_codes else 'Other_NAICS')
                     common_categories = top_codes.union(['Other_NAICS'])
                 
@@ -150,7 +150,7 @@ class XGBoostAnalyzer:
         try:
             print("\nEnhanced XGBoost Analysis")
             full_prepared = self.prepare_enhanced_features(full.copy(), min_instances=min_instances)
-            full_prepared["LoanNumber"] = full["LoanNumber"].astype(str).str.strip()  # Preserve LoanNumber
+            full_prepared["LoanNumber"] = full["LoanNumber"].astype(str).str.strip()
             sus["LoanNumber"] = sus["LoanNumber"].astype(str).str.strip()
             
             full_prepared["Flagged"] = full_prepared["LoanNumber"].isin(sus["LoanNumber"]).astype('uint8')
@@ -187,8 +187,7 @@ class XGBoostAnalyzer:
                 max_bin=256
             )
             
-            early_stopping = xgb.callback.EarlyStopping(rounds=10, metric_name='auc', data_name='validation_0', save_best=True)
-            
+            # Perform hyperparameter tuning without early stopping
             random_search = RandomizedSearchCV(
                 xgb_clf,
                 param_distributions=param_grid,
@@ -201,15 +200,32 @@ class XGBoostAnalyzer:
             )
             
             with parallel_backend('loky', n_jobs=2):
-                print("Performing hyperparameter tuning with early stopping...")
-                random_search.fit(
-                    X_train, y_train,
-                    eval_set=[(X_test, y_test)],
-                    callbacks=[early_stopping]
-                )
+                print("Performing hyperparameter tuning...")
+                random_search.fit(X_train, y_train)
             
-            self.model = random_search.best_estimator_
-            print(f"Best parameters: {random_search.best_params_}")
+            # Fit the best model with early stopping
+            best_params = random_search.best_params_
+            print(f"Best parameters from tuning: {best_params}")
+            
+            self.model = xgb.XGBClassifier(
+                **best_params,
+                objective='binary:logistic',
+                eval_metric='auc',
+                random_state=42,
+                tree_method='hist',
+                nthread=16,
+                max_bin=256
+            )
+            
+            print("Fitting final model with early stopping...")
+            self.model.fit(
+                X_train, y_train,
+                eval_set=[(X_test, y_test)],
+                early_stopping_rounds=10,
+                verbose=True
+            )
+            
+            print(f"Best iteration: {self.model.best_iteration}")
             
             y_pred = self.model.predict(X_test)
             y_pred_proba = self.model.predict_proba(X_test)[:, 1]
@@ -1305,42 +1321,41 @@ f"{pname}: {sus_match:.3%} in suspicious vs {full_match:.3%} overall ({ratio:.2f
             df['MissingDemographics'] = df[demographic_fields].isna().sum(axis=1).astype('uint8')
             
             # Categorical features with explicit naming and minimum instance threshold
-            categorical_features = ['BusinessType', 'Race', 'Gender', 'Ethnicity', 'BorrowerState', 'NAICSSector']
+            categorical_features = ['BusinessType', 'Race', 'Gender', 'Ethnicity', 'BorrowerState', 'BorrowerCity', 'NAICSCode', 'OriginatingLender'] 
             self.categorical_features = categorical_features
             self.category_feature_map = {}
             
             for feature in categorical_features:
                 if feature not in df.columns or df[feature].isna().all():
                     continue
-                    
-                # Convert to string and fill missing values
+                
                 df[feature] = df[feature].astype(str).fillna('Unknown')
-                
-                # Get value counts and filter by minimum instances
                 value_counts = df[feature].value_counts()
-                common_categories = value_counts[value_counts >= min_instances].index
-                print(f"{feature}: {len(value_counts)} total categories, {len(common_categories)} with >= {min_instances} instances")
+                if feature == 'BorrowerCity':
+                    common_categories = value_counts.head(100).index  # Top 100 cities
+                    df[feature] = df[feature].apply(lambda x: x if x in common_categories else 'Other_City')
+                elif feature == 'NAICSCode':
+                    common_categories = value_counts.head(50).index  # Top 50 NAICS codes
+                    df[feature] = df[feature].apply(lambda x: x if x in common_categories else 'Other_NAICS')
+                elif feature == 'OriginatingLender':
+                    common_categories = value_counts.head(20).index  # Top 20 lenders
+                    df[feature] = df[feature].apply(lambda x: x if x in common_categories else 'Other_Lender')
+                else:
+                    common_categories = value_counts[value_counts >= min_instances].index
+                    df[feature] = df[feature].apply(lambda x: x if x in common_categories else f'Other_{feature}')
                 
-                # Lump rare categories into 'Other'
-                df[feature] = df[feature].apply(lambda x: x if x in common_categories else 'Other_' + feature)
-                
-                # One-hot encode with explicit category names
                 dummies = pd.get_dummies(df[feature], dtype='uint8')
-                # Rename columns to use actual category names, avoiding numbered suffixes
                 dummies.columns = [
                     f"{feature}_{col.replace(' ', '_').replace('/', '_').replace('&', '_')}"
-                    if col != 'Other_' + feature else f"{feature}_Other"
                     for col in dummies.columns
                 ]
-                
-                # Update category_feature_map and concatenate
                 for col in dummies.columns:
                     self.category_feature_map[col] = feature
                 df = pd.concat([df, dummies], axis=1)
                 df = df.drop(columns=[feature])
-            
-            # Drop high-cardinality and unused columns
-            drop_cols = ['BorrowerName', 'BorrowerAddress', 'BorrowerCity', 'LoanNumber', 'OriginatingLender', 'Location', 'NAICSCode']
+
+            # Update drop_cols to keep these features until encoded
+            drop_cols = ['BorrowerName', 'BorrowerAddress', 'LoanNumber', 'Location']
             df = df.drop(columns=[col for col in drop_cols if col in df.columns])
             
             self.feature_names = df.columns.tolist()
@@ -1382,7 +1397,10 @@ f"{pname}: {sus_match:.3%} in suspicious vs {full_match:.3%} overall ({ratio:.2f
                 "BusinessesAtAddress", "IsExactMaxAmount", "IsRoundAmount",
                 "HasSuspiciousKeyword", "MissingDemographics"
             ]
-            categorical_features = ["BusinessType", "Race", "Gender", "Ethnicity"]
+            categorical_features = [
+                "BusinessType", "Race", "Gender", "Ethnicity",
+                "BorrowerState", "BorrowerCity", "NAICSCode", "OriginatingLender"
+            ]
 
             # Filter available features
             numerical_features = [f for f in numerical_features if f in full_prepared.columns]
@@ -1396,10 +1414,15 @@ f"{pname}: {sus_match:.3%} in suspicious vs {full_match:.3%} overall ({ratio:.2f
             X = full_prepared[numerical_features].copy()
             y = full_prepared["Flagged"]
 
+            # Add interaction features
+            X['Jobs_X_Amount'] = X['JobsReported'] * X['InitialApprovalAmount']
+            X['Address_X_AmtPerEmp'] = X['BusinessesAtAddress'] * X['AmountPerEmployee']
+            numerical_features.extend(['Jobs_X_Amount', 'Address_X_AmtPerEmp'])
+
             # Diagnose and clean numerical features
             print("\nDiagnosing feature variance and correlations...")
             variances = X.var()
-            low_variance_cols = variances[variances < 0.01].index.tolist()
+            low_variance_cols = variances[variances < 0.005].index.tolist()
             if low_variance_cols:
                 print(f"Removing low-variance numerical features: {low_variance_cols}")
                 X = X.drop(columns=low_variance_cols)
@@ -1408,10 +1431,9 @@ f"{pname}: {sus_match:.3%} in suspicious vs {full_match:.3%} overall ({ratio:.2f
             # Address multicollinearity explicitly
             corr_matrix = X.corr().abs()
             upper_tri = corr_matrix.where(np.triu(np.ones(corr_matrix.shape), k=1).astype(bool))
-            # Correctly unpack row_idx, col_idx, and value from stack().items()
-            high_corr_pairs = [((row_idx, col_idx), value) for (row_idx, col_idx), value in upper_tri.stack().items() if value > 0.85]
+            high_corr_pairs = [((row_idx, col_idx), value) for (row_idx, col_idx), value in upper_tri.stack().items() if value > 0.9]
             if high_corr_pairs:
-                print("High correlations detected (r > 0.85):")
+                print("High correlations detected (r > 0.9):")
                 to_drop = set()
                 for (row_idx, col_idx), corr_value in high_corr_pairs:
                     print(f"  {row_idx} - {col_idx}: {corr_value:.3f}")
@@ -1425,9 +1447,9 @@ f"{pname}: {sus_match:.3%} in suspicious vs {full_match:.3%} overall ({ratio:.2f
             for feature in categorical_features:
                 print(f"\nProcessing categorical feature: {feature}")
                 value_counts = full[feature].value_counts()
-                print(f"  Unique categories: {len(value_counts)}, Min count: {value_counts.min()}")
+                print(f"  Unique categories: {len(value_counts):,}, Min count: {value_counts.min()}")
                 
-                min_occurrences = max(50, int(len(full) * 0.001))
+                min_occurrences = max(10, int(len(full) * 0.0001))
                 common_categories = value_counts[value_counts >= min_occurrences].index
                 temp_df = full[feature].fillna('Unknown').astype(str).apply(
                     lambda x: x if x in common_categories else 'Other'
@@ -1437,9 +1459,9 @@ f"{pname}: {sus_match:.3%} in suspicious vs {full_match:.3%} overall ({ratio:.2f
                 dummies.columns = [f"{feature}_{col.replace(' ', '_')}" for col in dummies.columns]
                 
                 dummy_variances = dummies.var()
-                low_variance_dummies = dummy_variances[dummy_variances < 0.02].index.tolist()
+                low_variance_dummies = dummy_variances[dummy_variances < 0.005].index.tolist()
                 if low_variance_dummies:
-                    print(f"  Removing low-variance dummy columns: {low_variance_dummies}")
+                    print(f"  Removing {len(low_variance_dummies):,} low-variance dummy columns: {low_variance_dummies[:30]}...")
                     dummies = dummies.drop(columns=low_variance_dummies)
                 
                 for col in dummies.columns:
@@ -1466,25 +1488,29 @@ f"{pname}: {sus_match:.3%} in suspicious vs {full_match:.3%} overall ({ratio:.2f
                     X_balanced = pd.concat([df_majority, df_minority_upsampled])
                     y_balanced = pd.Series([0] * len(df_majority) + [1] * len(df_minority_upsampled))
                     
+                    # Enhanced scaling to prevent overflow
                     scaler = StandardScaler()
                     X_scaled = scaler.fit_transform(X_balanced)
+                    X_scaled = np.clip(X_scaled, -10, 10)
                     
                     X_train, X_test, y_train, y_test = train_test_split(
                         X_scaled, y_balanced, test_size=0.3, random_state=42, stratify=y_balanced
                     )
                     
+                    # Scikit-learn model with adjusted parameters
                     model_sk = LogisticRegression(
                         max_iter=2000, class_weight="balanced", random_state=42,
-                        penalty='l2', C=0.05, solver='lbfgs'
+                        penalty='l2', C=0.1, solver='lbfgs'
                     )
                     model_sk.fit(X_train, y_train)
                     
+                    # Statsmodels with L2 regularization and increased iterations
                     X_train_sm = sm.add_constant(X_train.astype(float))
                     try:
-                        model_sm = sm.Logit(y_train, X_train_sm).fit_regularized(
-                            method='l1', alpha=0.5, maxiter=500, disp=0,
-                            trim_mode='auto', auto_trim_tol=0.01
+                        model_sm = sm.Logit(y_train, X_train_sm).fit(
+                            method='lbfgs', maxiter=5000, disp=0
                         )
+                        print("Statsmodels logistic regression converged successfully.")
                     except Exception as e:
                         print(f"Statsmodels failed: {str(e)}. Falling back to sklearn model.")
                         model_sm = None

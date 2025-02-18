@@ -2,13 +2,15 @@
 
 The Paycheck Protection Program (PPP) represented one of the largest economic relief efforts in U.S. history, disbursing nearly $800 billion in loans to small businesses during the COVID-19 pandemic. But where there's money, there's fraud – and the PPP program attracted fraudsters like moths to a flame.
 
-When I first started looking into PPP loan data, I expected to find some cases of fraud. What I didn't expect was to discover just how brazen, sloppy, and sometimes hilariously obvious many of these fraudulent schemes would be. This led me down a rabbit hole of building an automated fraud detection system that could sift through over 8GB of loan data, searching for needles in a haystack – if those needles were wearing neon signs saying "definitely a fraudulent needle here!"
+When I first started looking into PPP loan data, I expected to find many cases of fraud, given what has already been highlighted on Twitter and other media outlets. What I didn't expect was to discover just how brazen, sloppy, and sometimes hilariously obvious many of these fraudulent schemes would be. This led me down a rabbit hole of building an automated fraud detection system that could sift through over 8GB of loan data, searching fraud using a large number of techniques that are all based on thinking like a fraudster and finding patterns that they leave behind. The basic system consists of 2 code files:
+
+`simple_loan_fraud_score.py` - This takes a long time to run and goes through the entire 8GB+ dataset; it uses a large number of different strategies to score each loan and flag those that are potentially fraudulent. I'll get into the details of how it works below. I also have a parallel version that uses multiprocessing to speed up the analysis, but it generates the same output.
+
+`analyze_patterns_in_suspicious_loans.py` - This code takes the output of `simple_loan_fraud_score.py`, which is another csv file, `suspicious_loans.csv`, and applies a more sophisticated set of techniques to these flagged loans. It uses a combination of statistical tests, looking for overrepresented patterns, and also more sophisticated machine learning techniques such as logistic regression and XGBoost to determine which indicators are most predictive of fraud (assuming that we have done a good job of flagging all the fraudulent loans in the first step). 
 
 ## Why This Matters
 
-PPP fraud isn't just a matter of people gaming the system – it's theft from a program meant to keep legitimate small businesses alive during an unprecedented crisis. Every dollar stolen through fraud was a dollar that couldn't go to a struggling restaurant, a family-owned shop, or a legitimate small business fighting to keep their employees on payroll during lockdowns.
-
-The scale of the fraud is staggering. The Secret Service estimated that nearly $100 billion was stolen from COVID-19 relief programs, including PPP. That's not just a number – it represents thousands of legitimate businesses that might have survived if those funds hadn't been diverted by fraudsters.
+PPP fraud wasn't just a matter of people gaming the system– it was stealing for every single taxpayer in the US, and adding massively to the national debt. If those payments did in fact prevent a worthy business from going bankrupt so it could survive to live another day, then that's one thing. We can decide whether that benefit was worth the impact to the national debt and deficit. But the outright fraud, taking money that was probably mostly wasted on silly purchases for purely personal gain, is a different matter. These are not small dollar amounts here– the average fraudster got close to $20,000, and I believe that the number of fraudulent loans was easily in the hundreds of thousands, and probably even over a million. 
 
 ## The Art of Finding Fraud: When Criminals Tell on Themselves
 
@@ -29,9 +31,9 @@ Beyond these standout names, the system examines more subtle patterns in busines
 But not all fraudsters were quite so blatant. The more interesting cases required looking at subtle patterns that emerged only when analyzing thousands of applications together. Some of these indicators included:
 
 - Clusters of businesses registered to the same residential address
-- Sequential loan applications submitted within minutes of each other
+- Sequential (or nearly sequential) loan applications submitted all on the same day
 - Identical loan amounts for supposedly different businesses
-- Suspiciously uniform numbers of reported employees
+- Clusters of similar looking loans in the same ZIP code on the same day
 
 What makes these patterns fascinating is that they often reveal how fraudsters, in trying to avoid detection, actually create new patterns that make them stand out. It's like someone trying so hard to walk normally that they end up walking weird.
 
@@ -45,7 +47,7 @@ Let's dive into the technical details of how this system actually works. I'll br
 
 ### The Data Challenge: Processing an 8GB CSV Monster
 
-When you're dealing with an 8GB CSV file containing millions of loan records, you can't just load it into memory and start analyzing. A naive approach would crash most computers. Here's how we handle this beast efficiently:
+When you're dealing with an 8.4GB CSV file containing millions of loan records, you can't just load it into memory and start analyzing. A naive approach would crash most computers. Here's how we handle this beast efficiently:
 
 ```python
 def process_chunks(self) -> None:
