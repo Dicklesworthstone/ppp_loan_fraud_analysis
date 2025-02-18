@@ -44,9 +44,10 @@ class XGBoostAnalyzer:
         self.model = None
         self.feature_names = None
         self.categorical_features = None
+        self.category_feature_map = {}  # New: Map to track base feature for each dummy
         
     def prepare_enhanced_features(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Prepare enhanced features for XGBoost analysis."""
+        """Prepare enhanced features for XGBoost analysis with meaningful category names."""
         try:
             df = df.copy()
             
@@ -120,7 +121,7 @@ class XGBoostAnalyzer:
             df['NAICSSector'] = df['NAICSCode'].astype(str).str[:2]
             df['OriginatingLender'] = df['OriginatingLender'].fillna('Unknown')
             
-            # Handle categorical variables with encoding
+            # Handle categorical variables with meaningful names
             categorical_features = [
                 'BusinessType', 'Race', 'Gender', 'Ethnicity', 'NAICSCode',
                 'BorrowerState', 'OriginatingLender', 'Location', 'NAICSSector'
@@ -128,11 +129,30 @@ class XGBoostAnalyzer:
             
             # Store categorical features for later use
             self.categorical_features = categorical_features
+            self.category_feature_map = {}  # Map to track base feature for each dummy
             
-            # Encode categorical variables and ensure they are numeric
             for feature in categorical_features:
-                df[feature] = df[feature].fillna('Unknown')
-                df[feature] = pd.Categorical(df[feature]).codes.astype(int)  # Explicitly convert to int
+                if feature not in df.columns or df[feature].isna().all():
+                    continue
+                    
+                # Convert to string and handle missing values
+                df[feature] = df[feature].astype(str).fillna('Unknown')
+                
+                # Filter rare categories into 'Other'
+                value_counts = df[feature].value_counts()
+                common_categories = value_counts[value_counts >= 5].index
+                df[feature] = df[feature].apply(lambda x: x if x in common_categories else 'Other')
+                
+                # One-hot encode with meaningful names
+                dummies = pd.get_dummies(df[feature])
+                dummies.columns = [f"{feature}_{col.replace(' ', '_')}" for col in dummies.columns]
+                
+                # Update category_feature_map
+                for col in dummies.columns:
+                    self.category_feature_map[col] = feature
+                
+                df = pd.concat([df, dummies], axis=1)
+                df = df.drop(columns=[feature])
             
             # Store feature names
             self.feature_names = df.columns.tolist()
@@ -150,7 +170,7 @@ class XGBoostAnalyzer:
             full_prepared = self.prepare_enhanced_features(full.copy())
             full_prepared["Flagged"] = full_prepared["LoanNumber"].isin(sus["LoanNumber"]).astype(int)
             
-            # Exclude non-numeric columns explicitly
+            # Exclude non-numeric columns
             exclude_cols = ['LoanNumber', 'BorrowerName', 'BorrowerAddress', 'BorrowerCity', 'Flagged']
             feature_cols = [col for col in full_prepared.columns if col not in exclude_cols]
             
@@ -192,6 +212,9 @@ class XGBoostAnalyzer:
                 max_bin=256
             )
             
+            # Use EarlyStopping callback
+            early_stopping = xgb.callback.EarlyStopping(rounds=10, metric_name='auc', data_name='validation_0', save_best=True)
+            
             random_search = RandomizedSearchCV(
                 xgb_clf,
                 param_distributions=param_grid,
@@ -200,23 +223,16 @@ class XGBoostAnalyzer:
                 cv=2,
                 random_state=42,
                 n_jobs=4,
-                verbose=2
+                verbose=2,
+                fit_params={'callbacks': [early_stopping], 'eval_set': [(X_test, y_test)]}
             )
             
-            print("Performing hyperparameter tuning... (Press Ctrl+C to interrupt if needed)")
-            random_search.fit(X_train, y_train)  # No early stopping here
+            print("Performing hyperparameter tuning with early stopping... (Press Ctrl+C to interrupt if needed)")
+            random_search.fit(X_train, y_train)
             
             self.model = random_search.best_estimator_
             
-            # Configure early stopping for final fit with eval_set
-            self.model.fit(
-                X_train,
-                y_train,
-                eval_set=[(X_test, y_test)],
-                early_stopping_rounds=10,
-                verbose=1
-            )
-            
+            # Predictions using the best model
             y_pred = self.model.predict(X_test)
             y_pred_proba = self.model.predict_proba(X_test)[:, 1]
             
@@ -242,54 +258,88 @@ class XGBoostAnalyzer:
             print(f"Error in XGBoost analysis: {str(e)}")
             raise
 
-    def _analyze_feature_importance(
-        self,
-        X: pd.DataFrame,
-        feature_cols: list
-    ) -> None:
+    def _analyze_feature_importance(self, X: pd.DataFrame, feature_cols: list) -> None:
         """Analyze and display feature importance."""
         try:
             importance_df = pd.DataFrame({
                 'Feature': feature_cols,
                 'Importance': self.model.feature_importances_
             })
-            importance_df = importance_df.sort_values(
-                'Importance', ascending=False
-            ).head(20)
+            importance_df = importance_df.sort_values('Importance', ascending=False)
             
-            print("\nTop 20 Most Important Features:")
-            for _, row in importance_df.iterrows():
-                print(f"{row['Feature']}: {row['Importance']:.4f}")
+            # Separate numerical and categorical features
+            numerical_features = [f for f in feature_cols if f not in self.category_feature_map]
+            categorical_features = [f for f in feature_cols if f in self.category_feature_map]
+            
+            print("\nTop Numerical Features:")
+            num_importance = importance_df[importance_df['Feature'].isin(numerical_features)].head(15)
+            for _, row in num_importance.iterrows():
+                print(f"  {row['Feature']}: {row['Importance']:.4f}")
+            
+            # Group categorical features by base name
+            categorical_by_base = {}
+            for f in categorical_features:
+                base = self.category_feature_map[f]
+                if base not in categorical_by_base:
+                    categorical_by_base[base] = []
+                importance = importance_df[importance_df['Feature'] == f]['Importance'].values[0]
+                categorical_by_base[base].append((f, importance))
+            
+            for base, feat_list in categorical_by_base.items():
+                print(f"\nAll Categories for {base}:")
+                if base == "Race":
+                    print("  Note: Racial patterns reflect data distribution, not targeted focus.")
+                sorted_feats = sorted(feat_list, key=lambda x: x[1], reverse=True)
+                for i, (feat, imp) in enumerate(sorted_feats):
+                    prefix = "**" if i == 0 else "  "
+                    suffix = "**" if i == 0 else ""
+                    print(f"    {prefix}{feat}: {imp:.4f}{suffix}")
                 
         except Exception as e:
             print(f"Error analyzing feature importance: {str(e)}")
 
-    def _analyze_shap_values(
-        self,
-        X_test: pd.DataFrame,
-        feature_cols: list
-    ) -> None:
+    def _analyze_shap_values(self, X_test: pd.DataFrame, feature_cols: list) -> None:
         """Analyze SHAP values for feature interactions."""
         try:
             print("\nAnalyzing feature interactions with SHAP values...")
             
-            # Get top feature interactions
-            interaction_values = shap.TreeExplainer(
-                self.model
-            ).shap_interaction_values(X_test)
+            explainer = shap.TreeExplainer(self.model)
+            interaction_values = explainer.shap_interaction_values(X_test)
             
             np.fill_diagonal(interaction_values, 0)
             interaction_sum = np.sum(np.abs(interaction_values), axis=(0, 1))
             
-            # Get top 10 interacting features
             top_interactions = pd.DataFrame({
                 'Feature': feature_cols,
                 'Interaction_Strength': interaction_sum
-            }).sort_values('Interaction_Strength', ascending=False).head(10)
+            }).sort_values('Interaction_Strength', ascending=False)
             
-            print("\nTop 10 Feature Interactions:")
-            for _, row in top_interactions.iterrows():
-                print(f"{row['Feature']}: {row['Interaction_Strength']:.4f}")
+            # Separate numerical and categorical
+            numerical_features = [f for f in feature_cols if f not in self.category_feature_map]
+            categorical_features = [f for f in feature_cols if f in self.category_feature_map]
+            
+            print("\nTop Numerical Feature Interactions:")
+            num_interactions = top_interactions[top_interactions['Feature'].isin(numerical_features)].head(5)
+            for _, row in num_interactions.iterrows():
+                print(f"  {row['Feature']}: {row['Interaction_Strength']:.4f}")
+            
+            categorical_by_base = {}
+            for f in categorical_features:
+                base = self.category_feature_map[f]
+                if base not in categorical_by_base:
+                    categorical_by_base[base] = []
+                strength = top_interactions[top_interactions['Feature'] == f]['Interaction_Strength'].values[0]
+                categorical_by_base[base].append((f, strength))
+            
+            for base, feat_list in categorical_by_base.items():
+                print(f"\nAll Categories for {base} Interactions:")
+                if base == "Race":
+                    print("  Note: Racial patterns reflect data distribution, not targeted focus.")
+                sorted_feats = sorted(feat_list, key=lambda x: x[1], reverse=True)
+                for i, (feat, strength) in enumerate(sorted_feats):
+                    prefix = "**" if i == 0 else "  "
+                    suffix = "**" if i == 0 else ""
+                    print(f"    {prefix}{feat}: {strength:.4f}{suffix}")
                 
         except Exception as e:
             print(f"Error analyzing SHAP values: {str(e)}")
@@ -297,7 +347,6 @@ class XGBoostAnalyzer:
     def _analyze_high_probability_patterns(self, df: pd.DataFrame) -> None:
         """Analyze patterns in high-probability suspicious loans."""
         try:
-            # Define high probability threshold (e.g., top 1%)
             high_prob_threshold = df['PredictedProbability'].quantile(0.99)
             high_prob_loans = df[df['PredictedProbability'] >= high_prob_threshold]
             
@@ -317,19 +366,30 @@ class XGBoostAnalyzer:
                 print(f"  High-prob loans mean: {mean_high_prob:.3f}")
                 print(f"  Ratio: {mean_high_prob/mean_all:.2f}x")
             
-            # Analyze categorical feature patterns
+            # Analyze categorical feature patterns with one-hot decoding
             if self.categorical_features:
                 print("\nCategorical Feature Patterns in High-Probability Loans:")
                 print("Note: Patterns reflect data distribution, not targeted focus on any group.")
-                for feature in self.categorical_features:
-                    print(f"\n{feature} Distribution:")
-                    if feature == "Race":
+                for base_feature in self.categorical_features:
+                    print(f"\n{base_feature} Distribution:")
+                    if base_feature == "Race":
                         print("  Note: Racial patterns reflect data distribution, not targeted focus.")
-                    value_counts = high_prob_loans[feature].value_counts()
+                    
+                    # Get all dummy columns for this base feature
+                    dummy_cols = [col for col in df.columns if col.startswith(f"{base_feature}_")]
+                    
+                    # Reconstruct original category distribution
+                    category_counts = {}
+                    for col in dummy_cols:
+                        category = col.replace(f"{base_feature}_", "")
+                        count = high_prob_loans[col].sum()  # Sum of 1s for this category
+                        if count > 0:  # Only include categories with occurrences
+                            category_counts[category] = count
+                    
                     total = len(high_prob_loans)
-                    for value, count in value_counts.items():  # Show all categories
+                    for category, count in sorted(category_counts.items(), key=lambda x: x[1], reverse=True):
                         percentage = (count / total) * 100
-                        print(f"  {value}: {count:,} ({percentage:.3f}%)")
+                        print(f"  {category}: {count:,} ({percentage:.3f}%)")
                         
         except Exception as e:
             print(f"Error analyzing high-probability patterns: {str(e)}")
@@ -592,21 +652,21 @@ class SuspiciousLoanAnalyzer:
             print(f"Error analyzing {title}: {str(e)}")
 
     def analyze_feature_discrimination(self, sus: pd.DataFrame, full: pd.DataFrame) -> None:
-        """Analyze feature discrimination using AUPRC with detailed category breakdown and significance."""
+        """Analyze feature discrimination using AUPRC with meaningful category names."""
         try:
             print("\nFeature Discrimination Analysis using AUPRC")
             
-            # Prepare enhanced features with all available flags
+            # Prepare enhanced features
             full_prepared = self.prepare_enhanced_features(full.copy())
             full_prepared["Flagged"] = full_prepared["LoanNumber"].isin(sus["LoanNumber"]).astype(int)
             
-            # Include all features and flags from prepare_enhanced_features
+            # Define features to analyze
             features_to_analyze = [
                 "InitialApprovalAmount", "JobsReported", "NameLength", "WordCount",
-                "AmountPerEmployee", "HasResidentialAddress", "HasMultipleBusinesses",
-                "IsExactMaxAmount", "IsRoundAmount", "HasCommercialIndicator",
-                "HasSuspiciousKeyword", "MissingDemographics", "BusinessesAtAddress",
-                "BusinessType", "Race", "Gender", "Ethnicity"
+                "AmountPerEmployee", "HasResidentialIndicator", "HasCommercialIndicator",
+                "BusinessesAtAddress", "IsExactMaxAmount", "IsRoundAmount",
+                "HasSuspiciousKeyword", "MissingDemographics", "BusinessType",
+                "Race", "Gender", "Ethnicity"
             ]
             
             y_true = full_prepared["Flagged"]
@@ -615,73 +675,89 @@ class SuspiciousLoanAnalyzer:
             
             # Calculate AUPRC and significance for each feature
             for feature in features_to_analyze:
-                if feature not in full_prepared.columns:
+                if feature not in full_prepared.columns and feature not in full.columns:
                     continue
                     
-                if full_prepared[feature].dtype in ['object', 'category']:
-                    # One-hot encode categorical features
-                    X = pd.get_dummies(full_prepared[feature], prefix=feature)
+                if feature in ['BusinessType', 'Race', 'Gender', 'Ethnicity']:
+                    # Use original column from 'full' to get raw categorical values
+                    original_col = full[feature].fillna('Unknown').astype(str)
+                    value_counts = original_col.value_counts()
+                    common_categories = value_counts[value_counts >= 5].index
+                    temp_df = original_col.apply(lambda x: x if x in common_categories else 'Other')
+                    
+                    # One-hot encode with meaningful names
+                    X = pd.get_dummies(temp_df)
+                    X.columns = [f"{feature}_{col.replace(' ', '_')}" for col in X.columns]
+                    
                     if X.shape[1] > 1:
-                        model = LogisticRegression(max_iter=1000, random_state=42)
-                        model.fit(X, y_true)
-                        y_scores = model.predict_proba(X)[:, 1]
-                        auprc = average_precision_score(y_true, y_scores)
-                        feature_auprc[feature] = auprc
-                        
-                        # Chi-square test for significance
-                        contingency = pd.crosstab(full_prepared[feature], y_true)
-                        _, p_val, _, _ = stats.chi2_contingency(contingency)
-                        
-                        # Category-level AUPRC
-                        category_auprc = {}
+                        # Compute AUPRC for each category individually
                         for col in X.columns:
                             single_feature = X[[col]]
+                            model = LogisticRegression(max_iter=1000, random_state=42)
                             model.fit(single_feature, y_true)
                             y_scores = model.predict_proba(single_feature)[:, 1]
-                            category_auprc[col] = average_precision_score(y_true, y_scores)
-                        category_auprc_dict[feature] = category_auprc
+                            auprc = average_precision_score(y_true, y_scores)
+                            # T-test for significance
+                            p_val = stats.ttest_ind(
+                                single_feature[col][y_true == 1],
+                                single_feature[col][y_true == 0],
+                                equal_var=False
+                            ).pvalue
+                            feature_auprc[col] = (auprc, p_val)
+                            # Store for detailed breakdown
+                            if feature not in category_auprc_dict:
+                                category_auprc_dict[feature] = {}
+                            category_auprc_dict[feature][col] = auprc
                     else:
+                        # Single category case
                         y_scores = X.iloc[:, 0]
-                        feature_auprc[feature] = average_precision_score(y_true, y_scores)
-                        p_val = stats.ttest_ind(X.iloc[:, 0][y_true == 1], 
-                                            X.iloc[:, 0][y_true == 0], 
-                                            equal_var=False).pvalue
+                        auprc = average_precision_score(y_true, y_scores)
+                        p_val = stats.ttest_ind(
+                            X.iloc[:, 0][y_true == 1],
+                            X.iloc[:, 0][y_true == 0],
+                            equal_var=False
+                        ).pvalue
+                        feature_auprc[feature] = (auprc, p_val)
                 else:
-                    # Numerical features
+                    # Numerical features from prepared dataframe
                     X = full_prepared[[feature]].fillna(0)
                     model = LogisticRegression(max_iter=1000, random_state=42)
                     model.fit(X, y_true)
                     y_scores = model.predict_proba(X)[:, 1]
-                    feature_auprc[feature] = average_precision_score(y_true, y_scores)
-                    # T-test for significance
-                    p_val = stats.ttest_ind(X[feature][y_true == 1], 
-                                        X[feature][y_true == 0], 
-                                        equal_var=False).pvalue
-                
-                # Store p-value for reporting
-                feature_auprc[feature] = (feature_auprc[feature], p_val)
+                    auprc = average_precision_score(y_true, y_scores)
+                    p_val = stats.ttest_ind(
+                        X[feature][y_true == 1],
+                        X[feature][y_true == 0],
+                        equal_var=False
+                    ).pvalue
+                    feature_auprc[feature] = (auprc, p_val)
             
-            # Display results
+            # Display detailed feature analysis
             print("\nDetailed Feature Analysis:")
             print("Note: Patterns reflect data distribution and statistical significance, not targeted focus on any group.")
             sorted_features = sorted(feature_auprc.items(), key=lambda x: x[1][0], reverse=True)
+            
+            # Print details for all features, including categorical breakdowns
             for feature, (auprc, p_val) in sorted_features:
                 sig_note = " (p < 0.05, significant)" if p_val < 0.05 else " (p >= 0.05, not significant)"
                 print(f"{feature}: AUPRC = {auprc:.4f}{sig_note}")
-                
-                # Category breakdown for all categorical features
-                if feature in category_auprc_dict:
-                    print(f"  All categories for {feature}:")
-                    if feature == "Race":
+                # If feature is categorical, show breakdown
+                base_feature = feature.split('_')[0] if '_' in feature else feature
+                if base_feature in category_auprc_dict:
+                    print(f"  All categories for {base_feature}:")
+                    if base_feature == "Race":
                         print("  Note: Racial patterns reflect data distribution, not targeted focus.")
-                    sorted_categories = sorted(category_auprc_dict[feature].items(), 
-                                            key=lambda x: x[1], reverse=True)
-                    for i, (cat, cat_auprc) in enumerate(sorted_categories):  # Show all categories
-                        prefix = "**" if i == 0 else "  "  # Bold top category
+                    sorted_categories = sorted(
+                        category_auprc_dict[base_feature].items(),
+                        key=lambda x: x[1],
+                        reverse=True
+                    )
+                    for i, (cat, cat_auprc) in enumerate(sorted_categories):
+                        prefix = "**" if i == 0 else "  "
                         suffix = "**" if i == 0 else ""
                         print(f"    {prefix}{cat}: AUPRC = {cat_auprc:.4f}{suffix}")
             
-            # Overall feature ranking
+            # Overall feature ranking with individual categories
             print("\nFeatures ranked by AUPRC (discriminative power):")
             for feature, (auprc, _) in sorted_features:
                 print(f"{feature}: AUPRC = {auprc:.4f}")
@@ -692,7 +768,6 @@ class SuspiciousLoanAnalyzer:
             
         except Exception as e:
             print(f"Error in feature discrimination analysis: {str(e)}")
-
 
     def analyze_geographic_clusters(self, sus: pd.DataFrame, full: pd.DataFrame) -> None:
         """Analyze geographic clusters with proper error handling."""
@@ -1309,12 +1384,13 @@ f"{pname}: {sus_match:.3%} in suspicious vs {full_match:.3%} overall ({ratio:.2f
         except Exception as e:
             print(f"Error preparing features: {str(e)}")
             return df
-
+        
     def analyze_multivariate(self, sus: pd.DataFrame, full: pd.DataFrame) -> None:
+        """Perform multivariate analysis using logistic regression with meaningful category names."""
         try:
             print("\nEnhanced Multivariate Analysis via Logistic Regression")
             
-            # Prepare full dataset with all enhanced features
+            # Prepare dataset with enhanced features
             full_prepared = self.prepare_enhanced_features(full.copy())
             full_prepared["LoanNumber"] = full_prepared["LoanNumber"].astype(str).str.strip()
             sus["LoanNumber"] = sus["LoanNumber"].astype(str).str.strip()
@@ -1322,8 +1398,6 @@ f"{pname}: {sus_match:.3%} in suspicious vs {full_match:.3%} overall ({ratio:.2f
             # Debugging output
             print(f"Suspicious LoanNumbers unique count: {sus['LoanNumber'].nunique()}")
             print(f"Full dataset LoanNumbers unique count: {full_prepared['LoanNumber'].nunique()}")
-            print(f"Suspicious LoanNumbers sample: {sus['LoanNumber'].head().tolist()}")
-            print(f"Full dataset LoanNumbers sample: {full_prepared['LoanNumber'].head().tolist()}")
             matched_loans = set(sus["LoanNumber"]).intersection(set(full_prepared["LoanNumber"]))
             print(f"Number of matched loan numbers: {len(matched_loans)}")
             
@@ -1335,29 +1409,86 @@ f"{pname}: {sus_match:.3%} in suspicious vs {full_match:.3%} overall ({ratio:.2f
                 print("Error: No suspicious loans found in the full dataset after flagging.")
                 return
 
-            # Select features (corrected to match prepare_enhanced_features output)
+            # Define features
             numerical_features = [
                 "InitialApprovalAmount", "JobsReported", "NameLength", "WordCount",
-                "AmountPerEmployee", "HasResidentialIndicator", "BusinessesAtAddress",  # Corrected names
-                "IsExactMaxAmount", "IsRoundAmount", "HasCommercialIndicator",
+                "AmountPerEmployee", "HasResidentialIndicator", "HasCommercialIndicator",
+                "BusinessesAtAddress", "IsExactMaxAmount", "IsRoundAmount",
                 "HasSuspiciousKeyword", "MissingDemographics"
             ]
             categorical_features = ["BusinessType", "Race", "Gender", "Ethnicity"]
-            
-            # Verify feature existence
-            missing_features = [f for f in numerical_features if f not in full_prepared.columns]
-            if missing_features:
-                print(f"Warning: Features {missing_features} not found in prepared data. Skipping them.")
-                numerical_features = [f for f in numerical_features if f in full_prepared.columns]
-            
+
+            # Filter available features
+            numerical_features = [f for f in numerical_features if f in full_prepared.columns]
+            categorical_features = [f for f in categorical_features if f in full.columns]
+
+            # Initial feature matrix with numerical features
             X = full_prepared[numerical_features].copy()
-            for feature in categorical_features:
-                dummies = pd.get_dummies(full_prepared[feature], prefix=feature)
-                X = pd.concat([X, dummies], axis=1)
-            
             y = full_prepared["Flagged"]
-            
-            # Handle class imbalance
+
+            # Diagnose and clean numerical features
+            print("\nDiagnosing feature variance and correlations...")
+            variances = X.var()
+            low_variance_cols = variances[variances < 0.01].index.tolist()
+            if low_variance_cols:
+                print(f"Removing low-variance numerical features: {low_variance_cols}")
+                X = X.drop(columns=low_variance_cols)
+                numerical_features = [f for f in numerical_features if f not in low_variance_cols]
+
+            # Address multicollinearity explicitly
+            corr_matrix = X.corr().abs()
+            upper_tri = corr_matrix.where(np.triu(np.ones(corr_matrix.shape), k=1).astype(bool))
+            high_corr_pairs = [(col, idx) for idx, col in upper_tri.stack().items() if col > 0.85]  # Lowered threshold to 0.85
+            if high_corr_pairs:
+                print("High correlations detected (r > 0.85):")
+                for col1, col2 in high_corr_pairs:
+                    print(f"  {col1} - {col2}: {corr_matrix.loc[col1, col2]:.3f}")
+                to_drop = {pair[1] for pair in high_corr_pairs}  # Use set to avoid duplicates
+                print(f"Removing correlated features: {to_drop}")
+                X = X.drop(columns=to_drop)
+                numerical_features = [f for f in numerical_features if f not in to_drop]
+
+            # Handle categorical features with stricter filtering
+            category_feature_map = {}
+            for feature in categorical_features:
+                print(f"\nProcessing categorical feature: {feature}")
+                value_counts = full[feature].value_counts()
+                print(f"  Unique categories: {len(value_counts)}, Min count: {value_counts.min()}")
+                
+                # Increase min_occurrences to reduce rare categories
+                min_occurrences = max(50, int(len(full) * 0.001))  # At least 50 or 0.1% of data
+                common_categories = value_counts[value_counts >= min_occurrences].index
+                temp_df = full[feature].fillna('Unknown').astype(str).apply(
+                    lambda x: x if x in common_categories else 'Other'
+                )
+                
+                dummies = pd.get_dummies(temp_df)
+                dummies.columns = [f"{feature}_{col.replace(' ', '_')}" for col in dummies.columns]
+                
+                # Remove low-variance dummies with stricter threshold
+                dummy_variances = dummies.var()
+                low_variance_dummies = dummy_variances[dummy_variances < 0.02].index.tolist()  # Increased to 0.02
+                if low_variance_dummies:
+                    print(f"  Removing low-variance dummy columns: {low_variance_dummies}")
+                    dummies = dummies.drop(columns=low_variance_dummies)
+                
+                # Track base feature and check for remaining columns
+                for col in dummies.columns:
+                    if dummies[col].var() > 0:  # Only include if variance remains
+                        category_feature_map[col] = feature
+                
+                if dummies.shape[1] > 0:
+                    X = pd.concat([X, dummies], axis=1)
+                else:
+                    print(f"  No valid dummy variables remain for {feature} after filtering.")
+
+            # Final feature check
+            print(f"\nFinal feature matrix shape: {X.shape}")
+            if X.shape[1] == 0:
+                print("Error: No valid features remain after preprocessing.")
+                return
+
+            # Handle class imbalance and scaling
             if len(y.unique()) >= 2:
                 df_majority = X[y == 0]
                 df_minority = X[y == 1]
@@ -1375,16 +1506,35 @@ f"{pname}: {sus_match:.3%} in suspicious vs {full_match:.3%} overall ({ratio:.2f
                         X_scaled, y_balanced, test_size=0.3, random_state=42, stratify=y_balanced
                     )
                     
-                    # Use statsmodels for coefficient significance
-                    X_train_sm = sm.add_constant(X_train)  # Add intercept
-                    model_sm = sm.Logit(y_train, X_train_sm).fit(disp=0)  # disp=0 suppresses convergence output
+                    # Fit sklearn model first as a robust baseline
+                    model_sk = LogisticRegression(
+                        max_iter=2000,  # Increased iterations
+                        class_weight="balanced",
+                        random_state=42,
+                        penalty='l2',
+                        C=0.05,  # Stronger regularization
+                        solver='lbfgs'
+                    )
+                    model_sk.fit(X_train, y_train)
                     
-                    # Train sklearn model for predictions
-                    model = LogisticRegression(max_iter=1000, class_weight="balanced", random_state=42, C=0.1)
-                    model.fit(X_train, y_train)
+                    # Try statsmodels with adjustments
+                    X_train_sm = sm.add_constant(X_train.astype(float))  # Ensure float type
+                    try:
+                        model_sm = sm.Logit(y_train, X_train_sm).fit_regularized(
+                            method='l1',
+                            alpha=0.5,  # Increased regularization strength
+                            maxiter=500,  # Increased iterations
+                            disp=0,
+                            trim_mode='auto',
+                            auto_trim_tol=0.01
+                        )
+                    except Exception as e:
+                        print(f"Statsmodels failed: {str(e)}. Falling back to sklearn model.")
+                        model_sm = None
                     
-                    y_pred = model.predict(X_test)
-                    y_pred_proba = model.predict_proba(X_test)[:, 1]
+                    # Use sklearn model for predictions if statsmodels fails
+                    y_pred = model_sk.predict(X_test)  # Use sklearn for consistency
+                    y_pred_proba = model_sk.predict_proba(X_test)[:, 1]
                     
                     print("\nClassification Report:")
                     print(classification_report(y_test, y_pred, digits=3))
@@ -1392,23 +1542,44 @@ f"{pname}: {sus_match:.3%} in suspicious vs {full_match:.3%} overall ({ratio:.2f
                     print("\nConfusion Matrix:")
                     print(confusion_matrix(y_test, y_pred))
                     
-                    # Feature importance with significance
-                    feature_names = ["const"] + numerical_features + \
-                                [col for col in X_balanced.columns if col not in numerical_features]
-                    coef_dict = dict(zip(feature_names, model_sm.params))
-                    pval_dict = dict(zip(feature_names, model_sm.pvalues))
-                    
-                    # Inside analyze_multivariate, modify the feature importance print:
-                    print("\nTop 30 Most Important Features (by absolute coefficient value) and All Race Categories:")
-                    sorted_coefs = sorted(coef_dict.items(), key=lambda x: abs(x[1]), reverse=True)
-                    top_30 = sorted_coefs[:30]
-                    race_coefs = [(feat, coef) for feat, coef in sorted_coefs if feat.startswith("Race_")]
-
-                    print("Note: Racial patterns reflect data distribution, not targeted focus.")
-                    for feat, coef in top_30 + [r for r in race_coefs if r not in top_30]:  # Include all races
-                        p_val = pval_dict.get(feat, 1.0)
-                        sig_note = " (p < 0.05, significant)" if p_val < 0.05 else " (p >= 0.05, not significant)"
-                        print(f"{feat}: {coef:.4f}{sig_note}")
+                    # Feature importance
+                    feature_names = ["const"] + X.columns.tolist() if model_sm else X.columns.tolist()
+                    if model_sm:
+                        coef_dict = dict(zip(feature_names, model_sm.params))
+                        pval_dict = dict(zip(feature_names, model_sm.pvalues))
+                        print("\nFeature Importance (Coefficients):")
+                        sorted_coefs = sorted(coef_dict.items(), key=lambda x: abs(x[1]), reverse=True)
+                        
+                        numerical_coefs = [(feat, coef) for feat, coef in sorted_coefs if feat not in category_feature_map and feat != "const"]
+                        categorical_coefs = [(feat, coef) for feat, coef in sorted_coefs if feat in category_feature_map]
+                        
+                        print("Top Numerical Features:")
+                        for feat, coef in numerical_coefs[:15]:
+                            p_val = pval_dict.get(feat, 1.0)
+                            sig_note = " (p < 0.05, significant)" if p_val < 0.05 else " (p >= 0.05, not significant)"
+                            print(f"  {feat}: {coef:.4f}{sig_note}")
+                        
+                        categorical_by_base = {}
+                        for feat, coef in categorical_coefs:
+                            base = category_feature_map[feat]
+                            if base not in categorical_by_base:
+                                categorical_by_base[base] = []
+                            categorical_by_base[base].append((feat, coef, pval_dict.get(feat, 1.0)))
+                        
+                        for base, coef_list in categorical_by_base.items():
+                            print(f"\nAll Categories for {base}:")
+                            if base == "Race":
+                                print("  Note: Racial patterns reflect data distribution, not targeted focus.")
+                            sorted_cat_coefs = sorted(coef_list, key=lambda x: abs(x[1]), reverse=True)
+                            for i, (feat, coef, p_val) in enumerate(sorted_cat_coefs):
+                                prefix = "**" if i == 0 else "  "
+                                suffix = "**" if i == 0 else ""
+                                sig_note = " (p < 0.05, significant)" if p_val < 0.05 else " (p >= 0.05, not significant)"
+                                print(f"    {prefix}{feat}: {coef:.4f}{sig_note}{suffix}")
+                    else:
+                        print("\nFeature Importance (sklearn coefficients):")
+                        for feat, coef in sorted(zip(X.columns, model_sk.coef_[0]), key=lambda x: abs(x[1]), reverse=True)[:30]:
+                            print(f"  {feat}: {coef:.4f}")
                     
                     roc_auc = roc_auc_score(y_test, y_pred_proba)
                     print(f"\nROC-AUC Score: {roc_auc:.3f}")
@@ -1416,7 +1587,7 @@ f"{pname}: {sus_match:.3%} in suspicious vs {full_match:.3%} overall ({ratio:.2f
                     print("No suspicious loans found for modeling.")
             else:
                 print("Not enough classes for logistic regression.")
-                        
+                                        
         except Exception as e:
             print(f"Error in multivariate analysis: {str(e)}")
 
