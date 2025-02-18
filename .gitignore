@@ -169,3 +169,5 @@ cython_debug/
 *.zip
 ppp-full.csv
 suspicious_loans.csv
+ppp_fraud-ascii.cast
+suspicious_loans_sorted.csv

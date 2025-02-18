@@ -216,22 +216,11 @@ class PPPLoanProcessor:
             r'enterprises': 0.3,
             r'management': 0.2,
             r'solutions': 0.2,
-            r'lucky': 0.8,
-            r'jackpot': 0.9,
-            r'lottery': 0.9,
-            r'winner': 0.8,
-            r'casino': 0.85,
-            r'vegas': 0.8,
-            r'cards': 0.7,
-            r'dice': 0.8,
             r'lucky\s*charm': 0.85,
             r'blessed': 0.7,
             r'deez\snutz': 0.95,
             r'\bno\s*money\s*no\s*honey\b': 0.9,
-            r'\bscam\s*central\b': 0.95,
             r"\bfool's\s*gold\b": 0.95,
-            r'\bsketchy\s*inc\b': 0.9,
-            r'\bshady\s*business\b': 0.95,
             r'\bquick\s*buck\b': 0.9,
             r'\bget\s*rich\s*quick\b': 0.9,
             r'\binstant\s*wealth\b': 0.95,
@@ -239,7 +228,6 @@ class PPPLoanProcessor:
             r'\bcon\s*game\b': 0.9,
             r'\bchump\s*change\b': 0.85,
             r'relief': 0.9,
-            r'aid': 0.9,
             r'grant': 0.9,
             r'stimulus\s*helper': 0.95,
             r'ppp\s*assist': 0.95,
@@ -276,11 +264,9 @@ class PPPLoanProcessor:
             r'fr\s*fr': 0.95,
             r'gang': 0.95,
             r'squad': 0.9,
-            r'ice': 0.85,
             r'drip': 0.9,
             r'designer': 0.85,
             r'luxury': 0.85,
-            r'vip': 0.85,
             r'exclusive': 0.85,
             r'elite': 0.85,
             r'premium': 0.8,
@@ -308,14 +294,6 @@ class PPPLoanProcessor:
             r'tiktok': 0.9,
             r'snapchat': 0.9,
             r'instagram': 0.9,
-            r'metaverse': 0.95,
-            r'crypto': 0.95,
-            r'bitcoin': 0.95,
-            r'nft': 0.95,
-            r'web3': 0.95,
-            r'dogecoin': 0.95,
-            r'meme': 0.9,
-            r'viral': 0.9
         }
         self.LEGITIMATE_KEYWORDS = {
             'consulting', 'services', 'solutions', 'associates',
@@ -327,7 +305,6 @@ class PPPLoanProcessor:
         self.lender_loan_sequences = defaultdict(list)
         self.ZIP_CLUSTER_THRESHOLD = 3
         self.SEQUENCE_THRESHOLD = 3
-        # New attributes for network analysis
         self.address_to_businesses = defaultdict(set)
         self.business_to_addresses = defaultdict(set)
         self.lender_batches = defaultdict(list)
@@ -358,51 +335,56 @@ class PPPLoanProcessor:
         }
 
     def validate_address(self, address: str) -> tuple[bool, List[str]]:
+        self.logger.debug("Validating address input")
         flags = []
-        address = str(address).lower().strip()
-        if pd.isna(address) or address in ('n/a', 'none', ''):
+        address_str = str(address).lower().strip()
+        if pd.isna(address) or address_str in ('n/a', 'none', '', 'nan'):
             return False, ['Invalid/missing address']
         residential_indicators = {'apt': 0.7, 'unit': 0.5, 'suite': 0.3, '#': 0.4, 'po box': 0.8, 'box': 0.7, 'residential': 0.9, 'house': 0.8}
         commercial_indicators = {'plaza', 'building', 'tower', 'office', 'complex', 'center', 'mall', 'commercial', 'industrial', 'park'}
         residential_score = 0
         for indicator, weight in residential_indicators.items():
-            if indicator in address:
+            if indicator in address_str:
                 residential_score += weight
         for indicator in commercial_indicators:
-            if indicator in address:
+            if indicator in address_str:
                 residential_score -= 0.5
         if residential_score > 0.7:
             flags.append('Residential address')
-        if len(address) < 10:
+        if len(address_str) < 10:
             flags.append('Suspiciously short address')
         fake_patterns = [r'\d{1,3}\s*[a-z]+\s*(st|street|ave|avenue|rd|road)', r'p\.?o\.?\s*box\s*\d+', r'general\s*delivery']
-        if any(re.search(pattern, address) for pattern in fake_patterns):
+        if any(re.search(pattern, address_str) for pattern in fake_patterns):
             flags.append('Potentially fake address pattern')
+        self.logger.debug("Address validation complete")
         return (len(flags) == 0), flags
 
     def validate_business_name(self, name: str) -> tuple[float, List[str]]:
+        self.logger.debug("Validating business name")
         flags = []
         risk_score = 0
-        name = str(name).lower().strip()
-        if name in self.known_businesses:
+        name_str = str(name).lower().strip()
+        if name_str in self.known_businesses:
             return 0, []
-        if pd.isna(name) or name in ('n/a', 'none', ''):
+        if pd.isna(name) or name_str in ('n/a', 'none', ''):
             return 1.0, ['Invalid/missing business name']
         for pattern, weight in self.SUSPICIOUS_PATTERNS.items():
-            if re.search(pattern, name):
+            if re.search(pattern, name_str):
                 risk_score += weight
                 flags.append(f'Suspicious name pattern: {pattern}')
-        legitimate_count = sum(1 for keyword in self.LEGITIMATE_KEYWORDS if keyword in name)
+        legitimate_count = sum(1 for keyword in self.LEGITIMATE_KEYWORDS if keyword in name_str)
         risk_score -= (legitimate_count * 0.2)
-        if re.match(r'^[a-z]+\s+[a-z]+$', name):
+        if re.match(r'^[a-z]+\s+[a-z]+$', name_str):
             risk_score += 0.4
             flags.append('Personal name only')
-        if re.search(r'[@#$%^&*]', name):
+        if re.search(r'[@#$%^&*]', name_str):
             risk_score += 0.5
             flags.append('Suspicious characters in name')
+        self.logger.debug("Business name validation complete")
         return max(0, min(1, risk_score)), flags
 
     def check_multiple_applications(self, loan: pd.Series) -> tuple[bool, List[str]]:
+        self.logger.debug("Checking for multiple applications")
         flags = []
         name_key = f"{loan['BorrowerName']}_{loan['BorrowerCity']}_{loan['BorrowerState']}"
         address_key = f"{loan['BorrowerAddress']}_{loan['BorrowerCity']}_{loan['BorrowerState']}"
@@ -417,9 +399,11 @@ class PPPLoanProcessor:
         if self.seen_addresses[address_key] > 2:
             flags.append(f"Address used {self.seen_addresses[address_key]} times")
         self.seen_loans.add(exact_key)
+        self.logger.debug("Multiple application check complete")
         return len(flags) > 0, flags
 
     def analyze_time_patterns(self, loan: pd.Series) -> tuple[float, List[str]]:
+        self.logger.debug("Analyzing time patterns for loan")
         risk_score = 0
         flags = []
         date = str(loan['DateApproved'])
@@ -434,8 +418,8 @@ class PPPLoanProcessor:
         })
         zip_cluster = self.date_patterns[date][zip_code]
         if len(zip_cluster) >= self.ZIP_CLUSTER_THRESHOLD:
-            amounts = [l['amount'] for l in zip_cluster]  # noqa: E741
-            business_types = [l['business_type'] for l in zip_cluster]  # noqa: E741
+            amounts = [l['amount'] for l in zip_cluster]
+            business_types = [l['business_type'] for l in zip_cluster]
             if max(amounts) - min(amounts) < min(amounts) * 0.1:
                 risk_score += 20
                 flags.append(f"Part of cluster: {len(zip_cluster)} similar loans in ZIP {zip_code} on {date}")
@@ -448,9 +432,11 @@ class PPPLoanProcessor:
             if self.is_roughly_sequential(recent_loans):
                 risk_score += 25
                 flags.append(f"Sequential loan numbers from {lender}")
+        self.logger.debug("Time pattern analysis complete")
         return risk_score, flags
 
     def is_roughly_sequential(self, loan_numbers: List[str]) -> bool:
+        self.logger.debug("Checking if loan numbers are roughly sequential")
         if len(loan_numbers) < 2:
             return False
         numbers = []
@@ -463,28 +449,33 @@ class PPPLoanProcessor:
         numbers.sort()
         gaps = [numbers[i+1] - numbers[i] for i in range(len(numbers)-1)]
         avg_gap = sum(gaps) / len(gaps)
-        return avg_gap < 10 and all(gap < 20 for gap in gaps)
+        result = avg_gap < 10 and all(gap < 20 for gap in gaps)
+        self.logger.debug(f"Sequential check result: {result}")
+        return result
 
     def analyze_address_type(self, address: str) -> float:
-        address = address.lower()
+        self.logger.debug("Analyzing address type")
+        address_str = str(address).lower()
         score = 0
         for indicator, weight in self.RESIDENTIAL_INDICATORS.items():
-            if indicator in address:
+            if indicator in address_str:
                 score += weight
         for indicator, weight in self.COMMERCIAL_INDICATORS.items():
-            if indicator in address:
+            if indicator in address_str:
                 score += weight
-        if re.search(r'\d+\s*-\s*\d+', address):
+        if re.search(r'\d+\s*-\s*\d+', address_str):
             score += 0.6
-        if re.search(r'(st|street|ave|avenue|road|rd)\s*$', address):
+        if re.search(r'(st|street|ave|avenue|road|rd)\s*$', address_str):
             score += 0.4
+        self.logger.debug("Address type analysis complete")
         return score
 
     def analyze_name_patterns(self, business_names: Set[str]) -> Tuple[float, List[str]]:
+        self.logger.debug("Analyzing name patterns for businesses")
         score = 0
         flags = []
         name_patterns = defaultdict(int)
-        names = [name.lower() for name in business_names]
+        names = [str(name).lower() for name in business_names]
         for name in names:
             for pattern, weight in self.SUSPICIOUS_NAME_PATTERNS.items():
                 if re.search(pattern, name):
@@ -499,9 +490,11 @@ class PPPLoanProcessor:
             if max(lengths) - min(lengths) <= 2:
                 score += 10
                 flags.append("Multiple businesses with suspiciously similar name lengths")
+        self.logger.debug("Name pattern analysis complete")
         return score, flags
 
     def check_sequential_pattern(self, loans: List[dict]) -> Tuple[float, List[str]]:
+        self.logger.debug("Checking sequential patterns in lender loans")
         if len(loans) < 2:
             return 0, []
         score = 0
@@ -532,9 +525,11 @@ class PPPLoanProcessor:
             pattern_score, pattern_flags = self.analyze_name_patterns(business_names)
             score += pattern_score
             flags.extend(pattern_flags)
+        self.logger.debug("Sequential pattern check complete")
         return score, flags
 
     def analyze_networks(self, loan: pd.Series) -> tuple[float, List[str]]:
+        self.logger.debug("Analyzing networks for loan")
         risk_score = 0
         flags = []
         if pd.notna(loan['BorrowerAddress']):
@@ -570,9 +565,9 @@ class PPPLoanProcessor:
         self.lender_batches[lender_key].append(batch_info)
         current_batch = self.lender_batches[lender_key]
         if len(current_batch) >= 5:
-            amounts = [l['amount'] for l in current_batch]  # noqa: E741
+            amounts = [l['amount'] for l in current_batch]
             if max(amounts) - min(amounts) < min(amounts) * 0.1:
-                batch_names = {l['business_name'] for l in current_batch}  # noqa: E741
+                batch_names = {l['business_name'] for l in current_batch}
                 pattern_score, pattern_flags = self.analyze_name_patterns(batch_names)
                 risk_score += 15 + pattern_score
                 flags.append(f"Part of suspicious batch: {len(current_batch)} similar loans from same lender")
@@ -588,9 +583,11 @@ class PPPLoanProcessor:
         if sequence_score > 0:
             risk_score += sequence_score
             flags.extend(sequence_flags)
+        self.logger.debug("Network analysis complete")
         return risk_score, flags
 
     def calculate_risk_scores(self, chunk: pd.DataFrame) -> pd.DataFrame:
+        self.logger.debug("Calculating risk scores for chunk")
         def score_loan(loan: pd.Series) -> pd.Series:
             score = 0
             flags = []
@@ -647,18 +644,41 @@ class PPPLoanProcessor:
             network_score, network_flags = self.analyze_networks(loan)
             score += network_score
             flags.extend(network_flags)
+
+            business_age = str(loan['BusinessAgeDescription']).lower()
+            if business_age in ['new', 'existing less than 2 years']:
+                if loan['InitialApprovalAmount'] > 15000 and loan['JobsReported'] <= 2:
+                    score += 20
+                    flags.append("New business with high loan amount and few jobs")
+            elif business_age in ['existing 2+ years', 'established']:
+                score -= 10  # Reduce false positives for established businesses
+                flags.append("Established business - lower risk")
+
             if any("Sequential loan numbers" in flag for flag in flags) and len(flags) > 1:
                 score = score * 1.5
             final_score = score
             if "Exact maximum loan amount detected" not in flags and len(flags) < 2:
                 final_score = min(49, final_score)
+            
+            # Determine RiskLevel based on final_score
+            risk_level = (
+                'Very High Risk' if final_score >= 75 else
+                'High Risk' if final_score >= 50 else
+                'Medium Risk' if final_score >= 25 else
+                'Low Risk'
+            )
+
             return pd.Series({
                 'RiskScore': final_score,
-                'RiskLevel': 'Very High Risk' if final_score >= 75 else 'High Risk' if final_score >= 50 else 'Medium Risk' if final_score >= 25 else 'Low Risk',
+                'RiskLevel': risk_level,
                 'RiskFlags': '; '.join(flags)
             })
+        
+        # Apply the scoring function to the chunk and combine with original data
         results = chunk.apply(score_loan, axis=1)
-        return pd.concat([chunk[['LoanNumber', 'BorrowerName']], results], axis=1)
+        combined = pd.concat([chunk[['LoanNumber', 'BorrowerName']], results], axis=1)
+        self.logger.debug("Risk score calculation complete for chunk")
+        return combined
 
     def process_chunks(self) -> None:
         total_rows = self.count_lines()
@@ -721,6 +741,7 @@ class PPPLoanProcessor:
             self.log_final_stats()
 
     def validate_high_risk_loans(self, loans: pd.DataFrame) -> pd.DataFrame:
+        self.logger.debug("Validating high risk loans")
         def validate_loan(loan: pd.Series) -> bool:
             if loan['BorrowerName'] in self.known_businesses:
                 return False
@@ -745,9 +766,11 @@ class PPPLoanProcessor:
                 validation_score -= 5
             return validation_score > -30
         valid_mask = loans.apply(validate_loan, axis=1)
+        self.logger.debug("High risk loan validation complete")
         return loans[valid_mask]
 
     def process_chunk(self, chunk: pd.DataFrame) -> pd.DataFrame:
+        self.logger.debug("Processing a chunk of loans")
         risk_scores = self.calculate_risk_scores(chunk)
         high_risk_mask = risk_scores['RiskScore'] >= self.risk_threshold
         high_risk_scores = risk_scores[high_risk_mask]
@@ -758,7 +781,9 @@ class PPPLoanProcessor:
                 on=['LoanNumber', 'BorrowerName']
             )
             self.stats['suspicious'] += len(high_risk_loans)
+            self.logger.debug("High risk loans found in chunk")
             return high_risk_loans
+        self.logger.debug("No high risk loans in this chunk")
         return pd.DataFrame()
 
     def count_lines(self) -> int:
@@ -805,16 +830,25 @@ class PPPLoanProcessor:
             f"\nFinal Results:\nTotal Processed: {self.stats['processed']:,} loans\nTotal Suspicious: {self.stats['suspicious']:,} loans ({suspicious_pct:.2f}%)\nResults saved to: {self.output_file}",
             'green')
 
+    def extra_debug_info(self) -> None:
+        self.log_message('debug', f"Address to businesses mapping count: {len(self.address_to_businesses)}", 'blue')
+        self.log_message('debug', f"Business to addresses mapping count: {len(self.business_to_addresses)}", 'blue')
+        self.log_message('debug', f"Lender batches count: {len(self.lender_batches)}", 'blue')
+        self.log_message('debug', f"Lender sequences count: {len(self.lender_sequences)}", 'blue')
+        self.log_message('debug', f"Total loans processed: {self.stats['processed']}", 'blue')
+        self.log_message('debug', f"Total suspicious loans detected: {self.stats['suspicious']}", 'blue')
+
 def main():
     if not os.path.exists(CSV_FILENAME):
         asyncio.run(download_and_extract_csv())
     input_file = CSV_FILENAME
     output_file = "suspicious_loans.csv"
-    risk_threshold = 90
-    chunk_size = 10000
+    risk_threshold = 110
+    chunk_size = 20000
     processor = PPPLoanProcessor(input_file, output_file, risk_threshold, chunk_size)
     try:
         processor.process_chunks()
+        processor.extra_debug_info()
     except KeyboardInterrupt:
         processor.log_message('warning', "\nProcessing interrupted by user", 'yellow')
     except Exception as e:
