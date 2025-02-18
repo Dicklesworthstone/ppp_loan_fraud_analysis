@@ -167,6 +167,5 @@ cython_debug/
 *.sqlite-journal
 *.gguf
 *.zip
-*.md
 ppp-full.csv
 suspicious_loans.csv
