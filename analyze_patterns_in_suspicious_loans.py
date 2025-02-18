@@ -13,7 +13,7 @@ from sklearn.model_selection import train_test_split, RandomizedSearchCV
 from sklearn.utils import resample
 import xgboost as xgb
 import shap
-from joblib import Parallel, delayed
+from joblib import Parallel, delayed, parallel_backend
 from functools import lru_cache
 from multiprocessing import Pool
 import statsmodels.api as sm
@@ -44,157 +44,131 @@ class XGBoostAnalyzer:
         self.model = None
         self.feature_names = None
         self.categorical_features = None
-        self.category_feature_map = {}  # New: Map to track base feature for each dummy
-        
-    def prepare_enhanced_features(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Prepare enhanced features for XGBoost analysis with meaningful category names."""
+        self.category_feature_map = {}
+
+    def prepare_enhanced_features(self, df: pd.DataFrame, min_instances: int = 100) -> pd.DataFrame:
+        """Prepare enhanced features for XGBoost, including useful categorical columns."""
         try:
             df = df.copy()
-            
-            # Basic numerical features
-            df['JobsReported'] = pd.to_numeric(df['JobsReported'], errors='coerce').fillna(0)
-            df['InitialApprovalAmount'] = pd.to_numeric(df['InitialApprovalAmount'], errors='coerce').fillna(0)
-            df['NameLength'] = df['BorrowerName'].astype(str).str.len()
-            df['WordCount'] = df['BorrowerName'].astype(str).apply(lambda x: len(x.split()))
-            
-            # Advanced amount features
+            print("Preparing features for XGBoost...")
+
+            # Numerical features
+            df['JobsReported'] = pd.to_numeric(df['JobsReported'], errors='coerce').fillna(0).astype('int32')
+            df['InitialApprovalAmount'] = pd.to_numeric(df['InitialApprovalAmount'], errors='coerce').fillna(0).astype('float32')
+            df['NameLength'] = df['BorrowerName'].astype(str).str.len().astype('int16')
+            df['WordCount'] = df['BorrowerName'].astype(str).apply(lambda x: len(x.split())).astype('int8')
             df['AmountPerEmployee'] = df.apply(
-                lambda x: x['InitialApprovalAmount'] / x['JobsReported']
-                if x['JobsReported'] > 0 else x['InitialApprovalAmount'],
+                lambda x: x['InitialApprovalAmount'] / x['JobsReported'] if x['JobsReported'] > 0 else x['InitialApprovalAmount'],
                 axis=1
-            )
-            df['IsRoundAmount'] = df['InitialApprovalAmount'].apply(
-                lambda x: x % 100 == 0
-            ).astype(int)
+            ).astype('float32')
+            df['IsRoundAmount'] = (df['InitialApprovalAmount'] % 100 == 0).astype('uint8')
+            df['IsExactMaxAmount'] = df['InitialApprovalAmount'].apply(lambda x: int(x) in {20832, 20833, 20834}).astype('uint8')
             
             # Address-based features
-            residential_indicators = {
-                'apt', 'unit', 'suite', '#', 'po box', 'residence', 'residential',
-                'apartment', 'room', 'floor'
-            }
-            commercial_indicators = {
-                'plaza', 'building', 'tower', 'office', 'complex', 'center',
-                'mall', 'commercial', 'industrial', 'park'
-            }
-            
+            residential_indicators = {'apt', 'unit', 'suite', '#', 'po box', 'residence', 'residential', 'apartment', 'room', 'floor'}
+            commercial_indicators = {'plaza', 'building', 'tower', 'office', 'complex', 'center', 'mall', 'commercial', 'industrial', 'park'}
             address_str = df['BorrowerAddress'].astype(str).str.lower()
-            df['HasResidentialIndicator'] = address_str.apply(
-                lambda x: any(ind in x for ind in residential_indicators)
-            ).astype(int)
-            df['HasCommercialIndicator'] = address_str.apply(
-                lambda x: any(ind in x for ind in commercial_indicators)
-            ).astype(int)
-            
-            # Business concentration features
-            address_key = df.apply(
-                lambda x: f"{x['BorrowerAddress']}_{x['BorrowerCity']}_{x['BorrowerState']}",
-                axis=1
-            )
+            df['HasResidentialIndicator'] = address_str.apply(lambda x: any(ind in x for ind in residential_indicators)).astype('uint8')
+            df['HasCommercialIndicator'] = address_str.apply(lambda x: any(ind in x for ind in commercial_indicators)).astype('uint8')
+            address_key = df[['BorrowerAddress', 'BorrowerCity', 'BorrowerState']].astype(str).agg('_'.join, axis=1)
             address_counts = address_key.value_counts()
-            df['BusinessesAtAddress'] = address_key.map(address_counts)
-            
-            # Loan amount pattern features
-            max_amounts = [20832, 20833, 20834]
-            df['IsExactMaxAmount'] = df['InitialApprovalAmount'].apply(
-                lambda x: int(x) in max_amounts
-            ).astype(int)
-            
-            # Business name pattern features
+            df['BusinessesAtAddress'] = address_key.map(address_counts).astype('int16')
+
+            # Business name pattern
             name_str = df['BorrowerName'].astype(str).str.lower()
-            suspicious_keywords = {
-                'consulting', 'holdings', 'enterprise', 'solutions', 'services',
-                'investment', 'trading', 'group', 'international', 'global'
-            }
-            df['HasSuspiciousKeyword'] = name_str.apply(
-                lambda x: any(kw in x for kw in suspicious_keywords)
-            ).astype(int)
-            
-            # Demographic completeness features
+            suspicious_keywords = {'consulting', 'holdings', 'enterprise', 'solutions', 'services', 'investment', 'trading', 'group', 'international', 'global'}
+            df['HasSuspiciousKeyword'] = name_str.apply(lambda x: any(kw in x for kw in suspicious_keywords)).astype('uint8')
+
+            # Demographic completeness
             demographic_fields = ['Race', 'Gender', 'Ethnicity']
-            df['MissingDemographics'] = df[demographic_fields].isna().sum(axis=1)
-            
-            # Additional categorical features
-            df['Location'] = df.apply(
-                lambda x: f"{str(x['BorrowerCity']).strip()}, {str(x['BorrowerState']).strip()}",
-                axis=1
-            )
-            df['NAICSSector'] = df['NAICSCode'].astype(str).str[:2]
-            df['OriginatingLender'] = df['OriginatingLender'].fillna('Unknown')
-            
-            # Handle categorical variables with meaningful names
+            df['MissingDemographics'] = df[demographic_fields].isna().sum(axis=1).astype('uint8')
+
+            # Categorical features with predictive value
             categorical_features = [
-                'BusinessType', 'Race', 'Gender', 'Ethnicity', 'NAICSCode',
-                'BorrowerState', 'OriginatingLender', 'Location', 'NAICSSector'
+                'BusinessType',      # Business structure
+                'Race',             # Demographic
+                'Gender',           # Demographic
+                'Ethnicity',        # Demographic
+                'BorrowerState',    # State-level geography
+                'BorrowerCity',     # City-level geography (new)
+                'NAICSCode',        # Detailed industry (new, replaces NAICSSector)
+                'OriginatingLender' # Lender behavior
             ]
-            
-            # Store categorical features for later use
             self.categorical_features = categorical_features
-            self.category_feature_map = {}  # Map to track base feature for each dummy
-            
+            self.category_feature_map = {}
+
             for feature in categorical_features:
                 if feature not in df.columns or df[feature].isna().all():
+                    print(f"Skipping {feature}: not present or all NaN")
                     continue
-                    
-                # Convert to string and handle missing values
+                
                 df[feature] = df[feature].astype(str).fillna('Unknown')
-                
-                # Filter rare categories into 'Other'
                 value_counts = df[feature].value_counts()
-                common_categories = value_counts[value_counts >= 5].index
-                df[feature] = df[feature].apply(lambda x: x if x in common_categories else 'Other')
+                common_categories = value_counts[value_counts >= min_instances].index
+                print(f"{feature}: {len(value_counts)} total categories, {len(common_categories)} with >= {min_instances} instances")
                 
-                # One-hot encode with meaningful names
-                dummies = pd.get_dummies(df[feature])
-                dummies.columns = [f"{feature}_{col.replace(' ', '_')}" for col in dummies.columns]
+                # Special handling for high-cardinality features
+                if feature == 'OriginatingLender':
+                    top_lenders = value_counts.head(50).index  # Top 50 lenders
+                    df[feature] = df[feature].apply(lambda x: x if x in top_lenders else 'Other_Lender')
+                    common_categories = top_lenders.union(['Other_Lender'])
+                elif feature == 'BorrowerCity':
+                    top_cities = value_counts.head(500).index  # Top 500 cities
+                    df[feature] = df[feature].apply(lambda x: x if x in top_cities else 'Other_City')
+                    common_categories = top_cities.union(['Other_City'])
+                elif feature == 'NAICSCode':
+                    top_codes = value_counts.head(300).index  # Top 300 NAICS codes
+                    df[feature] = df[feature].apply(lambda x: x if x in top_codes else 'Other_NAICS')
+                    common_categories = top_codes.union(['Other_NAICS'])
                 
-                # Update category_feature_map
+                df[feature] = df[feature].apply(lambda x: x if x in common_categories else f'Other_{feature}')
+                dummies = pd.get_dummies(df[feature], dtype='uint8')
+                dummies.columns = [
+                    f"{feature}_{col.replace(' ', '_').replace('/', '_').replace('&', '_')}"
+                    if col != f'Other_{feature}' else f"{feature}_Other"
+                    for col in dummies.columns
+                ]
+                
                 for col in dummies.columns:
                     self.category_feature_map[col] = feature
-                
                 df = pd.concat([df, dummies], axis=1)
                 df = df.drop(columns=[feature])
+
+            # Drop only truly unnecessary columns
+            drop_cols = ['BorrowerName', 'BorrowerAddress', 'LoanNumber', 'Location']
+            df = df.drop(columns=[col for col in drop_cols if col in df.columns])
             
-            # Store feature names
             self.feature_names = df.columns.tolist()
-            
+            print(f"Prepared feature matrix shape: {df.shape}, Memory usage: {df.memory_usage().sum() / (1024**3):.2f} GiB")
             return df
             
         except Exception as e:
             print(f"Error preparing features: {str(e)}")
             return df
 
-    def analyze_with_xgboost(self, sus: pd.DataFrame, full: pd.DataFrame, n_iter: int = 10) -> None:
+    def analyze_with_xgboost(self, sus: pd.DataFrame, full: pd.DataFrame, n_iter: int = 10, min_instances: int = 100) -> None:
         try:
             print("\nEnhanced XGBoost Analysis")
+            full_prepared = self.prepare_enhanced_features(full.copy(), min_instances=min_instances)
+            full_prepared["Flagged"] = full_prepared["LoanNumber"].isin(sus["LoanNumber"]).astype('uint8')
             
-            full_prepared = self.prepare_enhanced_features(full.copy())
-            full_prepared["Flagged"] = full_prepared["LoanNumber"].isin(sus["LoanNumber"]).astype(int)
-            
-            # Exclude non-numeric columns
-            exclude_cols = ['LoanNumber', 'BorrowerName', 'BorrowerAddress', 'BorrowerCity', 'Flagged']
-            feature_cols = [col for col in full_prepared.columns if col not in exclude_cols]
-            
-            # Verify all columns are numeric
+            feature_cols = [col for col in full_prepared.columns if full_prepared[col].dtype in ['int8', 'int16', 'int32', 'uint8', 'float32']]
             X = full_prepared[feature_cols]
-            non_numeric_cols = X.select_dtypes(exclude=['int', 'float', 'bool']).columns
-            if len(non_numeric_cols) > 0:
-                print(f"Warning: Dropping non-numeric columns: {list(non_numeric_cols)}")
-                X = X.drop(columns=non_numeric_cols)
-                feature_cols = [col for col in feature_cols if col not in non_numeric_cols]
-            
             y = full_prepared["Flagged"]
-            
-            # Downsample if dataset is too large
-            if len(X) > 50000:
-                X, _, y, _ = train_test_split(X, y, train_size=50000, stratify=y, random_state=42)
-                print("Reduced dataset to 50,000 samples for tuning to maintain responsiveness")
+            print(f"Feature matrix ready. Shape: {X.shape}, Columns: {len(feature_cols)}")
+
+            max_samples = 200000
+            if len(X) > max_samples:
+                print(f"Downsampling from {len(X):,} to {max_samples:,} samples")
+                X, _, y, _ = train_test_split(X, y, train_size=max_samples, stratify=y, random_state=42)
             
             X_train, X_test, y_train, y_test = train_test_split(
                 X, y, test_size=0.3, random_state=42, stratify=y
             )
-            
+            print(f"Train shape: {X_train.shape}, Test shape: {X_test.shape}")
+
             param_grid = {
-                'max_depth': [3, 5, 7],
+                'max_depth': [3, 5],
                 'learning_rate': [0.01, 0.1],
                 'n_estimators': [100, 200],
                 'min_child_weight': [1, 3],
@@ -212,9 +186,7 @@ class XGBoostAnalyzer:
                 max_bin=256
             )
             
-            # Use EarlyStopping callback
             early_stopping = xgb.callback.EarlyStopping(rounds=10, metric_name='auc', data_name='validation_0', save_best=True)
-            
             random_search = RandomizedSearchCV(
                 xgb_clf,
                 param_distributions=param_grid,
@@ -222,17 +194,18 @@ class XGBoostAnalyzer:
                 scoring='roc_auc',
                 cv=2,
                 random_state=42,
-                n_jobs=4,
+                n_jobs=2,
                 verbose=2,
                 fit_params={'callbacks': [early_stopping], 'eval_set': [(X_test, y_test)]}
             )
             
-            print("Performing hyperparameter tuning with early stopping... (Press Ctrl+C to interrupt if needed)")
-            random_search.fit(X_train, y_train)
+            with parallel_backend('loky', n_jobs=2):
+                print("Performing hyperparameter tuning with early stopping...")
+                random_search.fit(X_train, y_train)
             
             self.model = random_search.best_estimator_
+            print(f"Best parameters: {random_search.best_params_}")
             
-            # Predictions using the best model
             y_pred = self.model.predict(X_test)
             y_pred_proba = self.model.predict_proba(X_test)[:, 1]
             
@@ -259,7 +232,6 @@ class XGBoostAnalyzer:
             raise
 
     def _analyze_feature_importance(self, X: pd.DataFrame, feature_cols: list) -> None:
-        """Analyze and display feature importance."""
         try:
             importance_df = pd.DataFrame({
                 'Feature': feature_cols,
@@ -267,7 +239,6 @@ class XGBoostAnalyzer:
             })
             importance_df = importance_df.sort_values('Importance', ascending=False)
             
-            # Separate numerical and categorical features
             numerical_features = [f for f in feature_cols if f not in self.category_feature_map]
             categorical_features = [f for f in feature_cols if f in self.category_feature_map]
             
@@ -276,7 +247,6 @@ class XGBoostAnalyzer:
             for _, row in num_importance.iterrows():
                 print(f"  {row['Feature']}: {row['Importance']:.4f}")
             
-            # Group categorical features by base name
             categorical_by_base = {}
             for f in categorical_features:
                 base = self.category_feature_map[f]
@@ -299,10 +269,8 @@ class XGBoostAnalyzer:
             print(f"Error analyzing feature importance: {str(e)}")
 
     def _analyze_shap_values(self, X_test: pd.DataFrame, feature_cols: list) -> None:
-        """Analyze SHAP values for feature interactions."""
         try:
             print("\nAnalyzing feature interactions with SHAP values...")
-            
             explainer = shap.TreeExplainer(self.model)
             interaction_values = explainer.shap_interaction_values(X_test)
             
@@ -314,7 +282,6 @@ class XGBoostAnalyzer:
                 'Interaction_Strength': interaction_sum
             }).sort_values('Interaction_Strength', ascending=False)
             
-            # Separate numerical and categorical
             numerical_features = [f for f in feature_cols if f not in self.category_feature_map]
             categorical_features = [f for f in feature_cols if f in self.category_feature_map]
             
@@ -343,9 +310,8 @@ class XGBoostAnalyzer:
                 
         except Exception as e:
             print(f"Error analyzing SHAP values: {str(e)}")
-                
+
     def _analyze_high_probability_patterns(self, df: pd.DataFrame) -> None:
-        """Analyze patterns in high-probability suspicious loans."""
         try:
             high_prob_threshold = df['PredictedProbability'].quantile(0.99)
             high_prob_loans = df[df['PredictedProbability'] >= high_prob_threshold]
@@ -353,10 +319,7 @@ class XGBoostAnalyzer:
             print("\nAnalysis of High-Probability Suspicious Loans:")
             print(f"Number of high-probability loans: {len(high_prob_loans)}")
             
-            # Analyze patterns in numerical features
-            numerical_features = ['InitialApprovalAmount', 'JobsReported', 
-                                'AmountPerEmployee', 'BusinessesAtAddress']
-            
+            numerical_features = ['InitialApprovalAmount', 'JobsReported', 'AmountPerEmployee', 'BusinessesAtAddress']
             print("\nNumerical Feature Patterns:")
             for feature in numerical_features:
                 mean_all = df[feature].mean()
@@ -366,7 +329,6 @@ class XGBoostAnalyzer:
                 print(f"  High-prob loans mean: {mean_high_prob:.3f}")
                 print(f"  Ratio: {mean_high_prob/mean_all:.2f}x")
             
-            # Analyze categorical feature patterns with one-hot decoding
             if self.categorical_features:
                 print("\nCategorical Feature Patterns in High-Probability Loans:")
                 print("Note: Patterns reflect data distribution, not targeted focus on any group.")
@@ -374,18 +336,13 @@ class XGBoostAnalyzer:
                     print(f"\n{base_feature} Distribution:")
                     if base_feature == "Race":
                         print("  Note: Racial patterns reflect data distribution, not targeted focus.")
-                    
-                    # Get all dummy columns for this base feature
                     dummy_cols = [col for col in df.columns if col.startswith(f"{base_feature}_")]
-                    
-                    # Reconstruct original category distribution
                     category_counts = {}
                     for col in dummy_cols:
                         category = col.replace(f"{base_feature}_", "")
-                        count = high_prob_loans[col].sum()  # Sum of 1s for this category
-                        if count > 0:  # Only include categories with occurrences
+                        count = high_prob_loans[col].sum()
+                        if count > 0:
                             category_counts[category] = count
-                    
                     total = len(high_prob_loans)
                     for category, count in sorted(category_counts.items(), key=lambda x: x[1], reverse=True):
                         percentage = (count / total) * 100
@@ -1287,104 +1244,102 @@ f"{pname}: {sus_match:.3%} in suspicious vs {full_match:.3%} overall ({ratio:.2f
             print(f"Error preparing features: {str(e)}")
             return df
 
-    def prepare_enhanced_features(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Prepare enhanced features for XGBoost analysis."""
+    def prepare_enhanced_features(self, df: pd.DataFrame, min_instances: int = 100) -> pd.DataFrame:
+        """Prepare enhanced features for XGBoost with explicit category names and minimum instance threshold."""
         try:
             df = df.copy()
             
-            # Basic numerical features
-            df['JobsReported'] = pd.to_numeric(df['JobsReported'], errors='coerce').fillna(0)
-            df['InitialApprovalAmount'] = pd.to_numeric(df['InitialApprovalAmount'], errors='coerce').fillna(0)
-            df['NameLength'] = df['BorrowerName'].astype(str).str.len()
-            df['WordCount'] = df['BorrowerName'].astype(str).apply(lambda x: len(x.split()))
+            # Basic numerical features with efficient types
+            df['JobsReported'] = pd.to_numeric(df['JobsReported'], errors='coerce').fillna(0).astype('int32')
+            df['InitialApprovalAmount'] = pd.to_numeric(df['InitialApprovalAmount'], errors='coerce').fillna(0).astype('float32')
+            df['NameLength'] = df['BorrowerName'].astype(str).str.len().astype('int16')
+            df['WordCount'] = df['BorrowerName'].astype(str).apply(lambda x: len(x.split())).astype('int8')
             
             # Advanced amount features
             df['AmountPerEmployee'] = df.apply(
                 lambda x: x['InitialApprovalAmount'] / x['JobsReported']
                 if x['JobsReported'] > 0 else x['InitialApprovalAmount'],
                 axis=1
-            )
-            df['IsRoundAmount'] = df['InitialApprovalAmount'].apply(
-                lambda x: x % 100 == 0
-            ).astype(int)
+            ).astype('float32')
+            df['IsRoundAmount'] = (df['InitialApprovalAmount'].apply(lambda x: x % 100 == 0)).astype('uint8')
             
             # Address-based features
-            residential_indicators = {
-                'apt', 'unit', 'suite', '#', 'po box', 'residence', 'residential',
-                'apartment', 'room', 'floor'
-            }
-            commercial_indicators = {
-                'plaza', 'building', 'tower', 'office', 'complex', 'center',
-                'mall', 'commercial', 'industrial', 'park'
-            }
+            residential_indicators = {'apt', 'unit', 'suite', '#', 'po box', 'residence', 'residential', 'apartment', 'room', 'floor'}
+            commercial_indicators = {'plaza', 'building', 'tower', 'office', 'complex', 'center', 'mall', 'commercial', 'industrial', 'park'}
             
             address_str = df['BorrowerAddress'].astype(str).str.lower()
             df['HasResidentialIndicator'] = address_str.apply(
                 lambda x: any(ind in x for ind in residential_indicators)
-            ).astype(int)
+            ).astype('uint8')
             df['HasCommercialIndicator'] = address_str.apply(
                 lambda x: any(ind in x for ind in commercial_indicators)
-            ).astype(int)
+            ).astype('uint8')
             
-            # Business concentration features
-            address_key = df.apply(
-                lambda x: f"{x['BorrowerAddress']}_{x['BorrowerCity']}_{x['BorrowerState']}",
-                axis=1
-            )
+            # Business concentration
+            address_key = df[['BorrowerAddress', 'BorrowerCity', 'BorrowerState']].astype(str).agg('_'.join, axis=1)
             address_counts = address_key.value_counts()
-            df['BusinessesAtAddress'] = address_key.map(address_counts)
+            df['BusinessesAtAddress'] = address_key.map(address_counts).astype('int16')
             
             # Loan amount pattern features
-            max_amounts = [20832, 20833, 20834]
-            df['IsExactMaxAmount'] = df['InitialApprovalAmount'].apply(
-                lambda x: int(x) in max_amounts
-            ).astype(int)
+            max_amounts = {20832, 20833, 20834}
+            df['IsExactMaxAmount'] = df['InitialApprovalAmount'].apply(lambda x: int(x) in max_amounts).astype('uint8')
             
             # Business name pattern features
             name_str = df['BorrowerName'].astype(str).str.lower()
-            suspicious_keywords = {
-                'consulting', 'holdings', 'enterprise', 'solutions', 'services',
-                'investment', 'trading', 'group', 'international', 'global'
-            }
-            df['HasSuspiciousKeyword'] = name_str.apply(
-                lambda x: any(kw in x for kw in suspicious_keywords)
-            ).astype(int)
+            suspicious_keywords = {'consulting', 'holdings', 'enterprise', 'solutions', 'services', 'investment', 'trading', 'group', 'international', 'global'}
+            df['HasSuspiciousKeyword'] = name_str.apply(lambda x: any(kw in x for kw in suspicious_keywords)).astype('uint8')
             
             # Demographic completeness features
             demographic_fields = ['Race', 'Gender', 'Ethnicity']
-            df['MissingDemographics'] = df[demographic_fields].isna().sum(axis=1)
+            df['MissingDemographics'] = df[demographic_fields].isna().sum(axis=1).astype('uint8')
             
-            # Add and encode additional categorical features from the dataset
-            df['Location'] = df.apply(
-                lambda x: f"{str(x['BorrowerCity']).strip()}, {str(x['BorrowerState']).strip()}",
-                axis=1
-            )
-            df['NAICSSector'] = df['NAICSCode'].astype(str).str[:2]
-            df['OriginatingLender'] = df['OriginatingLender'].fillna('Unknown')
-            
-            # Handle categorical variables with encoding
-            categorical_features = [
-                'BusinessType', 'Race', 'Gender', 'Ethnicity', 'NAICSCode',
-                'BorrowerState', 'OriginatingLender', 'Location', 'NAICSSector'
-            ]
-            
-            # Store categorical features for later use
+            # Categorical features with explicit naming and minimum instance threshold
+            categorical_features = ['BusinessType', 'Race', 'Gender', 'Ethnicity', 'BorrowerState', 'NAICSSector']
             self.categorical_features = categorical_features
+            self.category_feature_map = {}
             
-            # Encode categorical variables
             for feature in categorical_features:
-                df[feature] = df[feature].fillna('Unknown')
-                df[feature] = pd.Categorical(df[feature]).codes
+                if feature not in df.columns or df[feature].isna().all():
+                    continue
+                    
+                # Convert to string and fill missing values
+                df[feature] = df[feature].astype(str).fillna('Unknown')
+                
+                # Get value counts and filter by minimum instances
+                value_counts = df[feature].value_counts()
+                common_categories = value_counts[value_counts >= min_instances].index
+                print(f"{feature}: {len(value_counts)} total categories, {len(common_categories)} with >= {min_instances} instances")
+                
+                # Lump rare categories into 'Other'
+                df[feature] = df[feature].apply(lambda x: x if x in common_categories else 'Other_' + feature)
+                
+                # One-hot encode with explicit category names
+                dummies = pd.get_dummies(df[feature], dtype='uint8')
+                # Rename columns to use actual category names, avoiding numbered suffixes
+                dummies.columns = [
+                    f"{feature}_{col.replace(' ', '_').replace('/', '_').replace('&', '_')}"
+                    if col != 'Other_' + feature else f"{feature}_Other"
+                    for col in dummies.columns
+                ]
+                
+                # Update category_feature_map and concatenate
+                for col in dummies.columns:
+                    self.category_feature_map[col] = feature
+                df = pd.concat([df, dummies], axis=1)
+                df = df.drop(columns=[feature])
             
-            # Store feature names
+            # Drop high-cardinality and unused columns
+            drop_cols = ['BorrowerName', 'BorrowerAddress', 'BorrowerCity', 'LoanNumber', 'OriginatingLender', 'Location', 'NAICSCode']
+            df = df.drop(columns=[col for col in drop_cols if col in df.columns])
+            
             self.feature_names = df.columns.tolist()
-            
+            print(f"Prepared feature matrix shape: {df.shape}, Memory usage: {df.memory_usage().sum() / (1024**3):.2f} GiB")
             return df
             
         except Exception as e:
             print(f"Error preparing features: {str(e)}")
             return df
-        
+
     def analyze_multivariate(self, sus: pd.DataFrame, full: pd.DataFrame) -> None:
         """Perform multivariate analysis using logistic regression with meaningful category names."""
         try:
@@ -1416,7 +1371,7 @@ f"{pname}: {sus_match:.3%} in suspicious vs {full_match:.3%} overall ({ratio:.2f
                 "BusinessesAtAddress", "IsExactMaxAmount", "IsRoundAmount",
                 "HasSuspiciousKeyword", "MissingDemographics"
             ]
-            categorical_features = ["BusinessType", "Race", "Gender", "Ethnicity"]
+            categorical_features = ["BusinessType", "Race", "Gender", "Ethnicity"]  # Add 'OriginatingLender' if desired
 
             # Filter available features
             numerical_features = [f for f in numerical_features if f in full_prepared.columns]
@@ -1438,17 +1393,19 @@ f"{pname}: {sus_match:.3%} in suspicious vs {full_match:.3%} overall ({ratio:.2f
             # Address multicollinearity explicitly
             corr_matrix = X.corr().abs()
             upper_tri = corr_matrix.where(np.triu(np.ones(corr_matrix.shape), k=1).astype(bool))
-            high_corr_pairs = [(col, idx) for idx, col in upper_tri.stack().items() if col > 0.85]  # Lowered threshold to 0.85
+            high_corr_pairs = [(col, idx) for idx, col in upper_tri.stack().items() if col > 0.85]
             if high_corr_pairs:
                 print("High correlations detected (r > 0.85):")
+                to_drop = set()
                 for col1, col2 in high_corr_pairs:
-                    print(f"  {col1} - {col2}: {corr_matrix.loc[col1, col2]:.3f}")
-                to_drop = {pair[1] for pair in high_corr_pairs}  # Use set to avoid duplicates
+                    corr = corr_matrix.loc[col1, col2]
+                    print(f"  {col1} - {col2}: {corr:.3f}")
+                    to_drop.add(col2)
                 print(f"Removing correlated features: {to_drop}")
                 X = X.drop(columns=to_drop)
                 numerical_features = [f for f in numerical_features if f not in to_drop]
 
-            # Handle categorical features with stricter filtering
+            # Handle categorical features with meaningful names
             category_feature_map = {}
             for feature in categorical_features:
                 print(f"\nProcessing categorical feature: {feature}")
@@ -1457,24 +1414,25 @@ f"{pname}: {sus_match:.3%} in suspicious vs {full_match:.3%} overall ({ratio:.2f
                 
                 # Increase min_occurrences to reduce rare categories
                 min_occurrences = max(50, int(len(full) * 0.001))  # At least 50 or 0.1% of data
-                common_categories = value_counts[value_counts >= min_occurrences].index
+                common_categories = value_counts[value_counts >= min_occurrences].index  # Fixed typo
                 temp_df = full[feature].fillna('Unknown').astype(str).apply(
                     lambda x: x if x in common_categories else 'Other'
                 )
                 
                 dummies = pd.get_dummies(temp_df)
+                # Ensure meaningful names using actual category values
                 dummies.columns = [f"{feature}_{col.replace(' ', '_')}" for col in dummies.columns]
                 
-                # Remove low-variance dummies with stricter threshold
+                # Remove low-variance dummies
                 dummy_variances = dummies.var()
-                low_variance_dummies = dummy_variances[dummy_variances < 0.02].index.tolist()  # Increased to 0.02
+                low_variance_dummies = dummy_variances[dummy_variances < 0.02].index.tolist()
                 if low_variance_dummies:
                     print(f"  Removing low-variance dummy columns: {low_variance_dummies}")
                     dummies = dummies.drop(columns=low_variance_dummies)
                 
                 # Track base feature and check for remaining columns
                 for col in dummies.columns:
-                    if dummies[col].var() > 0:  # Only include if variance remains
+                    if dummies[col].var() > 0:
                         category_feature_map[col] = feature
                 
                 if dummies.shape[1] > 0:
@@ -1508,32 +1466,24 @@ f"{pname}: {sus_match:.3%} in suspicious vs {full_match:.3%} overall ({ratio:.2f
                     
                     # Fit sklearn model first as a robust baseline
                     model_sk = LogisticRegression(
-                        max_iter=2000,  # Increased iterations
-                        class_weight="balanced",
-                        random_state=42,
-                        penalty='l2',
-                        C=0.05,  # Stronger regularization
-                        solver='lbfgs'
+                        max_iter=2000, class_weight="balanced", random_state=42,
+                        penalty='l2', C=0.05, solver='lbfgs'
                     )
                     model_sk.fit(X_train, y_train)
                     
                     # Try statsmodels with adjustments
-                    X_train_sm = sm.add_constant(X_train.astype(float))  # Ensure float type
+                    X_train_sm = sm.add_constant(X_train.astype(float))
                     try:
                         model_sm = sm.Logit(y_train, X_train_sm).fit_regularized(
-                            method='l1',
-                            alpha=0.5,  # Increased regularization strength
-                            maxiter=500,  # Increased iterations
-                            disp=0,
-                            trim_mode='auto',
-                            auto_trim_tol=0.01
+                            method='l1', alpha=0.5, maxiter=500, disp=0,
+                            trim_mode='auto', auto_trim_tol=0.01
                         )
                     except Exception as e:
                         print(f"Statsmodels failed: {str(e)}. Falling back to sklearn model.")
                         model_sm = None
                     
                     # Use sklearn model for predictions if statsmodels fails
-                    y_pred = model_sk.predict(X_test)  # Use sklearn for consistency
+                    y_pred = model_sk.predict(X_test)
                     y_pred_proba = model_sk.predict_proba(X_test)[:, 1]
                     
                     print("\nClassification Report:")
@@ -1589,8 +1539,8 @@ f"{pname}: {sus_match:.3%} in suspicious vs {full_match:.3%} overall ({ratio:.2f
                 print("Not enough classes for logistic regression.")
                                         
         except Exception as e:
-            print(f"Error in multivariate analysis: {str(e)}")
-
+            print(f"Error in multivariate analysis: {str(e)}")        
+        
     def run_analysis(self) -> None:
         try:
             sus, full = self.load_data()
