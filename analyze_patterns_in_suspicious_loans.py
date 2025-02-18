@@ -112,20 +112,27 @@ class XGBoostAnalyzer:
             demographic_fields = ['Race', 'Gender', 'Ethnicity']
             df['MissingDemographics'] = df[demographic_fields].isna().sum(axis=1)
             
+            # Additional categorical features
+            df['Location'] = df.apply(
+                lambda x: f"{str(x['BorrowerCity']).strip()}, {str(x['BorrowerState']).strip()}",
+                axis=1
+            )
+            df['NAICSSector'] = df['NAICSCode'].astype(str).str[:2]
+            df['OriginatingLender'] = df['OriginatingLender'].fillna('Unknown')
+            
             # Handle categorical variables with encoding
             categorical_features = [
                 'BusinessType', 'Race', 'Gender', 'Ethnicity', 'NAICSCode',
-                'BorrowerState'
+                'BorrowerState', 'OriginatingLender', 'Location', 'NAICSSector'
             ]
             
             # Store categorical features for later use
             self.categorical_features = categorical_features
             
-            # Encode categorical variables
+            # Encode categorical variables and ensure they are numeric
             for feature in categorical_features:
                 df[feature] = df[feature].fillna('Unknown')
-                # Convert to categorical and then to codes
-                df[feature] = pd.Categorical(df[feature]).codes
+                df[feature] = pd.Categorical(df[feature]).codes.astype(int)  # Explicitly convert to int
             
             # Store feature names
             self.feature_names = df.columns.tolist()
@@ -143,10 +150,18 @@ class XGBoostAnalyzer:
             full_prepared = self.prepare_enhanced_features(full.copy())
             full_prepared["Flagged"] = full_prepared["LoanNumber"].isin(sus["LoanNumber"]).astype(int)
             
+            # Exclude non-numeric columns explicitly
             exclude_cols = ['LoanNumber', 'BorrowerName', 'BorrowerAddress', 'BorrowerCity', 'Flagged']
             feature_cols = [col for col in full_prepared.columns if col not in exclude_cols]
             
+            # Verify all columns are numeric
             X = full_prepared[feature_cols]
+            non_numeric_cols = X.select_dtypes(exclude=['int', 'float', 'bool']).columns
+            if len(non_numeric_cols) > 0:
+                print(f"Warning: Dropping non-numeric columns: {list(non_numeric_cols)}")
+                X = X.drop(columns=non_numeric_cols)
+                feature_cols = [col for col in feature_cols if col not in non_numeric_cols]
+            
             y = full_prepared["Flagged"]
             
             # Downsample if dataset is too large
@@ -189,8 +204,7 @@ class XGBoostAnalyzer:
             )
             
             print("Performing hyperparameter tuning... (Press Ctrl+C to interrupt if needed)")
-            # Remove early_stopping_rounds from RandomizedSearchCV
-            random_search.fit(X_train, y_train)
+            random_search.fit(X_train, y_train)  # No early stopping here
             
             self.model = random_search.best_estimator_
             
@@ -198,8 +212,8 @@ class XGBoostAnalyzer:
             self.model.fit(
                 X_train,
                 y_train,
-                eval_set=[(X_test, y_test)],  # Provide evaluation set for early stopping
-                early_stopping_rounds=10,     # Now valid with eval_set
+                eval_set=[(X_test, y_test)],
+                early_stopping_rounds=10,
                 verbose=1
             )
             
@@ -384,6 +398,13 @@ class SuspiciousLoanAnalyzer:
                 (full["InitialApprovalAmount"] >= 5000) &
                 (full["InitialApprovalAmount"] < 22000)
             ]
+            
+            # Debugging checks
+            print(f"Suspicious dataset shape: {sus.shape}")
+            print(f"Full dataset shape before filtering: {pd.read_csv(self.full_data_file, nrows=0).shape}")
+            print(f"Full dataset shape after filtering: {full.shape}")
+            print(f"Suspicious LoanNumbers unique: {sus['LoanNumber'].nunique()}")
+            print(f"Full LoanNumbers unique: {full['LoanNumber'].nunique()}")
             
             # Store data for later use
             self.sus_data = sus.copy()
@@ -1192,7 +1213,7 @@ f"{pname}: {sus_match:.3%} in suspicious vs {full_match:.3%} overall ({ratio:.2f
             return df
 
     def prepare_enhanced_features(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Prepare enhanced features for analysis."""
+        """Prepare enhanced features for XGBoost analysis."""
         try:
             df = df.copy()
             
@@ -1202,37 +1223,86 @@ f"{pname}: {sus_match:.3%} in suspicious vs {full_match:.3%} overall ({ratio:.2f
             df['NameLength'] = df['BorrowerName'].astype(str).str.len()
             df['WordCount'] = df['BorrowerName'].astype(str).apply(lambda x: len(x.split()))
             
-            # Calculate amount per employee
+            # Advanced amount features
             df['AmountPerEmployee'] = df.apply(
                 lambda x: x['InitialApprovalAmount'] / x['JobsReported']
                 if x['JobsReported'] > 0 else x['InitialApprovalAmount'],
                 axis=1
             )
-            
-            # Check for residential address indicators
-            residential_indicators = ['apt', 'unit', 'suite', '#', 'po box', 'residence', 'residential']
-            df['HasResidentialAddress'] = df['BorrowerAddress'].astype(str).str.lower().apply(
-                lambda x: any(indicator in x for indicator in residential_indicators)
+            df['IsRoundAmount'] = df['InitialApprovalAmount'].apply(
+                lambda x: x % 100 == 0
             ).astype(int)
             
-            # Check for multiple businesses at same address
-            address_counts = df.groupby(['BorrowerAddress', 'BorrowerCity', 'BorrowerState'])['BorrowerName'].count()
-            df['HasMultipleBusinesses'] = df.apply(
-                lambda x: address_counts.get((x['BorrowerAddress'], x['BorrowerCity'], x['BorrowerState']), 0) > 1,
+            # Address-based features
+            residential_indicators = {
+                'apt', 'unit', 'suite', '#', 'po box', 'residence', 'residential',
+                'apartment', 'room', 'floor'
+            }
+            commercial_indicators = {
+                'plaza', 'building', 'tower', 'office', 'complex', 'center',
+                'mall', 'commercial', 'industrial', 'park'
+            }
+            
+            address_str = df['BorrowerAddress'].astype(str).str.lower()
+            df['HasResidentialIndicator'] = address_str.apply(
+                lambda x: any(ind in x for ind in residential_indicators)
+            ).astype(int)
+            df['HasCommercialIndicator'] = address_str.apply(
+                lambda x: any(ind in x for ind in commercial_indicators)
+            ).astype(int)
+            
+            # Business concentration features
+            address_key = df.apply(
+                lambda x: f"{x['BorrowerAddress']}_{x['BorrowerCity']}_{x['BorrowerState']}",
                 axis=1
-            ).astype(int)
+            )
+            address_counts = address_key.value_counts()
+            df['BusinessesAtAddress'] = address_key.map(address_counts)
             
-            # Check for exact maximum loan amounts
+            # Loan amount pattern features
             max_amounts = [20832, 20833, 20834]
             df['IsExactMaxAmount'] = df['InitialApprovalAmount'].apply(
                 lambda x: int(x) in max_amounts
             ).astype(int)
             
-            # Handle categorical variables
-            df['BusinessType'] = df['BusinessType'].fillna('Unknown')
-            df['Race'] = df['Race'].fillna('Unknown')
-            df['Gender'] = df['Gender'].fillna('Unknown')
-            df['Ethnicity'] = df['Ethnicity'].fillna('Unknown')
+            # Business name pattern features
+            name_str = df['BorrowerName'].astype(str).str.lower()
+            suspicious_keywords = {
+                'consulting', 'holdings', 'enterprise', 'solutions', 'services',
+                'investment', 'trading', 'group', 'international', 'global'
+            }
+            df['HasSuspiciousKeyword'] = name_str.apply(
+                lambda x: any(kw in x for kw in suspicious_keywords)
+            ).astype(int)
+            
+            # Demographic completeness features
+            demographic_fields = ['Race', 'Gender', 'Ethnicity']
+            df['MissingDemographics'] = df[demographic_fields].isna().sum(axis=1)
+            
+            # Add and encode additional categorical features from the dataset
+            df['Location'] = df.apply(
+                lambda x: f"{str(x['BorrowerCity']).strip()}, {str(x['BorrowerState']).strip()}",
+                axis=1
+            )
+            df['NAICSSector'] = df['NAICSCode'].astype(str).str[:2]
+            df['OriginatingLender'] = df['OriginatingLender'].fillna('Unknown')
+            
+            # Handle categorical variables with encoding
+            categorical_features = [
+                'BusinessType', 'Race', 'Gender', 'Ethnicity', 'NAICSCode',
+                'BorrowerState', 'OriginatingLender', 'Location', 'NAICSSector'
+            ]
+            
+            # Store categorical features for later use
+            self.categorical_features = categorical_features
+            
+            # Encode categorical variables
+            for feature in categorical_features:
+                df[feature] = df[feature].fillna('Unknown')
+                df[feature] = pd.Categorical(df[feature]).codes
+            
+            # Store feature names
+            self.feature_names = df.columns.tolist()
             
             return df
             
@@ -1241,7 +1311,6 @@ f"{pname}: {sus_match:.3%} in suspicious vs {full_match:.3%} overall ({ratio:.2f
             return df
 
     def analyze_multivariate(self, sus: pd.DataFrame, full: pd.DataFrame) -> None:
-        """Perform enhanced multivariate analysis using Logistic Regression with significance."""
         try:
             print("\nEnhanced Multivariate Analysis via Logistic Regression")
             
@@ -1266,14 +1335,20 @@ f"{pname}: {sus_match:.3%} in suspicious vs {full_match:.3%} overall ({ratio:.2f
                 print("Error: No suspicious loans found in the full dataset after flagging.")
                 return
 
-            # Select features (all from prepare_enhanced_features)
+            # Select features (corrected to match prepare_enhanced_features output)
             numerical_features = [
                 "InitialApprovalAmount", "JobsReported", "NameLength", "WordCount",
-                "AmountPerEmployee", "HasResidentialAddress", "HasMultipleBusinesses",
+                "AmountPerEmployee", "HasResidentialIndicator", "BusinessesAtAddress",  # Corrected names
                 "IsExactMaxAmount", "IsRoundAmount", "HasCommercialIndicator",
-                "HasSuspiciousKeyword", "MissingDemographics", "BusinessesAtAddress"
+                "HasSuspiciousKeyword", "MissingDemographics"
             ]
             categorical_features = ["BusinessType", "Race", "Gender", "Ethnicity"]
+            
+            # Verify feature existence
+            missing_features = [f for f in numerical_features if f not in full_prepared.columns]
+            if missing_features:
+                print(f"Warning: Features {missing_features} not found in prepared data. Skipping them.")
+                numerical_features = [f for f in numerical_features if f in full_prepared.columns]
             
             X = full_prepared[numerical_features].copy()
             for feature in categorical_features:

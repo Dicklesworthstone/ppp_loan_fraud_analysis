@@ -6,10 +6,13 @@ import aiofiles
 import httpx
 import logging
 import pandas as pd
+import numpy as np
 from tqdm import tqdm
 from termcolor import colored
 from typing import List, Set, Tuple
 from collections import defaultdict
+from joblib import Parallel, delayed
+from multiprocessing import Manager
 
 CSV_FILENAME = "ppp-full.csv"
 ZIP_URL = "https://releases.geocod.io/public/PPP_full_geocodio.zip"
@@ -429,8 +432,8 @@ class PPPLoanProcessor:
         # Existing ZIP cluster analysis
         zip_cluster = self.date_patterns[date][zip_code]
         if len(zip_cluster) >= self.ZIP_CLUSTER_THRESHOLD:
-            amounts = [l['amount'] for l in zip_cluster]
-            business_types = [l['business_type'] for l in zip_cluster]
+            amounts = [l['amount'] for l in zip_cluster]  # noqa: E741
+            business_types = [l['business_type'] for l in zip_cluster]  # noqa: E741
             if max(amounts) - min(amounts) < min(amounts) * 0.1:
                 risk_score += 20
                 flags.append(f"Part of cluster: {len(zip_cluster)} similar loans in ZIP {zip_code} on {date}")
@@ -611,9 +614,9 @@ class PPPLoanProcessor:
         self.lender_batches[lender_key].append(batch_info)
         current_batch = self.lender_batches[lender_key]
         if len(current_batch) >= 5:
-            amounts = [l['amount'] for l in current_batch]
+            amounts = [l['amount'] for l in current_batch]  # noqa: E741
             if max(amounts) - min(amounts) < min(amounts) * 0.1:
-                batch_names = {l['business_name'] for l in current_batch}
+                batch_names = {l['business_name'] for l in current_batch}  # noqa: E741
                 pattern_score, pattern_flags = self.analyze_name_patterns(batch_names)
                 risk_score += 15 + pattern_score
                 flags.append(f"Part of suspicious batch: {len(current_batch)} similar loans from same lender")
@@ -635,142 +638,125 @@ class PPPLoanProcessor:
     def calculate_risk_scores(self, chunk: pd.DataFrame) -> pd.DataFrame:
         self.logger.debug("Calculating risk scores for chunk")
         
-        # Define interaction rules (flag pairs and multipliers)
         INTERACTION_RULES = {
             ("High amount per employee", "Residential address"): 1.5,
             ("Exact maximum loan amount detected", "High-risk lender"): 1.3,
             ("Multiple businesses at residential address", "Cluster of identical business types"): 1.4,
             ("Missing all demographics", "High-risk business type"): 1.2
         }
-
-        def score_loan(loan: pd.Series) -> pd.Series:
-            score = 0
-            flags = []
-            
-            # Check for multiple applications
-            has_duplicates, duplicate_flags = self.check_multiple_applications(loan)
-            if has_duplicates:
-                score += 30
-                flags.extend(duplicate_flags)
-            
-            # Validate address
-            valid, address_flags = self.validate_address(loan['BorrowerAddress'])
-            if not valid:
-                score += 10
-            flags.extend(address_flags)
-            
-            # Check suspicious patterns in business name
-            name = str(loan['BorrowerName']).lower()
-            for pattern, weight in self.SUSPICIOUS_PATTERNS.items():
-                if re.search(pattern, name):
-                    score += 30 * weight
-                    flags.append(f'Suspicious pattern in name: {pattern}')
-            
-            # Analyze jobs reported and amount per employee
-            if loan['JobsReported'] > 0:
-                amount = float(loan['InitialApprovalAmount'])
-                per_employee = amount / loan['JobsReported']
-                if per_employee > 12000:
-                    score += 15
-                    flags.append(f'High amount per employee: ${per_employee:,.2f}')
-                    if per_employee > 14000:
-                        score += 15
-                        flags.append('Extremely high amount per employee')
-                if loan['JobsReported'] == 1:
-                    score += 20
-                    flags.append("Only one employee reported: Very high fraud risk")
-                elif loan['JobsReported'] < 3:
-                    score += 10
-                    flags.append("Fewer than three employees reported: Increased fraud risk")
-            
-            # Check for exact maximum loan amounts
-            if loan['InitialApprovalAmount'] == 20832 or loan['InitialApprovalAmount'] == 20833:
-                score += 25
-                flags.append("Exact maximum loan amount detected")
-            
-            # Check lender risk
-            lender = str(loan['OriginatingLender'])
-            if lender in self.HIGH_RISK_LENDERS and len(flags) > 0:
-                score += 15 * self.HIGH_RISK_LENDERS[lender]
-                flags.append('High-risk lender')
-            
-            # Check demographic completeness
-            demographic_fields = ['Race', 'Gender', 'Ethnicity']
-            missing_demographics = sum(1 for field in demographic_fields 
-                                    if str(loan.get(field, '')).lower() in ['unanswered', 'unknown'])
-            if missing_demographics == len(demographic_fields) and len(flags) > 1:
-                score += 10
-                flags.append('Missing all demographics')
-            
-            # Check business type risk
-            business_type = str(loan['BusinessType'])
-            if business_type in self.HIGH_RISK_BUSINESS_TYPES:
-                if len(flags) > 1:
-                    score += 15 * self.HIGH_RISK_BUSINESS_TYPES[business_type]
-                    flags.append('High-risk business type')
-            
-            # Adjust for loan status
-            if loan['LoanStatus'] == 'Paid in Full':
-                score -= 15
-            
-            # Analyze temporal patterns
+        
+        # Initialize results
+        risk_scores = pd.Series(0.0, index=chunk.index)
+        risk_flags = pd.Series([''] * len(chunk), index=chunk.index)
+        
+        # Vectorized checks
+        # 1. Jobs and amount per employee
+        jobs = chunk['JobsReported'].fillna(0)
+        per_employee = chunk['InitialApprovalAmount'] / jobs.replace(0, np.nan)
+        high_amount_mask = per_employee > 12000
+        extreme_amount_mask = per_employee > 14000
+        one_job_mask = jobs == 1
+        few_jobs_mask = (jobs < 3) & (jobs > 1)
+        risk_scores += high_amount_mask * 15 + extreme_amount_mask * 15 + one_job_mask * 20 + few_jobs_mask * 10
+        risk_flags = risk_flags.where(~high_amount_mask, risk_flags + 'High amount per employee; ')
+        risk_flags = risk_flags.where(~extreme_amount_mask, risk_flags + 'Extremely high amount per employee; ')
+        risk_flags = risk_flags.where(~one_job_mask, risk_flags + 'Only one employee reported: Very high fraud risk; ')
+        risk_flags = risk_flags.where(~few_jobs_mask, risk_flags + 'Fewer than three employees reported: Increased fraud risk; ')
+        
+        # 2. Exact maximum loan amounts
+        exact_max_mask = chunk['InitialApprovalAmount'].isin([20832, 20833])
+        risk_scores += exact_max_mask * 25
+        risk_flags = risk_flags.where(~exact_max_mask, risk_flags + 'Exact maximum loan amount detected; ')
+        
+        # 3. Lender risk
+        lender_risk = chunk['OriginatingLender'].map(lambda x: self.HIGH_RISK_LENDERS.get(x, 0) * 15 if x in self.HIGH_RISK_LENDERS else 0)
+        risk_scores += lender_risk * (risk_flags.str.len() > 0)
+        risk_flags = risk_flags.where(~chunk['OriginatingLender'].isin(self.HIGH_RISK_LENDERS), risk_flags + 'High-risk lender; ')
+        
+        # 4. Loan status
+        paid_mask = chunk['LoanStatus'] == 'Paid in Full'
+        risk_scores -= paid_mask * 15
+        
+        # 5. Demographics
+        demo_fields = ['Race', 'Gender', 'Ethnicity']
+        missing_all_demo = chunk[demo_fields].apply(lambda x: x.str.lower().isin(['unanswered', 'unknown'])).all(axis=1)
+        risk_scores += missing_all_demo * 10 * (risk_flags.str.split(';').str.len() > 1)
+        risk_flags = risk_flags.where(~missing_all_demo, risk_flags + 'Missing all demographics; ')
+        
+        # 6. Business type
+        business_risk = chunk['BusinessType'].map(lambda x: self.HIGH_RISK_BUSINESS_TYPES.get(x, 0) * 15 if x in self.HIGH_RISK_BUSINESS_TYPES else 0)
+        risk_scores += business_risk * (risk_flags.str.split(';').str.len() > 1)
+        risk_flags = risk_flags.where(~chunk['BusinessType'].isin(self.HIGH_RISK_BUSINESS_TYPES), risk_flags + 'High-risk business type; ')
+        
+        # Row-wise for complex logic
+        for idx, loan in chunk.iterrows():
             time_score, time_flags = self.analyze_time_patterns(loan)
-            score += time_score
-            flags.extend(time_flags)
+            net_score, net_flags = self.analyze_networks(loan)
+            name_score, name_flags = self.validate_business_name(loan['BorrowerName'])
+            dup_score, dup_flags = self.check_multiple_applications(loan)
             
-            # Analyze network patterns
-            network_score, network_flags = self.analyze_networks(loan)
-            score += network_score
-            flags.extend(network_flags)
+            # Address validation (not vectorized due to complexity)
+            valid, addr_flags = self.validate_address(loan['BorrowerAddress'])
+            if not valid:
+                risk_scores[idx] += 10
+            risk_flags[idx] += '; '.join(addr_flags)
             
-            # Adjust for business age
+            # Business age
             business_age = str(loan['BusinessAgeDescription']).lower()
             if business_age in ['new', 'existing less than 2 years']:
                 if loan['InitialApprovalAmount'] > 15000 and loan['JobsReported'] <= 2:
-                    score += 20
-                    flags.append("New business with high loan amount and few jobs")
+                    risk_scores[idx] += 20
+                    risk_flags[idx] += '; New business with high loan amount and few jobs'
             elif business_age in ['existing 2+ years', 'established']:
-                score -= 10  # Reduce false positives for established businesses
-                flags.append("Established business - lower risk")
+                risk_scores[idx] -= 10
+                risk_flags[idx] += '; Established business - lower risk'
             
-            # Existing multiplier for sequential loan numbers
-            if any("Sequential loan numbers" in flag for flag in flags) and len(flags) > 1:
-                score = score * 1.5
+            # Aggregate scores and flags
+            risk_scores[idx] += time_score + net_score + (dup_score * 30)
+            risk_flags[idx] += '; ' + '; '.join(time_flags + net_flags + dup_flags)
             
-            # Apply dynamic feature interaction scoring
-            flag_set = set(flags)
-            for (flag1, flag2), multiplier in INTERACTION_RULES.items():
-                if flag1 in flag_set and flag2 in flag_set:
-                    interaction_score = score * (multiplier - 1)  # Only the additional portion
-                    score += interaction_score
-                    flags.append(f"Interaction: {flag1} + {flag2} (x{multiplier})")
-            
-            # Apply cap logic
-            final_score = score
-            if "Exact maximum loan amount detected" not in flags and len(flags) < 2:
-                final_score = min(49, final_score)
-            
-            # Determine risk level
-            risk_level = (
-                'Very High Risk' if final_score >= 75 else
-                'High Risk' if final_score >= 50 else
-                'Medium Risk' if final_score >= 25 else
-                'Low Risk'
-            )
-            
-            return pd.Series({
-                'RiskScore': final_score,
-                'RiskLevel': risk_level,
-                'RiskFlags': '; '.join(flags)
-            })
+            # Suspicious name patterns (original regex loop)
+            name = str(loan['BorrowerName']).lower()
+            for pattern, weight in self.SUSPICIOUS_PATTERNS.items():
+                if re.search(pattern, name):
+                    risk_scores[idx] += 30 * weight
+                    risk_flags[idx] += f'; Suspicious pattern in name: {pattern}'
         
-        # Apply the scoring function to the chunk and combine with original data
-        results = chunk.apply(score_loan, axis=1)
-        combined = pd.concat([chunk[['LoanNumber', 'BorrowerName']], results], axis=1)
-        self.logger.debug("Risk score calculation complete for chunk")
-        return combined
+        # Apply multipliers and cap
+        has_seq = risk_flags.str.contains("Sequential loan numbers")
+        risk_scores = np.where(has_seq & (risk_flags.str.split(';').str.len() > 1), risk_scores * 1.5, risk_scores)
+        
+        for (flag1, flag2), multiplier in INTERACTION_RULES.items():
+            has_interaction = risk_flags.str.contains(flag1) & risk_flags.str.contains(flag2)
+            risk_scores = np.where(has_interaction, risk_scores * multiplier, risk_scores)
+            risk_flags = np.where(has_interaction, risk_flags + f'; Interaction: {flag1} + {flag2} (x{multiplier})', risk_flags)
+        
+        # Cap logic
+        no_exact_max = ~exact_max_mask
+        few_flags = risk_flags.str.split(';').str.len() < 2
+        risk_scores = np.where(no_exact_max & few_flags, np.minimum(risk_scores, 49), risk_scores)
+        
+        # Finalize flags and levels
+        risk_flags = risk_flags.str.rstrip('; ')
+        risk_levels = pd.cut(risk_scores, bins=[-np.inf, 25, 50, 75, np.inf], 
+                            labels=['Low Risk', 'Medium Risk', 'High Risk', 'Very High Risk'])
+        
+        return pd.concat([chunk[['LoanNumber', 'BorrowerName']], 
+                        pd.DataFrame({'RiskScore': risk_scores, 'RiskLevel': risk_levels, 'RiskFlags': risk_flags})], 
+                        axis=1)
 
-    def process_chunks(self) -> None:
+    def process_chunk_wrapper(self, chunk, shared_dicts):
+        # Update shared dictionaries within the function
+        target_loans = chunk[(chunk['InitialApprovalAmount'] >= 5000) & (chunk['InitialApprovalAmount'] < 21000)].copy()
+        if len(target_loans) > 0:
+            high_risk_loans = self.process_chunk(target_loans)
+            if len(high_risk_loans) > 0:
+                validated_loans = self.validate_high_risk_loans(high_risk_loans)
+                shared_dicts['suspicious'] += len(validated_loans)
+                return validated_loans
+        return pd.DataFrame()
+
+    def process_chunks(self):
         total_rows = self.count_lines()
         self.log_message('info', f"Starting to process {total_rows:,} loans...", 'green')
         chunks = pd.read_csv(
@@ -800,35 +786,75 @@ class PPPLoanProcessor:
             },
             low_memory=False
         )
-        first_chunk = True
+        
+        # Use multiprocessing Manager for all shared state
+        manager = Manager()
+        shared_dicts = manager.dict()
+        shared_dicts['suspicious'] = 0
+        shared_dicts['processed'] = manager.Value('i', 0)
+        shared_dicts['chunk_counter'] = manager.Value('i', 0)  # For interim logging
+        shared_dicts['seen_loans'] = manager.set(self.seen_loans)
+        shared_dicts['borrower_loans'] = manager.dict(self.borrower_loans)
+        shared_dicts['seen_addresses'] = manager.dict(self.seen_addresses)
+        shared_dicts['daily_zip_counts'] = manager.dict(self.daily_zip_counts)
+        shared_dicts['daily_lender_counts'] = manager.dict(self.daily_lender_counts)
+        shared_dicts['total_days'] = manager.set(self.total_days)
+        shared_dicts['date_patterns'] = manager.dict(self.date_patterns)
+        shared_dicts['lender_loan_sequences'] = manager.dict(self.lender_loan_sequences)
+        shared_dicts['address_to_businesses'] = manager.dict(self.address_to_businesses)
+        shared_dicts['business_to_addresses'] = manager.dict(self.business_to_addresses)
+        shared_dicts['lender_batches'] = manager.dict(self.lender_batches)
+        shared_dicts['lender_sequences'] = manager.dict(self.lender_sequences)
+        shared_dicts['stats'] = manager.dict(self.stats)
+        
         pbar = tqdm(total=total_rows, unit='loans', desc='Processing loans')
-        try:
-            for chunk_number, chunk in enumerate(chunks, 1):
-                target_loans = chunk[
-                    (chunk['InitialApprovalAmount'] >= 5000) &
-                    (chunk['InitialApprovalAmount'] < 21000)
-                ].copy()
-                if len(target_loans) > 0:
-                    high_risk_loans = self.process_chunk(target_loans)
-                    if len(high_risk_loans) > 0:
-                        validated_loans = self.validate_high_risk_loans(high_risk_loans)
-                        if len(validated_loans) > 0:
-                            if first_chunk:
-                                validated_loans.to_csv(self.output_file, index=False)
-                                first_chunk = False
-                            else:
-                                validated_loans.to_csv(self.output_file, mode='a', header=False, index=False)
-                            self.log_suspicious_findings(validated_loans)
-                self.stats['processed'] += len(chunk)
-                pbar.update(len(chunk))
-                if chunk_number % 10 == 0:
+        
+        def process_chunk_with_shared(chunk, shared):
+            # Pass shared state to instance methods
+            self.seen_loans = shared['seen_loans']
+            self.borrower_loans = shared['borrower_loans']
+            self.seen_addresses = shared['seen_addresses']
+            self.daily_zip_counts = shared['daily_zip_counts']
+            self.daily_lender_counts = shared['daily_lender_counts']
+            self.total_days = shared['total_days']
+            self.date_patterns = shared['date_patterns']
+            self.lender_loan_sequences = shared['lender_loan_sequences']
+            self.address_to_businesses = shared['address_to_businesses']
+            self.business_to_addresses = shared['business_to_addresses']
+            self.lender_batches = shared['lender_batches']
+            self.lender_sequences = shared['lender_sequences']
+            self.stats = shared['stats']
+            
+            result = self.process_chunk_wrapper(chunk, shared)
+            with shared['processed'].get_lock():
+                shared['processed'].value += len(chunk)  # Update actual rows processed
+            with shared['chunk_counter'].get_lock():
+                shared['chunk_counter'].value += 1
+                if shared['chunk_counter'].value % 10 == 0:
                     self.log_interim_stats()
-        except Exception as e:
-            self.log_message('error', f"Error processing chunk: {str(e)}", 'red')
-            raise
-        finally:
-            pbar.close()
-            self.log_final_stats()
+            return result
+        
+        results = Parallel(n_jobs=32, backend='multiprocessing')(
+            delayed(process_chunk_with_shared)(chunk, shared_dicts) for chunk in chunks
+        )
+        
+        # Write results and update progress
+        first_chunk = True
+        for validated_loans in results:
+            if len(validated_loans) > 0:
+                if first_chunk:
+                    validated_loans.to_csv(self.output_file, index=False)
+                    first_chunk = False
+                else:
+                    validated_loans.to_csv(self.output_file, mode='a', header=False, index=False)
+                self.log_suspicious_findings(validated_loans)
+            pbar.update(min(self.chunk_size, total_rows - pbar.n))  # Accurate progress update
+        
+        self.stats.update(shared_dicts['stats'])
+        self.stats['processed'] = shared_dicts['processed'].value
+        pbar.close()
+        self.log_final_stats()
+
 
     def validate_high_risk_loans(self, loans: pd.DataFrame) -> pd.DataFrame:
         self.logger.debug("Validating high risk loans")
