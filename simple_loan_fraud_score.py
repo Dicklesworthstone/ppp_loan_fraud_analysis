@@ -295,6 +295,8 @@ class PPPLoanProcessor:
             r'snapchat': 0.9,
             r'instagram': 0.9,
         }
+        # Precompile suspicious patterns for faster reuse.
+        self.compiled_suspicious_patterns = {re.compile(pat, re.IGNORECASE): weight for pat, weight in self.SUSPICIOUS_PATTERNS.items()}
         self.LEGITIMATE_KEYWORDS = {
             'consulting', 'services', 'solutions', 'associates',
             'partners', 'group', 'inc', 'llc', 'ltd', 'corporation',
@@ -333,6 +335,8 @@ class PPPLoanProcessor:
             r'[A-Z]\s*&\s*[A-Z]\s+': 0.5,
             r'[A-Z]{3,}': 0.4
         }
+        # Precompile suspicious name patterns.
+        self.compiled_suspicious_name_patterns = {re.compile(pat, re.IGNORECASE): weight for pat, weight in self.SUSPICIOUS_NAME_PATTERNS.items()}
 
     def validate_address(self, address: str) -> tuple[bool, List[str]]:
         self.logger.debug("Validating address input")
@@ -368,10 +372,10 @@ class PPPLoanProcessor:
             return 0, []
         if pd.isna(name) or name_str in ('n/a', 'none', ''):
             return 1.0, ['Invalid/missing business name']
-        for pattern, weight in self.SUSPICIOUS_PATTERNS.items():
-            if re.search(pattern, name_str):
+        for cre, weight in self.compiled_suspicious_patterns.items():
+            if cre.search(name_str):
                 risk_score += weight
-                flags.append(f'Suspicious name pattern: {pattern}')
+                flags.append(f'Suspicious name pattern: {cre.pattern}')
         legitimate_count = sum(1 for keyword in self.LEGITIMATE_KEYWORDS if keyword in name_str)
         risk_score -= (legitimate_count * 0.2)
         if re.match(r'^[a-z]+\s+[a-z]+$', name_str):
@@ -437,19 +441,15 @@ class PPPLoanProcessor:
 
     def is_roughly_sequential(self, loan_numbers: List[str]) -> bool:
         self.logger.debug("Checking if loan numbers are roughly sequential")
-        if len(loan_numbers) < 2:
-            return False
-        numbers = []
-        for loan_num in loan_numbers:
-            matches = re.findall(r'\d+', loan_num)
-            if matches:
-                numbers.append(int(matches[-1]))
+        import numpy as np
+        numbers = [int(re.findall(r'\d+', loan_num)[-1]) for loan_num in loan_numbers if re.findall(r'\d+', loan_num)]
         if len(numbers) < 2:
             return False
-        numbers.sort()
-        gaps = [numbers[i+1] - numbers[i] for i in range(len(numbers)-1)]
-        avg_gap = sum(gaps) / len(gaps)
-        result = avg_gap < 10 and all(gap < 20 for gap in gaps)
+        arr = np.array(numbers)
+        arr.sort()
+        gaps = np.diff(arr)
+        avg_gap = gaps.mean()
+        result = (avg_gap < 10) and np.all(gaps < 20)
         self.logger.debug(f"Sequential check result: {result}")
         return result
 
@@ -477,9 +477,9 @@ class PPPLoanProcessor:
         name_patterns = defaultdict(int)
         names = [str(name).lower() for name in business_names]
         for name in names:
-            for pattern, weight in self.SUSPICIOUS_NAME_PATTERNS.items():
-                if re.search(pattern, name):
-                    name_patterns[pattern] += 1
+            for cre, weight in self.compiled_suspicious_name_patterns.items():
+                if cre.search(name):
+                    name_patterns[cre.pattern] += 1
         for pattern, count in name_patterns.items():
             if count >= 2:
                 pattern_score = self.SUSPICIOUS_NAME_PATTERNS[pattern] * count
@@ -844,7 +844,7 @@ def main():
     input_file = CSV_FILENAME
     output_file = "suspicious_loans.csv"
     risk_threshold = 110
-    chunk_size = 20000
+    chunk_size = 250000
     processor = PPPLoanProcessor(input_file, output_file, risk_threshold, chunk_size)
     try:
         processor.process_chunks()

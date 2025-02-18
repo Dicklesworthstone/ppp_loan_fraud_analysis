@@ -1,7 +1,9 @@
-import pandas as pd 
-import numpy as np
+import os
+import psutil
 import re
 from typing import Tuple
+import pandas as pd 
+import numpy as np
 from scipy import stats
 from nameparser import HumanName
 from sklearn.linear_model import LogisticRegression
@@ -11,7 +13,31 @@ from sklearn.model_selection import train_test_split, RandomizedSearchCV
 from sklearn.utils import resample
 import xgboost as xgb
 import shap
+from joblib import Parallel, delayed
+from functools import lru_cache
+from multiprocessing import Pool
+import statsmodels.api as sm
 
+@lru_cache(maxsize=1000000)
+def parse_name_cached(name_str: str):
+    import re
+    from nameparser import HumanName
+    if not name_str or pd.isna(name_str):
+        return {"FirstName": "Unknown", "LastName": "Unknown"}
+    clean = re.sub(r"\b(LLC|INC|CORP|CORPORATION|LTD|LIMITED|CO|COMPANY)\b\.?", "", name_str, flags=re.IGNORECASE).strip()
+    n = HumanName(clean)
+    return {"FirstName": n.first if n.first else "Unknown", "LastName": n.last if n.last else "Unknown"}
+
+def run_stat_test(test_name, test_func, x, y):
+    try:
+        _, p_val = test_func(x, y)
+        return f"{test_name} p-value: {p_val}"
+    except Exception as e:
+        return f"{test_name} failed: {str(e)}"
+
+def process_name_chunk(chunk):
+    """Process a chunk of names using parse_name_cached."""
+    return [parse_name_cached(name) for name in chunk]
 
 class XGBoostAnalyzer:
     def __init__(self):
@@ -110,84 +136,76 @@ class XGBoostAnalyzer:
             print(f"Error preparing features: {str(e)}")
             return df
 
-    def analyze_with_xgboost(
-        self,
-        sus: pd.DataFrame,
-        full: pd.DataFrame,
-        n_iter: int = 20
-    ) -> None:
-        """Perform enhanced analysis using XGBoost."""
+    def analyze_with_xgboost(self, sus: pd.DataFrame, full: pd.DataFrame, n_iter: int = 10) -> None:
         try:
             print("\nEnhanced XGBoost Analysis")
             
-            # Prepare datasets
             full_prepared = self.prepare_enhanced_features(full.copy())
-            full_prepared["Flagged"] = full_prepared["LoanNumber"].isin(
-                sus["LoanNumber"]
-            ).astype(int)
+            full_prepared["Flagged"] = full_prepared["LoanNumber"].isin(sus["LoanNumber"]).astype(int)
             
-            # Remove non-feature columns
-            exclude_cols = ['LoanNumber', 'BorrowerName', 'BorrowerAddress', 
-                          'BorrowerCity', 'Flagged']
-            feature_cols = [col for col in full_prepared.columns 
-                          if col not in exclude_cols]
+            exclude_cols = ['LoanNumber', 'BorrowerName', 'BorrowerAddress', 'BorrowerCity', 'Flagged']
+            feature_cols = [col for col in full_prepared.columns if col not in exclude_cols]
             
             X = full_prepared[feature_cols]
             y = full_prepared["Flagged"]
             
-            # Split data
+            # Downsample if dataset is too large
+            if len(X) > 50000:
+                X, _, y, _ = train_test_split(X, y, train_size=50000, stratify=y, random_state=42)
+                print("Reduced dataset to 50,000 samples for tuning to maintain responsiveness")
+            
             X_train, X_test, y_train, y_test = train_test_split(
                 X, y, test_size=0.3, random_state=42, stratify=y
             )
             
-            # Parameter grid for randomized search
             param_grid = {
-                'max_depth': [3, 4, 5, 6, 7],
-                'learning_rate': [0.01, 0.05, 0.1],
-                'n_estimators': [100, 200, 300],
-                'min_child_weight': [1, 3, 5],
-                'gamma': [0, 0.1, 0.2],
-                'subsample': [0.6, 0.8, 1.0],
-                'colsample_bytree': [0.6, 0.8, 1.0],
-                'scale_pos_weight': [sum(y == 0) / sum(y == 1)]  # Handle class imbalance
+                'max_depth': [3, 5, 7],
+                'learning_rate': [0.01, 0.1],
+                'n_estimators': [100, 200],
+                'min_child_weight': [1, 3],
+                'subsample': [0.8, 1.0],
+                'colsample_bytree': [0.8, 1.0],
+                'scale_pos_weight': [sum(y == 0) / sum(y == 1) if sum(y == 1) > 0 else 1]
             }
             
-            # Initialize XGBoost classifier
             xgb_clf = xgb.XGBClassifier(
                 objective='binary:logistic',
                 eval_metric='auc',
-                use_label_encoder=False,
-                random_state=42
+                random_state=42,
+                tree_method='hist',
+                nthread=8,
+                max_bin=256
             )
             
-            # Perform randomized search
             random_search = RandomizedSearchCV(
                 xgb_clf,
                 param_distributions=param_grid,
                 n_iter=n_iter,
                 scoring='roc_auc',
-                cv=3,
+                cv=2,
                 random_state=42,
-                n_jobs=-1
+                n_jobs=4,
+                verbose=2
             )
             
-            print("Performing hyperparameter tuning...")
-            random_search.fit(
-                X_train,
-                y_train,
-                eval_set=[(X_test, y_test)],
-                early_stopping_rounds=10,
-                verbose=0
-            )
+            print("Performing hyperparameter tuning... (Press Ctrl+C to interrupt if needed)")
+            # Remove early_stopping_rounds from RandomizedSearchCV
+            random_search.fit(X_train, y_train)
             
-            # Get best model
             self.model = random_search.best_estimator_
             
-            # Make predictions
+            # Configure early stopping for final fit with eval_set
+            self.model.fit(
+                X_train,
+                y_train,
+                eval_set=[(X_test, y_test)],  # Provide evaluation set for early stopping
+                early_stopping_rounds=10,     # Now valid with eval_set
+                verbose=1
+            )
+            
             y_pred = self.model.predict(X_test)
             y_pred_proba = self.model.predict_proba(X_test)[:, 1]
             
-            # Calculate metrics
             roc_auc = roc_auc_score(y_test, y_pred_proba)
             avg_precision = average_precision_score(y_test, y_pred_proba)
             
@@ -197,21 +215,18 @@ class XGBoostAnalyzer:
             print("\nClassification Report:")
             print(classification_report(y_test, y_pred, digits=3))
             
-            # Feature importance analysis
             self._analyze_feature_importance(X, feature_cols)
-            
-            # SHAP value analysis for feature interactions
             self._analyze_shap_values(X_test, feature_cols)
             
-            # Save predictions for suspicious loans
-            full_prepared['PredictedProbability'] = self.model.predict_proba(
-                full_prepared[feature_cols])[:, 1]
-            
-            # Analyze new patterns in high-probability loans
+            full_prepared['PredictedProbability'] = self.model.predict_proba(full_prepared[feature_cols])[:, 1]
             self._analyze_high_probability_patterns(full_prepared)
             
+        except KeyboardInterrupt:
+            print("\nXGBoost analysis interrupted by user")
+            return
         except Exception as e:
             print(f"Error in XGBoost analysis: {str(e)}")
+            raise
 
     def _analyze_feature_importance(
         self,
@@ -264,7 +279,7 @@ class XGBoostAnalyzer:
                 
         except Exception as e:
             print(f"Error analyzing SHAP values: {str(e)}")
-
+                
     def _analyze_high_probability_patterns(self, df: pd.DataFrame) -> None:
         """Analyze patterns in high-probability suspicious loans."""
         try:
@@ -284,20 +299,23 @@ class XGBoostAnalyzer:
                 mean_all = df[feature].mean()
                 mean_high_prob = high_prob_loans[feature].mean()
                 print(f"{feature}:")
-                print(f"  All loans mean: {mean_all:.2f}")
-                print(f"  High-prob loans mean: {mean_high_prob:.2f}")
+                print(f"  All loans mean: {mean_all:.3f}")
+                print(f"  High-prob loans mean: {mean_high_prob:.3f}")
                 print(f"  Ratio: {mean_high_prob/mean_all:.2f}x")
             
             # Analyze categorical feature patterns
             if self.categorical_features:
-                print("\nCategorical Feature Patterns:")
+                print("\nCategorical Feature Patterns in High-Probability Loans:")
+                print("Note: Patterns reflect data distribution, not targeted focus on any group.")
                 for feature in self.categorical_features:
-                    print(f"\n{feature} Distribution in High-Probability Loans:")
+                    print(f"\n{feature} Distribution:")
+                    if feature == "Race":
+                        print("  Note: Racial patterns reflect data distribution, not targeted focus.")
                     value_counts = high_prob_loans[feature].value_counts()
                     total = len(high_prob_loans)
-                    for value, count in value_counts.head(5).items():
+                    for value, count in value_counts.items():  # Show all categories
                         percentage = (count / total) * 100
-                        print(f"  {value}: {percentage:.1f}%")
+                        print(f"  {value}: {count:,} ({percentage:.3f}%)")
                         
         except Exception as e:
             print(f"Error analyzing high-probability patterns: {str(e)}")
@@ -308,7 +326,40 @@ class SuspiciousLoanAnalyzer:
         self.full_data_file = full_data_file
         self.sus_data = None
         self.full_data = None
+        self.naics_lookup = self._load_naics_codes()
 
+    def _load_naics_codes(self) -> dict:
+        """Define NAICS 2-digit codes inline."""
+        # Inline NAICS 2022 2-digit codes with ranges expanded
+        naics_dict = {
+            "11": "Agriculture, Forestry, Fishing and Hunting",
+            "21": "Mining, Quarrying, and Oil and Gas Extraction",
+            "22": "Utilities",
+            "23": "Construction",
+            "31": "Manufacturing - Food, Textile, and Leather",
+            "32": "Manufacturing - Wood, Paper, Chemical, and Plastics",
+            "33": "Manufacturing - Metal, Machinery, Electronics, and Transportation Equipment",
+            "42": "Wholesale Trade",
+            "44": "Retail Trade - Motor Vehicle, Furniture, Electronics, Building Materials, Food, Health, and Gasoline",
+            "45": "Retail Trade - Sporting Goods, Books, Music, General Merchandise, and Non-store",
+            "48": "Transportation and Warehousing - Air, Rail, Water, Truck, Transit, Pipeline, and Scenic/Sightseeing",
+            "49": "Transportation and Warehousing - Postal Service, Couriers, Messengers, and Storage",
+            "51": "Information",
+            "52": "Finance and Insurance",
+            "53": "Real Estate and Rental and Leasing",
+            "54": "Professional, Scientific, and Technical Services",
+            "55": "Management of Companies and Enterprises",
+            "56": "Administrative and Support and Waste Management and Remediation Services",
+            "61": "Educational Services",
+            "62": "Health Care and Social Assistance",
+            "71": "Arts, Entertainment, and Recreation",
+            "72": "Accommodation and Food Services",
+            "81": "Other Services (except Public Administration)",
+            "92": "Public Administration",
+            "99": "Unclassified Establishments"
+        }
+        return naics_dict
+        
     def load_data(self) -> Tuple[pd.DataFrame, pd.DataFrame]:
         """Load both suspicious and full datasets with proper error handling."""
         print("Loading suspicious loans data...")
@@ -316,10 +367,11 @@ class SuspiciousLoanAnalyzer:
             sus = pd.read_csv(self.suspicious_file, low_memory=False)
             print("Loading full loan dataset...")
             cols = [
-                "LoanNumber", "BorrowerName", "BorrowerCity", "BorrowerState",
+                "LoanNumber", "BorrowerName", "BorrowerAddress", "BorrowerCity", "BorrowerState",
                 "OriginatingLender", "InitialApprovalAmount", "BusinessType",
                 "Race", "Gender", "Ethnicity", "NAICSCode", "JobsReported"
             ]
+
             full = pd.read_csv(
                 self.full_data_file,
                 usecols=cols,
@@ -414,8 +466,9 @@ class SuspiciousLoanAnalyzer:
         column: str,
         title: str,
         min_occurrences: int = 5,
+        high_threshold_occurrences: int = 25,
     ) -> None:
-        """Analyze patterns in categorical variables with proper chi-squared testing."""
+        """Analyze patterns in categorical variables with proper chi-squared testing and dual thresholds."""
         try:
             print(f"\nAnalyzing {title}...")
             
@@ -428,35 +481,34 @@ class SuspiciousLoanAnalyzer:
             f_counts = full[column].value_counts()
             
             # Create contingency table correctly for chi-square test
-            # Get all unique categories
             all_categories = sorted(set(s_counts.index) | set(f_counts.index))
             
-            # Create the contingency table
             contingency = []
             for category in all_categories:
                 suspicious = s_counts.get(category, 0)
-                # For non-suspicious, we need to subtract suspicious count from total
                 total = f_counts.get(category, 0)
-                non_suspicious = max(0, total - suspicious)  # Ensure non-negative
-                if suspicious > 0 or non_suspicious > 0:  # Only include if either has occurrences
+                non_suspicious = max(0, total - suspicious)
+                if suspicious > 0 or non_suspicious > 0:
                     contingency.append([suspicious, non_suspicious])
             
-            # Convert to numpy array
             cont_table = np.array(contingency)
             
-            # Calculate chi-square test if we have valid data
             p_chi2 = None
             if cont_table.size > 0 and cont_table.shape[0] > 1:
-                # Check if we have enough non-zero entries
                 if np.all(cont_table.sum(axis=1) > 0) and np.all(cont_table.sum(axis=0) > 0):
                     try:
                         _, p_chi2, _, _ = stats.chi2_contingency(cont_table)
                     except Exception as e:
                         print(f"Chi-square test calculation failed: {str(e)}")
             
-            # Calculate representation ratios
-            analysis = self.calculate_representation_ratio(
+            # Calculate representation ratios with original threshold (min 5)
+            analysis_original = self.calculate_representation_ratio(
                 s_counts, f_counts, min_occurrences
+            )
+            
+            # Calculate representation ratios with higher threshold (min 25)
+            analysis_high_threshold = self.calculate_representation_ratio(
+                s_counts, f_counts, high_threshold_occurrences
             )
             
             # Print results
@@ -464,20 +516,163 @@ class SuspiciousLoanAnalyzer:
             print(f"{title} Analysis")
             print(f"Chi-square test p-value: {p_chi2 if p_chi2 is not None else 'N/A'}")
             
-            if not analysis.empty:
-                print("Top over-represented categories (top 100):")
-                for idx, row in analysis.head(100).iterrows():
+            # Original threshold results (min 5)
+            if not analysis_original.empty:
+                print(f"\nTop over-represented categories (min {min_occurrences} occurrences, top 100):")
+                for idx, row in analysis_original.head(100).iterrows():
                     if row["Representation_Ratio"] > 0:
+                        # Special handling for NAICSSector to include description
+                        if column == "NAICSSector" and self.naics_lookup:
+                            idx_str = str(idx).zfill(2)
+                            desc = self.naics_lookup.get(idx_str, "Unknown Sector")
+                            display_name = f"{idx_str} - {desc}"
+                        else:
+                            display_name = str(idx)
+                        
                         print(
-                            f"{idx}: {row['Representation_Ratio']:.2f}x more common in suspicious loans "
-                            f"({int(row['Suspicious_Count'])} occurrences, {row['Suspicious_Pct']:.3%} vs {row['Overall_Pct']:.3%})"
+                            f"{display_name}: {row['Representation_Ratio']:.2f}x more common in suspicious loans "
+                            f"({int(row['Suspicious_Count']):,} occurrences, {row['Suspicious_Pct']:.3%} vs {row['Overall_Pct']:.3%})"
                         )
             else:
-                print("No categories met the minimum occurrence threshold")
+                print(f"No categories met the minimum occurrence threshold of {min_occurrences}")
+            
+            # Check if high threshold analysis differs from original
+            if not analysis_high_threshold.empty:
+                # Extract top 100 from both analyses for comparison
+                orig_top = analysis_original.head(100)
+                high_top = analysis_high_threshold.head(100)
                 
+                # Compare indices (categories) and check counts
+                orig_indices = set(orig_top.index)
+                high_indices = set(high_top.index)
+                all_above_25 = all(s_counts.get(idx, 0) >= high_threshold_occurrences for idx in orig_indices)
+                
+                # Only print high threshold if it differs or not all min-5 categories exceed 25
+                if orig_indices != high_indices or not all_above_25:
+                    print(f"\nTop over-represented categories (min {high_threshold_occurrences} occurrences, top 100):")
+                    for idx, row in high_top.iterrows():
+                        if row["Representation_Ratio"] > 0:
+                            if column == "NAICSSector" and self.naics_lookup:
+                                idx_str = str(idx).zfill(2)
+                                desc = self.naics_lookup.get(idx_str, "Unknown Sector")
+                                display_name = f"{idx_str} - {desc}"
+                            else:
+                                display_name = str(idx)
+                            
+                            print(
+                                f"{display_name}: {row['Representation_Ratio']:.2f}x more common in suspicious loans "
+                                f"({int(row['Suspicious_Count']):,} occurrences, {row['Suspicious_Pct']:.3%} vs {row['Overall_Pct']:.3%})"
+                            )
+                # If identical, skip printing to avoid redundancy
+            else:
+                print(f"No categories met the minimum occurrence threshold of {high_threshold_occurrences}")
+                        
         except Exception as e:
             print(f"Error analyzing {title}: {str(e)}")
+
+    def analyze_feature_discrimination(self, sus: pd.DataFrame, full: pd.DataFrame) -> None:
+        """Analyze feature discrimination using AUPRC with detailed category breakdown and significance."""
+        try:
+            print("\nFeature Discrimination Analysis using AUPRC")
             
+            # Prepare enhanced features with all available flags
+            full_prepared = self.prepare_enhanced_features(full.copy())
+            full_prepared["Flagged"] = full_prepared["LoanNumber"].isin(sus["LoanNumber"]).astype(int)
+            
+            # Include all features and flags from prepare_enhanced_features
+            features_to_analyze = [
+                "InitialApprovalAmount", "JobsReported", "NameLength", "WordCount",
+                "AmountPerEmployee", "HasResidentialAddress", "HasMultipleBusinesses",
+                "IsExactMaxAmount", "IsRoundAmount", "HasCommercialIndicator",
+                "HasSuspiciousKeyword", "MissingDemographics", "BusinessesAtAddress",
+                "BusinessType", "Race", "Gender", "Ethnicity"
+            ]
+            
+            y_true = full_prepared["Flagged"]
+            feature_auprc = {}
+            category_auprc_dict = {}
+            
+            # Calculate AUPRC and significance for each feature
+            for feature in features_to_analyze:
+                if feature not in full_prepared.columns:
+                    continue
+                    
+                if full_prepared[feature].dtype in ['object', 'category']:
+                    # One-hot encode categorical features
+                    X = pd.get_dummies(full_prepared[feature], prefix=feature)
+                    if X.shape[1] > 1:
+                        model = LogisticRegression(max_iter=1000, random_state=42)
+                        model.fit(X, y_true)
+                        y_scores = model.predict_proba(X)[:, 1]
+                        auprc = average_precision_score(y_true, y_scores)
+                        feature_auprc[feature] = auprc
+                        
+                        # Chi-square test for significance
+                        contingency = pd.crosstab(full_prepared[feature], y_true)
+                        _, p_val, _, _ = stats.chi2_contingency(contingency)
+                        
+                        # Category-level AUPRC
+                        category_auprc = {}
+                        for col in X.columns:
+                            single_feature = X[[col]]
+                            model.fit(single_feature, y_true)
+                            y_scores = model.predict_proba(single_feature)[:, 1]
+                            category_auprc[col] = average_precision_score(y_true, y_scores)
+                        category_auprc_dict[feature] = category_auprc
+                    else:
+                        y_scores = X.iloc[:, 0]
+                        feature_auprc[feature] = average_precision_score(y_true, y_scores)
+                        p_val = stats.ttest_ind(X.iloc[:, 0][y_true == 1], 
+                                            X.iloc[:, 0][y_true == 0], 
+                                            equal_var=False).pvalue
+                else:
+                    # Numerical features
+                    X = full_prepared[[feature]].fillna(0)
+                    model = LogisticRegression(max_iter=1000, random_state=42)
+                    model.fit(X, y_true)
+                    y_scores = model.predict_proba(X)[:, 1]
+                    feature_auprc[feature] = average_precision_score(y_true, y_scores)
+                    # T-test for significance
+                    p_val = stats.ttest_ind(X[feature][y_true == 1], 
+                                        X[feature][y_true == 0], 
+                                        equal_var=False).pvalue
+                
+                # Store p-value for reporting
+                feature_auprc[feature] = (feature_auprc[feature], p_val)
+            
+            # Display results
+            print("\nDetailed Feature Analysis:")
+            print("Note: Patterns reflect data distribution and statistical significance, not targeted focus on any group.")
+            sorted_features = sorted(feature_auprc.items(), key=lambda x: x[1][0], reverse=True)
+            for feature, (auprc, p_val) in sorted_features:
+                sig_note = " (p < 0.05, significant)" if p_val < 0.05 else " (p >= 0.05, not significant)"
+                print(f"{feature}: AUPRC = {auprc:.4f}{sig_note}")
+                
+                # Category breakdown for all categorical features
+                if feature in category_auprc_dict:
+                    print(f"  All categories for {feature}:")
+                    if feature == "Race":
+                        print("  Note: Racial patterns reflect data distribution, not targeted focus.")
+                    sorted_categories = sorted(category_auprc_dict[feature].items(), 
+                                            key=lambda x: x[1], reverse=True)
+                    for i, (cat, cat_auprc) in enumerate(sorted_categories):  # Show all categories
+                        prefix = "**" if i == 0 else "  "  # Bold top category
+                        suffix = "**" if i == 0 else ""
+                        print(f"    {prefix}{cat}: AUPRC = {cat_auprc:.4f}{suffix}")
+            
+            # Overall feature ranking
+            print("\nFeatures ranked by AUPRC (discriminative power):")
+            for feature, (auprc, _) in sorted_features:
+                print(f"{feature}: AUPRC = {auprc:.4f}")
+            
+            # Baseline
+            baseline_auprc = y_true.mean()
+            print(f"\nBaseline AUPRC (random guessing): {baseline_auprc:.4f}")
+            
+        except Exception as e:
+            print(f"Error in feature discrimination analysis: {str(e)}")
+
+
     def analyze_geographic_clusters(self, sus: pd.DataFrame, full: pd.DataFrame) -> None:
         """Analyze geographic clusters with proper error handling."""
         try:
@@ -554,21 +749,47 @@ class SuspiciousLoanAnalyzer:
         """Extract first and last names from business names."""
         try:
             df = df.copy()
-            name_parts = df["BorrowerName"].fillna("").astype(str).apply(self.parse_name)
-            df["FirstName"] = name_parts["FirstName"]
-            df["LastName"] = name_parts["LastName"]
+            names = df["BorrowerName"].fillna("").astype(str).tolist()
+            parsed = Parallel(n_jobs=32)(delayed(parse_name_cached)(name) for name in names)
+            df["FirstName"] = [p["FirstName"] for p in parsed]
+            df["LastName"] = [p["LastName"] for p in parsed]            
             return df
         except Exception as e:
             print(f"Error extracting names: {str(e)}")
             df["FirstName"] = "Unknown"
             df["LastName"] = "Unknown"
             return df
-
+        
+    def extract_names_optimized(self, df: pd.DataFrame, n_jobs: int = 32, chunk_size: int = 1000) -> pd.DataFrame:
+        """Extract first and last names from business names using optimized parallel processing."""
+        try:
+            df = df.copy()
+            names = df["BorrowerName"].fillna("").astype(str).values  # Use .values for faster access
+            
+            # Split into chunks for better memory and CPU utilization
+            chunks = [names[i:i + chunk_size] for i in range(0, len(names), chunk_size)]
+            
+            # Use multiprocessing.Pool for parallel execution
+            with Pool(processes=n_jobs) as pool:
+                results = pool.map(process_name_chunk, chunks)
+            
+            # Flatten results
+            parsed = [item for sublist in results for item in sublist]
+            df["FirstName"] = [p["FirstName"] for p in parsed]
+            df["LastName"] = [p["LastName"] for p in parsed]
+            return df
+        
+        except Exception as e:
+            print(f"Error extracting names: {str(e)}")
+            df["FirstName"] = "Unknown"
+            df["LastName"] = "Unknown"
+            return df
+    
     def analyze_name_patterns(self, sus: pd.DataFrame, full: pd.DataFrame) -> None:
         """Analyze name patterns with proper error handling."""
         try:
-            sus = self.extract_names(sus.copy())
-            full = self.extract_names(full.copy())
+            sus = self.extract_names_optimized(sus.copy())
+            full = self.extract_names_optimized(full.copy())
             
             self.analyze_categorical_patterns(
                 sus, full, "FirstName", "First Name Patterns", 3
@@ -578,8 +799,8 @@ class SuspiciousLoanAnalyzer:
             )
             
             # Name length analysis
-            sus["NameLength"] = sus["BorrowerName"].astype(str).str.len()
-            full["NameLength"] = full["BorrowerName"].astype(str).str.len()
+            sus["NameLength"] = sus["BorrowerName"].astype(str).str.len().fillna(0).astype(int)
+            full["NameLength"] = full["BorrowerName"].astype(str).str.len().fillna(0).astype(int)
             
             avg_sus = sus["NameLength"].mean()
             avg_full = full["NameLength"].mean()
@@ -595,36 +816,32 @@ class SuspiciousLoanAnalyzer:
                 ("Mann-Whitney U", lambda x, y: stats.mannwhitneyu(x, y, alternative="two-sided"))
             ]
             
-            for test_name, test_func in name_length_tests:
-                try:
-                    _, p_val = test_func(
-                        sus["NameLength"].dropna(),
-                        full["NameLength"].dropna()
-                    )
-                    print(f"{test_name} p-value: {p_val}")
-                except Exception as e:
-                    print(f"{test_name} failed: {str(e)}")
+            # For NameLength
+            results = Parallel(n_jobs=3)(
+                delayed(run_stat_test)(test_name, test_func, sus["NameLength"].dropna(), full["NameLength"].dropna())
+                for test_name, test_func in name_length_tests
+            )
+            for result in results:
+                print(result)
             
             # Word count analysis
-            sus["WordCount"] = sus["BorrowerName"].astype(str).apply(lambda x: len(x.split()))
-            full["WordCount"] = full["BorrowerName"].astype(str).apply(lambda x: len(x.split()))
-            
+            sus["WordCount"] = sus["BorrowerName"].astype(str).str.split().str.len().fillna(0).astype(int)
+            full["WordCount"] = full["BorrowerName"].astype(str).str.split().str.len().fillna(0).astype(int)
+
             avg_words_sus = sus["WordCount"].mean()
             avg_words_full = full["WordCount"].mean()
             
             print("\nWord Count Analysis")
             print(f"Suspicious avg: {avg_words_sus:.1f} words; Overall avg: {avg_words_full:.1f} words")
             
-            for test_name, test_func in name_length_tests:
-                try:
-                    _, p_val = test_func(
-                        sus["WordCount"].dropna(),
-                        full["WordCount"].dropna()
-                    )
-                    print(f"{test_name} p-value: {p_val}")
-                except Exception as e:
-                    print(f"{test_name} failed: {str(e)}")
-                    
+            # For WordCount
+            results = Parallel(n_jobs=3)(
+                delayed(run_stat_test)(test_name, test_func, sus["WordCount"].dropna(), full["WordCount"].dropna())
+                for test_name, test_func in name_length_tests
+            )
+            for result in results:
+                print(result)
+                                
         except Exception as e:
             print(f"Error in name patterns analysis: {str(e)}")
 
@@ -715,7 +932,7 @@ f"{pname}: {sus_match:.3%} in suspicious vs {full_match:.3%} overall ({ratio:.2f
             print("\nTop risk flags in suspicious loans:")
             for flag, count in flag_counts.head(100).items():
                 percentage = (count / total_loans) * 100
-                print(f"{flag}: {count:,} occurrences ({percentage:.1f}% of loans)")
+                print(f"{flag}: {count:,} occurrences ({percentage:.3f}% of loans)")
                 
         except Exception as e:
             print(f"Error analyzing risk flags: {str(e)}")
@@ -752,13 +969,13 @@ f"{pname}: {sus_match:.3%} in suspicious vs {full_match:.3%} overall ({ratio:.2f
             }
             
             print("\nLoan Amount Distribution")
-            for group, stats in stats_dict.items():
+            for group, current_stats in stats_dict.items():
                 print(f"\n{group}:")
-                for stat_name, value in stats.items():
+                for stat_name, value in current_stats.items():
                     if stat_name in ["Skewness", "Kurtosis"]:
                         print(f"  {stat_name}: {value:.3f}")
                     else:
-                        print(f"  {stat_name}: ${value:,.2f}")
+                        print(f"  {stat_name}: ${value:,.3f}")
             
             # Statistical tests
             tests = [
@@ -771,7 +988,7 @@ f"{pname}: {sus_match:.3%} in suspicious vs {full_match:.3%} overall ({ratio:.2f
             for test_name, test_func in tests:
                 try:
                     _, p_val = test_func(s_amt, f_amt)
-                    print(f"{test_name} p-value: {p_val}")
+                    print(f"{test_name} p-value: {p_val:.6f}")
                 except Exception as e:
                     print(f"{test_name} failed: {str(e)}")
                     
@@ -810,13 +1027,13 @@ f"{pname}: {sus_match:.3%} in suspicious vs {full_match:.3%} overall ({ratio:.2f
             }
             
             print("\nJobs Reported Analysis")
-            for group, stats in stats_dict.items():
+            for group, current_stats in stats_dict.items():
                 print(f"\n{group}:")
-                for stat_name, value in stats.items():
+                for stat_name, value in current_stats.items():
                     if "jobs" in stat_name.lower():
-                        print(f"  {stat_name}: {value:.1f}%")
+                        print(f"  {stat_name}: {value:.3f}%")
                     else:
-                        print(f"  {stat_name}: {value:.2f}")
+                        print(f"  {stat_name}: {value:.3f}")
             
             # Statistical tests
             tests = [
@@ -829,7 +1046,7 @@ f"{pname}: {sus_match:.3%} in suspicious vs {full_match:.3%} overall ({ratio:.2f
             for test_name, test_func in tests:
                 try:
                     _, p_val = test_func(s_jobs, f_jobs)
-                    print(f"{test_name} p-value: {p_val}")
+                    print(f"{test_name} p-value: {p_val:.6f}")
                 except Exception as e:
                     print(f"{test_name} failed: {str(e)}")
                     
@@ -837,16 +1054,15 @@ f"{pname}: {sus_match:.3%} in suspicious vs {full_match:.3%} overall ({ratio:.2f
             print(f"Error analyzing jobs reported patterns: {str(e)}")
 
     def analyze_risk_score_distribution(self, sus: pd.DataFrame) -> None:
-        """Analyze risk score distribution with proper error handling."""
         if "RiskScore" not in sus.columns:
             print("\nNo RiskScore column found in suspicious data.")
             return
-            
+        
         try:
             scores = pd.to_numeric(sus["RiskScore"], errors="coerce").dropna()
             
-            # Calculate detailed statistics
-            stats = {
+            # Use a different name for the stats dictionary
+            risk_stats = {
                 "Mean": scores.mean(),
                 "Median": scores.median(),
                 "Std": scores.std(),
@@ -859,10 +1075,9 @@ f"{pname}: {sus_match:.3%} in suspicious vs {full_match:.3%} overall ({ratio:.2f
             }
             
             print("\nRisk Score Distribution in Suspicious Loans")
-            for stat_name, value in stats.items():
-                print(f"{stat_name}: {value:.2f}")
+            for stat_name, value in risk_stats.items():
+                print(f"{stat_name}: {value:.3f}")
             
-            # Calculate risk level distributions
             bins = [0, 25, 50, 75, 100]
             labels = ["Low Risk", "Medium Risk", "High Risk", "Very High Risk"]
             risk_levels = pd.cut(scores, bins=bins, labels=labels)
@@ -872,27 +1087,24 @@ f"{pname}: {sus_match:.3%} in suspicious vs {full_match:.3%} overall ({ratio:.2f
             total_loans = len(scores)
             for level, count in risk_counts.items():
                 percentage = (count / total_loans) * 100
-                print(f"{level}: {count:,} loans ({percentage:.1f}%)")
-                
+                print(f"{level}: {count:,} loans ({percentage:.3f}%)")
+        
         except Exception as e:
             print(f"Error analyzing risk score distribution: {str(e)}")
 
     def analyze_flag_count_distribution(self, sus: pd.DataFrame) -> None:
-        """Analyze flag count distribution with proper error handling."""
         if "RiskFlags" not in sus.columns:
             print("\nNo RiskFlags column found in suspicious data.")
             return
-            
+        
         try:
-            # Calculate flag counts
             flag_counts = (
                 sus["RiskFlags"]
                 .fillna("")
                 .apply(lambda x: len([f for f in str(x).split(";") if f.strip()]))
             )
             
-            # Calculate statistics
-            stats = {
+            flag_stats = {
                 "Mean": flag_counts.mean(),
                 "Median": flag_counts.median(),
                 "Std": flag_counts.std(),
@@ -903,25 +1115,23 @@ f"{pname}: {sus_match:.3%} in suspicious vs {full_match:.3%} overall ({ratio:.2f
             }
             
             print("\nRisk Flags Count Distribution in Suspicious Loans")
-            for stat_name, value in stats.items():
-                print(f"{stat_name}: {value:.2f}")
+            for stat_name, value in flag_stats.items():
+                print(f"{stat_name}: {value:.3f}")
             
-            # Distribution of flag counts
             count_distribution = flag_counts.value_counts().sort_index()
             total_loans = len(flag_counts)
             
             print("\nFlag Count Distribution:")
             for count, frequency in count_distribution.items():
                 percentage = (frequency / total_loans) * 100
-                print(f"{count} flags: {frequency:,} loans ({percentage:.1f}%)")
+                print(f"{count} flags: {frequency:,} loans ({percentage:.3f}%)")
             
-            # One-sample t-test
             try:
                 t_stat, p_val = stats.ttest_1samp(flag_counts, 0)
-                print(f"\nOne-sample t-test p-value (against 0): {p_val}")
+                print(f"\nOne-sample t-test p-value (against 0): {p_val:.6f}")
             except Exception as e:
                 print(f"T-test failed: {str(e)}")
-                
+        
         except Exception as e:
             print(f"Error analyzing flag count distribution: {str(e)}")
 
@@ -938,10 +1148,11 @@ f"{pname}: {sus_match:.3%} in suspicious vs {full_match:.3%} overall ({ratio:.2f
                 "InitialApprovalAmount",
                 "JobsReported", 
                 "NameLength",
-                "WordCount",
-                "FlagCount"
+                "WordCount"
             ]
-            
+            if "FlagCount" in prepared_df.columns and prepared_df["FlagCount"].nunique() > 1:
+                features.append("FlagCount")
+
             # Calculate correlations
             correlation_matrix = prepared_df[features].corr()
             
@@ -1030,134 +1241,119 @@ f"{pname}: {sus_match:.3%} in suspicious vs {full_match:.3%} overall ({ratio:.2f
             return df
 
     def analyze_multivariate(self, sus: pd.DataFrame, full: pd.DataFrame) -> None:
-        """Perform enhanced multivariate analysis incorporating more features."""
+        """Perform enhanced multivariate analysis using Logistic Regression with significance."""
         try:
             print("\nEnhanced Multivariate Analysis via Logistic Regression")
             
-            # Prepare full dataset with features
+            # Prepare full dataset with all enhanced features
             full_prepared = self.prepare_enhanced_features(full.copy())
+            full_prepared["LoanNumber"] = full_prepared["LoanNumber"].astype(str).str.strip()
+            sus["LoanNumber"] = sus["LoanNumber"].astype(str).str.strip()
             
-            # Add target variable (1 for suspicious loans, 0 for others)
-            full_prepared["Flagged"] = full_prepared["LoanNumber"].isin(sus["LoanNumber"]).astype(int)
+            # Debugging output
+            print(f"Suspicious LoanNumbers unique count: {sus['LoanNumber'].nunique()}")
+            print(f"Full dataset LoanNumbers unique count: {full_prepared['LoanNumber'].nunique()}")
+            print(f"Suspicious LoanNumbers sample: {sus['LoanNumber'].head().tolist()}")
+            print(f"Full dataset LoanNumbers sample: {full_prepared['LoanNumber'].head().tolist()}")
+            matched_loans = set(sus["LoanNumber"]).intersection(set(full_prepared["LoanNumber"]))
+            print(f"Number of matched loan numbers: {len(matched_loans)}")
             
-            # Select features for analysis
+            full_prepared["Flagged"] = full_prepared["LoanNumber"].isin(matched_loans).astype(int)
+            print(f"Class distribution - Suspicious: {full_prepared['Flagged'].sum()}, "
+                f"Non-suspicious: {len(full_prepared) - full_prepared['Flagged'].sum()}")
+            
+            if full_prepared["Flagged"].sum() == 0:
+                print("Error: No suspicious loans found in the full dataset after flagging.")
+                return
+
+            # Select features (all from prepare_enhanced_features)
             numerical_features = [
-                "InitialApprovalAmount",
-                "JobsReported",
-                "NameLength",
-                "WordCount",
-                "AmountPerEmployee",
-                "HasResidentialAddress",
-                "HasMultipleBusinesses",
-                "IsExactMaxAmount"
+                "InitialApprovalAmount", "JobsReported", "NameLength", "WordCount",
+                "AmountPerEmployee", "HasResidentialAddress", "HasMultipleBusinesses",
+                "IsExactMaxAmount", "IsRoundAmount", "HasCommercialIndicator",
+                "HasSuspiciousKeyword", "MissingDemographics", "BusinessesAtAddress"
             ]
+            categorical_features = ["BusinessType", "Race", "Gender", "Ethnicity"]
             
-            categorical_features = [
-                "BusinessType",
-                "Race",
-                "Gender",
-                "Ethnicity"
-            ]
-            
-            # Prepare feature matrix
             X = full_prepared[numerical_features].copy()
-            
-            # One-hot encode categorical variables
             for feature in categorical_features:
                 dummies = pd.get_dummies(full_prepared[feature], prefix=feature)
                 X = pd.concat([X, dummies], axis=1)
             
-            # Prepare target variable
             y = full_prepared["Flagged"]
             
-            # Handle class imbalance through balanced sampling
+            # Handle class imbalance
             if len(y.unique()) >= 2:
-                # Separate majority and minority classes
                 df_majority = X[y == 0]
                 df_minority = X[y == 1]
-                
-                # Upsample minority class
                 if len(df_minority) > 0:
                     df_minority_upsampled = resample(
-                        df_minority,
-                        replace=True,
-                        n_samples=len(df_majority),
-                        random_state=42
+                        df_minority, replace=True, n_samples=len(df_majority), random_state=42
                     )
-                    
-                    # Combine majority and upsampled minority
                     X_balanced = pd.concat([df_majority, df_minority_upsampled])
                     y_balanced = pd.Series([0] * len(df_majority) + [1] * len(df_minority_upsampled))
                     
-                    # Scale features
                     scaler = StandardScaler()
                     X_scaled = scaler.fit_transform(X_balanced)
                     
-                    # Split data
                     X_train, X_test, y_train, y_test = train_test_split(
-                        X_scaled, y_balanced,
-                        test_size=0.3,
-                        random_state=42,
-                        stratify=y_balanced
+                        X_scaled, y_balanced, test_size=0.3, random_state=42, stratify=y_balanced
                     )
                     
-                    # Train model with enhanced parameters
-                    model = LogisticRegression(
-                        max_iter=1000,
-                        class_weight="balanced",
-                        random_state=42,
-                        C=0.1  # Increase regularization
-                    )
+                    # Use statsmodels for coefficient significance
+                    X_train_sm = sm.add_constant(X_train)  # Add intercept
+                    model_sm = sm.Logit(y_train, X_train_sm).fit(disp=0)  # disp=0 suppresses convergence output
+                    
+                    # Train sklearn model for predictions
+                    model = LogisticRegression(max_iter=1000, class_weight="balanced", random_state=42, C=0.1)
                     model.fit(X_train, y_train)
                     
-                    # Make predictions
                     y_pred = model.predict(X_test)
-                    y_pred_proba = model.predict_proba(X_test)
+                    y_pred_proba = model.predict_proba(X_test)[:, 1]
                     
-                    # Print detailed results
                     print("\nClassification Report:")
                     print(classification_report(y_test, y_pred, digits=3))
                     
                     print("\nConfusion Matrix:")
                     print(confusion_matrix(y_test, y_pred))
                     
-                    # Print feature importance
-                    feature_names = numerical_features + [col for col in X_balanced.columns 
-                                                        if col not in numerical_features]
-                    coef_dict = dict(zip(feature_names, model.coef_[0]))
+                    # Feature importance with significance
+                    feature_names = ["const"] + numerical_features + \
+                                [col for col in X_balanced.columns if col not in numerical_features]
+                    coef_dict = dict(zip(feature_names, model_sm.params))
+                    pval_dict = dict(zip(feature_names, model_sm.pvalues))
                     
-                    print("\nTop 20 Most Important Features (by absolute coefficient value):")
-                    for feat, coef in sorted(
-                        coef_dict.items(),
-                        key=lambda x: abs(x[1]),
-                        reverse=True
-                    )[:20]:
-                        print(f"{feat}: {coef:.4f}")
+                    # Inside analyze_multivariate, modify the feature importance print:
+                    print("\nTop 30 Most Important Features (by absolute coefficient value) and All Race Categories:")
+                    sorted_coefs = sorted(coef_dict.items(), key=lambda x: abs(x[1]), reverse=True)
+                    top_30 = sorted_coefs[:30]
+                    race_coefs = [(feat, coef) for feat, coef in sorted_coefs if feat.startswith("Race_")]
+
+                    print("Note: Racial patterns reflect data distribution, not targeted focus.")
+                    for feat, coef in top_30 + [r for r in race_coefs if r not in top_30]:  # Include all races
+                        p_val = pval_dict.get(feat, 1.0)
+                        sig_note = " (p < 0.05, significant)" if p_val < 0.05 else " (p >= 0.05, not significant)"
+                        print(f"{feat}: {coef:.4f}{sig_note}")
                     
-                    # Calculate and print ROC-AUC score
-                    roc_auc = roc_auc_score(y_test, y_pred_proba[:, 1])
+                    roc_auc = roc_auc_score(y_test, y_pred_proba)
                     print(f"\nROC-AUC Score: {roc_auc:.3f}")
-                    
                 else:
                     print("No suspicious loans found for modeling.")
             else:
                 print("Not enough classes for logistic regression.")
-                
+                        
         except Exception as e:
             print(f"Error in multivariate analysis: {str(e)}")
 
     def run_analysis(self) -> None:
-        """Run the complete analysis pipeline with proper error handling."""
         try:
             sus, full = self.load_data()
             print(
                 f"\nStarting analysis of {len(sus):,} suspicious loans "
                 f"out of {len(full):,} loans in the $5k-$22k range"
             )
-            # Instantiate the XGBoost analyzer
             xgb_analyzer = XGBoostAnalyzer()
 
-            # Define analysis steps
             analysis_steps = [
                 ("Geographic Clusters", self.analyze_geographic_clusters),
                 ("Lender Patterns", self.analyze_lender_patterns),
@@ -1172,10 +1368,10 @@ f"{pname}: {sus_match:.3%} in suspicious vs {full_match:.3%} overall ({ratio:.2f
                 ("Risk Flags Count Distribution", lambda s, f: self.analyze_flag_count_distribution(s)),
                 ("Correlations", lambda s, f: self.analyze_correlations(f)),
                 ("Multivariate Analysis", self.analyze_multivariate),
-                ("XGBoost Analysis", lambda s, f: xgb_analyzer.analyze_with_xgboost(s, f))
+                ("XGBoost Analysis", lambda s, f: xgb_analyzer.analyze_with_xgboost(s, f, n_iter=5)),
+                ("Feature Discrimination (AUPRC)", self.analyze_feature_discrimination)
             ]
             
-            # Run each analysis step
             for title, func in analysis_steps:
                 print(f"\nStarting {title} analysis...")
                 try:
@@ -1183,10 +1379,9 @@ f"{pname}: {sus_match:.3%} in suspicious vs {full_match:.3%} overall ({ratio:.2f
                 except Exception as e:
                     print(f"Error in {title} analysis: {str(e)}")
             
-            # Calculate final statistics
             flag_rate = (len(sus) / len(full)) * 100
             print(
-                f"\nOverall flagging rate: {flag_rate:.1f}% of loans in the "
+                f"\nOverall flagging rate: {flag_rate:.3f}% of loans in the "
                 f"$5k-$22k range"
             )
             
@@ -1196,6 +1391,10 @@ f"{pname}: {sus_match:.3%} in suspicious vs {full_match:.3%} overall ({ratio:.2f
 
 def main():
     """Main function to run the analysis."""
+    # Lower process priority
+    p = psutil.Process(os.getpid())
+    p.nice(psutil.BELOW_NORMAL_PRIORITY_CLASS if os.name == 'nt' else 10)  # Windows or Unix
+    
     analyzer = SuspiciousLoanAnalyzer(
         suspicious_file="suspicious_loans.csv",
         full_data_file="ppp-full.csv"
@@ -1207,6 +1406,5 @@ def main():
     except Exception as e:
         print(f"Error: {str(e)}")
         raise
-
 if __name__ == "__main__":
     main()

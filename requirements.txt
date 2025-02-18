@@ -1,13 +1,15 @@
 aiofiles
 httpx
+joblib
 nameparser
 numpy
 pandas
+psutil
 ruff
 scikit-learn
 scipy
+shap
+statsmodels
 termcolor
 tqdm
 xgboost
-shap
-joblib

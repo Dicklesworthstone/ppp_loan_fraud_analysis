@@ -22,6 +22,8 @@ Imagine applying for a federal loan and naming your business "Fake Business LLC"
 - Businesses with names including phrases like "Free Money" and "Get Paid"
 - References to luxury brands, suggesting someone's wishlist rather than a real business
 
+Beyond these standout names, the system examines more subtle patterns in business names. In analyze_patterns_in_suspicious_loans.py, the analyze_business_name_patterns function checks for indicators like multiple spaces or special characters, which can suggest automated or sloppy entries. It also calculates metrics such as name length and word count. For example, the code compares the average name length between suspicious and overall loans, using statistical tests like the t-test to determine if differences are meaningful. This helps identify less obvious red flags, like names that are unusually short or generic, complementing the detection of blatant cases.
+
 ### Beyond the Obvious: The Digital Fingerprints of Fraud
 
 But not all fraudsters were quite so blatant. The more interesting cases required looking at subtle patterns that emerged only when analyzing thousands of applications together. Some of these indicators included:
@@ -35,7 +37,7 @@ What makes these patterns fascinating is that they often reveal how fraudsters, 
 
 The real challenge – and what drove me to build this detection system – was finding ways to automatically identify these patterns across millions of records. When you're dealing with an 8GB CSV file, you can't exactly skim through it looking for suspicious entries. You need a systematic approach that can catch both the obvious cases (looking at you, "Wakanda Investments LLC") and the more subtle patterns that emerge only when you look at the data as a whole.
 
-
+These indicators gain depth through additional analysis in `analyze_patterns_in_suspicious_loans.py`. The `XGBoostAnalyzer` class uses a machine learning model to evaluate features like `AmountPerEmployee` and `BusinessesAtAddress`. After training, it reports feature importance scores, showing which factors most influence the likelihood of a loan being flagged. The code also examines geographic patterns by tracking loan concentrations at specific addresses or within cities, providing a broader view of potential fraud networks. This systematic approach helps reveal connections that might not stand out in individual records.
 
 ## Under the Hood: How the Fraud Detection System Works
 
@@ -95,6 +97,7 @@ target_loans = chunk[
 
 This filtering step means we spend processing power only on the loans we care about - those between $5,000 and $21,000 where fraud is most common.
 
+
 5. **Efficient Output Handling**: Instead of keeping all results in memory, we write them to disk as we go:
 ```python
 if first_chunk:
@@ -103,6 +106,8 @@ if first_chunk:
 else:
     validated_loans.to_csv(self.output_file, mode='a', header=False, index=False)
 ```
+
+Handling large datasets also requires optimizing speed. In `analyze_patterns_in_suspicious_loans.py`, the `extract_names_optimized` function uses parallel processing with the `multiprocessing.Pool` to parse business names across multiple CPU cores, reducing computation time. Additionally, the `@lru_cache` decorator caches results of repeated name parsing, avoiding redundant work when the same names appear multiple times. These techniques ensure the system can efficiently analyze millions of loans, catching patterns like multiple businesses at one address without delays.
 
 For non-programmers: Think of this like processing a massive stack of paper documents. Instead of trying to look at every page at once (which would be impossible), we:
 1. Take a manageable stack of papers (chunked processing)
