@@ -31,7 +31,7 @@ def parse_name_cached(name_str: str):
 def run_stat_test(test_name, test_func, x, y):
     try:
         _, p_val = test_func(x, y)
-        return f"{test_name} p-value: {p_val}"
+        return f"{test_name} p-value: {p_val:.6f}"
     except Exception as e:
         return f"{test_name} failed: {str(e)}"
 
@@ -150,18 +150,19 @@ class XGBoostAnalyzer:
         try:
             print("\nEnhanced XGBoost Analysis")
             full_prepared = self.prepare_enhanced_features(full.copy(), min_instances=min_instances)
+            full_prepared["LoanNumber"] = full["LoanNumber"].astype(str).str.strip()  # Preserve LoanNumber
+            sus["LoanNumber"] = sus["LoanNumber"].astype(str).str.strip()
+            
             full_prepared["Flagged"] = full_prepared["LoanNumber"].isin(sus["LoanNumber"]).astype('uint8')
+            
+            # Drop LoanNumber after flagging
+            full_prepared = full_prepared.drop(columns=["LoanNumber"])
             
             feature_cols = [col for col in full_prepared.columns if full_prepared[col].dtype in ['int8', 'int16', 'int32', 'uint8', 'float32']]
             X = full_prepared[feature_cols]
             y = full_prepared["Flagged"]
             print(f"Feature matrix ready. Shape: {X.shape}, Columns: {len(feature_cols)}")
 
-            max_samples = 200000
-            if len(X) > max_samples:
-                print(f"Downsampling from {len(X):,} to {max_samples:,} samples")
-                X, _, y, _ = train_test_split(X, y, train_size=max_samples, stratify=y, random_state=42)
-            
             X_train, X_test, y_train, y_test = train_test_split(
                 X, y, test_size=0.3, random_state=42, stratify=y
             )
@@ -182,11 +183,12 @@ class XGBoostAnalyzer:
                 eval_metric='auc',
                 random_state=42,
                 tree_method='hist',
-                nthread=8,
+                nthread=16,
                 max_bin=256
             )
             
             early_stopping = xgb.callback.EarlyStopping(rounds=10, metric_name='auc', data_name='validation_0', save_best=True)
+            
             random_search = RandomizedSearchCV(
                 xgb_clf,
                 param_distributions=param_grid,
@@ -195,13 +197,16 @@ class XGBoostAnalyzer:
                 cv=2,
                 random_state=42,
                 n_jobs=2,
-                verbose=2,
-                fit_params={'callbacks': [early_stopping], 'eval_set': [(X_test, y_test)]}
+                verbose=2
             )
             
             with parallel_backend('loky', n_jobs=2):
                 print("Performing hyperparameter tuning with early stopping...")
-                random_search.fit(X_train, y_train)
+                random_search.fit(
+                    X_train, y_train,
+                    eval_set=[(X_test, y_test)],
+                    callbacks=[early_stopping]
+                )
             
             self.model = random_search.best_estimator_
             print(f"Best parameters: {random_search.best_params_}")
@@ -552,7 +557,7 @@ class SuspiciousLoanAnalyzer:
             # Print results
             print("=" * 80)
             print(f"{title} Analysis")
-            print(f"Chi-square test p-value: {p_chi2 if p_chi2 is not None else 'N/A'}")
+            print(f"Chi-square test p-value: {p_chi2 if p_chi2 is not None else 'N/A' :.6f}")
             
             # Original threshold results (min 5)
             if not analysis_original.empty:
@@ -613,9 +618,15 @@ class SuspiciousLoanAnalyzer:
         try:
             print("\nFeature Discrimination Analysis using AUPRC")
             
-            # Prepare enhanced features
+            # Prepare enhanced features, keeping LoanNumber initially
             full_prepared = self.prepare_enhanced_features(full.copy())
+            full_prepared["LoanNumber"] = full["LoanNumber"].astype(str).str.strip()  # Preserve LoanNumber
+            sus["LoanNumber"] = sus["LoanNumber"].astype(str).str.strip()
+            
             full_prepared["Flagged"] = full_prepared["LoanNumber"].isin(sus["LoanNumber"]).astype(int)
+            
+            # Drop LoanNumber after flagging
+            full_prepared = full_prepared.drop(columns=["LoanNumber"])
             
             # Define features to analyze
             features_to_analyze = [
@@ -1345,9 +1356,9 @@ f"{pname}: {sus_match:.3%} in suspicious vs {full_match:.3%} overall ({ratio:.2f
         try:
             print("\nEnhanced Multivariate Analysis via Logistic Regression")
             
-            # Prepare dataset with enhanced features
+            # Prepare dataset with enhanced features, keeping LoanNumber initially
             full_prepared = self.prepare_enhanced_features(full.copy())
-            full_prepared["LoanNumber"] = full_prepared["LoanNumber"].astype(str).str.strip()
+            full_prepared["LoanNumber"] = full["LoanNumber"].astype(str).str.strip()
             sus["LoanNumber"] = sus["LoanNumber"].astype(str).str.strip()
             
             # Debugging output
@@ -1371,11 +1382,15 @@ f"{pname}: {sus_match:.3%} in suspicious vs {full_match:.3%} overall ({ratio:.2f
                 "BusinessesAtAddress", "IsExactMaxAmount", "IsRoundAmount",
                 "HasSuspiciousKeyword", "MissingDemographics"
             ]
-            categorical_features = ["BusinessType", "Race", "Gender", "Ethnicity"]  # Add 'OriginatingLender' if desired
+            categorical_features = ["BusinessType", "Race", "Gender", "Ethnicity"]
 
             # Filter available features
             numerical_features = [f for f in numerical_features if f in full_prepared.columns]
             categorical_features = [f for f in categorical_features if f in full.columns]
+
+            # Drop LoanNumber now that flagging is complete
+            if "LoanNumber" in full_prepared.columns:
+                full_prepared = full_prepared.drop(columns=["LoanNumber"])
 
             # Initial feature matrix with numerical features
             X = full_prepared[numerical_features].copy()
@@ -1393,14 +1408,14 @@ f"{pname}: {sus_match:.3%} in suspicious vs {full_match:.3%} overall ({ratio:.2f
             # Address multicollinearity explicitly
             corr_matrix = X.corr().abs()
             upper_tri = corr_matrix.where(np.triu(np.ones(corr_matrix.shape), k=1).astype(bool))
-            high_corr_pairs = [(col, idx) for idx, col in upper_tri.stack().items() if col > 0.85]
+            # Correctly unpack row_idx, col_idx, and value from stack().items()
+            high_corr_pairs = [((row_idx, col_idx), value) for (row_idx, col_idx), value in upper_tri.stack().items() if value > 0.85]
             if high_corr_pairs:
                 print("High correlations detected (r > 0.85):")
                 to_drop = set()
-                for col1, col2 in high_corr_pairs:
-                    corr = corr_matrix.loc[col1, col2]
-                    print(f"  {col1} - {col2}: {corr:.3f}")
-                    to_drop.add(col2)
+                for (row_idx, col_idx), corr_value in high_corr_pairs:
+                    print(f"  {row_idx} - {col_idx}: {corr_value:.3f}")
+                    to_drop.add(col_idx)  # Remove the second column in highly correlated pairs
                 print(f"Removing correlated features: {to_drop}")
                 X = X.drop(columns=to_drop)
                 numerical_features = [f for f in numerical_features if f not in to_drop]
@@ -1412,33 +1427,27 @@ f"{pname}: {sus_match:.3%} in suspicious vs {full_match:.3%} overall ({ratio:.2f
                 value_counts = full[feature].value_counts()
                 print(f"  Unique categories: {len(value_counts)}, Min count: {value_counts.min()}")
                 
-                # Increase min_occurrences to reduce rare categories
-                min_occurrences = max(50, int(len(full) * 0.001))  # At least 50 or 0.1% of data
-                common_categories = value_counts[value_counts >= min_occurrences].index  # Fixed typo
+                min_occurrences = max(50, int(len(full) * 0.001))
+                common_categories = value_counts[value_counts >= min_occurrences].index
                 temp_df = full[feature].fillna('Unknown').astype(str).apply(
                     lambda x: x if x in common_categories else 'Other'
                 )
                 
                 dummies = pd.get_dummies(temp_df)
-                # Ensure meaningful names using actual category values
                 dummies.columns = [f"{feature}_{col.replace(' ', '_')}" for col in dummies.columns]
                 
-                # Remove low-variance dummies
                 dummy_variances = dummies.var()
                 low_variance_dummies = dummy_variances[dummy_variances < 0.02].index.tolist()
                 if low_variance_dummies:
                     print(f"  Removing low-variance dummy columns: {low_variance_dummies}")
                     dummies = dummies.drop(columns=low_variance_dummies)
                 
-                # Track base feature and check for remaining columns
                 for col in dummies.columns:
                     if dummies[col].var() > 0:
                         category_feature_map[col] = feature
                 
                 if dummies.shape[1] > 0:
                     X = pd.concat([X, dummies], axis=1)
-                else:
-                    print(f"  No valid dummy variables remain for {feature} after filtering.")
 
             # Final feature check
             print(f"\nFinal feature matrix shape: {X.shape}")
@@ -1464,14 +1473,12 @@ f"{pname}: {sus_match:.3%} in suspicious vs {full_match:.3%} overall ({ratio:.2f
                         X_scaled, y_balanced, test_size=0.3, random_state=42, stratify=y_balanced
                     )
                     
-                    # Fit sklearn model first as a robust baseline
                     model_sk = LogisticRegression(
                         max_iter=2000, class_weight="balanced", random_state=42,
                         penalty='l2', C=0.05, solver='lbfgs'
                     )
                     model_sk.fit(X_train, y_train)
                     
-                    # Try statsmodels with adjustments
                     X_train_sm = sm.add_constant(X_train.astype(float))
                     try:
                         model_sm = sm.Logit(y_train, X_train_sm).fit_regularized(
@@ -1482,7 +1489,6 @@ f"{pname}: {sus_match:.3%} in suspicious vs {full_match:.3%} overall ({ratio:.2f
                         print(f"Statsmodels failed: {str(e)}. Falling back to sklearn model.")
                         model_sm = None
                     
-                    # Use sklearn model for predictions if statsmodels fails
                     y_pred = model_sk.predict(X_test)
                     y_pred_proba = model_sk.predict_proba(X_test)[:, 1]
                     
@@ -1492,7 +1498,6 @@ f"{pname}: {sus_match:.3%} in suspicious vs {full_match:.3%} overall ({ratio:.2f
                     print("\nConfusion Matrix:")
                     print(confusion_matrix(y_test, y_pred))
                     
-                    # Feature importance
                     feature_names = ["const"] + X.columns.tolist() if model_sm else X.columns.tolist()
                     if model_sm:
                         coef_dict = dict(zip(feature_names, model_sm.params))
@@ -1539,8 +1544,8 @@ f"{pname}: {sus_match:.3%} in suspicious vs {full_match:.3%} overall ({ratio:.2f
                 print("Not enough classes for logistic regression.")
                                         
         except Exception as e:
-            print(f"Error in multivariate analysis: {str(e)}")        
-        
+            print(f"Error in multivariate analysis: {str(e)}")
+            
     def run_analysis(self) -> None:
         try:
             sus, full = self.load_data()
@@ -1551,18 +1556,18 @@ f"{pname}: {sus_match:.3%} in suspicious vs {full_match:.3%} overall ({ratio:.2f
             xgb_analyzer = XGBoostAnalyzer()
 
             analysis_steps = [
-                ("Geographic Clusters", self.analyze_geographic_clusters),
-                ("Lender Patterns", self.analyze_lender_patterns),
-                ("Business Patterns", self.analyze_business_patterns),
-                ("Name Patterns", self.analyze_name_patterns),
-                ("Business Name Patterns", self.analyze_business_name_patterns),
-                ("Demographic Patterns", self.analyze_demographic_patterns),
-                ("Risk Flags Analysis", lambda s, f: self.analyze_risk_flags(s)),
-                ("Loan Amount Distribution", self.analyze_loan_amount_distribution),
-                ("Jobs Reported Patterns", self.analyze_jobs_reported_patterns),
-                ("Risk Score Distribution", lambda s, f: self.analyze_risk_score_distribution(s)),
-                ("Risk Flags Count Distribution", lambda s, f: self.analyze_flag_count_distribution(s)),
-                ("Correlations", lambda s, f: self.analyze_correlations(f)),
+                # ("Geographic Clusters", self.analyze_geographic_clusters),
+                # ("Lender Patterns", self.analyze_lender_patterns),
+                # ("Business Patterns", self.analyze_business_patterns),
+                # ("Name Patterns", self.analyze_name_patterns),
+                # ("Business Name Patterns", self.analyze_business_name_patterns),
+                # ("Demographic Patterns", self.analyze_demographic_patterns),
+                # ("Risk Flags Analysis", lambda s, f: self.analyze_risk_flags(s)),
+                # ("Loan Amount Distribution", self.analyze_loan_amount_distribution),
+                # ("Jobs Reported Patterns", self.analyze_jobs_reported_patterns),
+                # ("Risk Score Distribution", lambda s, f: self.analyze_risk_score_distribution(s)),
+                # ("Risk Flags Count Distribution", lambda s, f: self.analyze_flag_count_distribution(s)),
+                # ("Correlations", lambda s, f: self.analyze_correlations(f)),
                 ("Multivariate Analysis", self.analyze_multivariate),
                 ("XGBoost Analysis", lambda s, f: xgb_analyzer.analyze_with_xgboost(s, f, n_iter=5)),
                 ("Feature Discrimination (AUPRC)", self.analyze_feature_discrimination)
