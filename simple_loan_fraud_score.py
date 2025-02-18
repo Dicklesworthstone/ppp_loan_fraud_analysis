@@ -605,7 +605,7 @@ class PPPLoanProcessor:
             name = str(loan['BorrowerName']).lower()
             for pattern, weight in self.SUSPICIOUS_PATTERNS.items():
                 if re.search(pattern, name):
-                    score += 25 * weight
+                    score += 30 * weight
                     flags.append(f'Suspicious pattern in name: {pattern}')
             if loan['JobsReported'] > 0:
                 amount = float(loan['InitialApprovalAmount'])
@@ -623,7 +623,7 @@ class PPPLoanProcessor:
                     score += 10
                     flags.append("Fewer than three employees reported: Increased fraud risk")
             if loan['InitialApprovalAmount'] == 20832 or loan['InitialApprovalAmount'] == 20833:
-                score += 30
+                score += 25
                 flags.append("Exact maximum loan amount detected")
             lender = str(loan['OriginatingLender'])
             if lender in self.HIGH_RISK_LENDERS and len(flags) > 0:
@@ -810,7 +810,7 @@ def main():
         asyncio.run(download_and_extract_csv())
     input_file = CSV_FILENAME
     output_file = "suspicious_loans.csv"
-    risk_threshold = 75
+    risk_threshold = 90
     chunk_size = 10000
     processor = PPPLoanProcessor(input_file, output_file, risk_threshold, chunk_size)
     try:

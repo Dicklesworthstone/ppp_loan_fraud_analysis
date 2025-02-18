@@ -70,16 +70,27 @@ class SuspiciousLoanAnalyzer:
         full_counts: pd.Series,
         min_occurrences: int = 5,
     ) -> pd.DataFrame:
-        """Calculate representation ratios with proper error handling."""
+        """Calculate representation ratios with corrected handling of percentages."""
         try:
-            # Convert to float to avoid integer division
-            sus_pct = suspicious_counts.astype(float) / suspicious_counts.sum()
-            full_pct = full_counts.astype(float) / full_counts.sum()
+            # Ensure counts are positive
+            suspicious_counts = suspicious_counts.clip(lower=0)
+            full_counts = full_counts.clip(lower=0)
             
-            # Calculate ratios safely
+            # Calculate suspicious percentage using total suspicious loans
+            sus_total = suspicious_counts.sum()
+            sus_pct = suspicious_counts / sus_total if sus_total > 0 else 0
+            
+            # Calculate full percentage using total loans
+            full_total = full_counts.sum()
+            full_pct = full_counts / full_total if full_total > 0 else 0
+            
+            # Calculate ratios with safe division
             ratios = pd.Series(
-                {idx: self.safe_divide(sus_pct.get(idx, 0), full_pct.get(idx, 0))
-                 for idx in set(suspicious_counts.index) | set(full_counts.index)}
+                {idx: self.safe_divide(
+                    sus_pct.get(idx, 0),
+                    full_pct.get(idx, 0),
+                    default=0.0
+                ) for idx in set(suspicious_counts.index) | set(full_counts.index)}
             )
             
             df = pd.DataFrame({
@@ -90,7 +101,7 @@ class SuspiciousLoanAnalyzer:
                 "Representation_Ratio": ratios
             })
             
-            # Filter by minimum occurrences and sort
+            # Filter and sort
             result = df[df["Suspicious_Count"] >= min_occurrences].sort_values(
                 "Representation_Ratio", ascending=False
             )
@@ -105,66 +116,74 @@ class SuspiciousLoanAnalyzer:
             return pd.DataFrame()
 
     def analyze_categorical_patterns(
-        self,
-        sus: pd.DataFrame,
-        full: pd.DataFrame,
-        column: str,
-        title: str,
-        min_occurrences: int = 5,
-    ) -> None:
-        """Analyze patterns in categorical variables with proper error handling."""
-        try:
-            print(f"\nAnalyzing {title}...")
-            
-            # Handle missing values
-            sus[column] = sus[column].fillna('Unknown')
-            full[column] = full[column].fillna('Unknown')
-            
-            # Calculate value counts
-            s_counts = sus[column].value_counts()
-            f_counts = full[column].value_counts()
-            
-            # Align indexes
-            all_values = pd.Index(set(s_counts.index) | set(f_counts.index))
-            s_counts = s_counts.reindex(all_values, fill_value=0)
-            f_counts = f_counts.reindex(all_values, fill_value=0)
-            
-            # Create contingency table for chi-square test
-            cont_table = pd.DataFrame({
-                "Suspicious": s_counts,
-                "Non_Suspicious": f_counts - s_counts
-            })
-            cont_table[cont_table < 0] = 0
-            
-            # Calculate chi-square test if possible
-            p_chi2 = None
-            if cont_table.shape[0] >= 2 and (cont_table > 0).all().all():
-                _, p_chi2, _, _ = stats.chi2_contingency(cont_table)
-            
-            # Calculate representation ratios
-            analysis = self.calculate_representation_ratio(
-                s_counts, f_counts, min_occurrences
-            )
-            
-            # Print results
-            print("=" * 80)
-            print(f"{title} Analysis")
-            print(f"Chi-square test p-value: {p_chi2 if p_chi2 is not None else 'N/A'}")
-            
-            if not analysis.empty:
-                print("Top over-represented categories (top 100):")
-                for idx, row in analysis.head(100).iterrows():
-                    if row["Representation_Ratio"] > 0:
-                        print(
-                            f"{idx}: {row['Representation_Ratio']:.2f}x more common in suspicious loans "
-                            f"({int(row['Suspicious_Count'])} occurrences, {row['Suspicious_Pct']:.3%} vs {row['Overall_Pct']:.3%})"
-                        )
-            else:
-                print("No categories met the minimum occurrence threshold")
+            self,
+            sus: pd.DataFrame,
+            full: pd.DataFrame,
+            column: str,
+            title: str,
+            min_occurrences: int = 5,
+        ) -> None:
+            """Analyze patterns in categorical variables with proper chi-squared testing."""
+            try:
+                print(f"\nAnalyzing {title}...")
                 
-        except Exception as e:
-            print(f"Error analyzing {title}: {str(e)}")
-
+                # Handle missing values
+                sus[column] = sus[column].fillna('Unknown')
+                full[column] = full[column].fillna('Unknown')
+                
+                # Calculate value counts
+                s_counts = sus[column].value_counts()
+                f_counts = full[column].value_counts()
+                
+                # Create contingency table
+                categories = sorted(set(s_counts.index) | set(f_counts.index))
+                cont_table = np.zeros((2, len(categories)))
+                
+                # Fill in suspicious counts
+                for i, cat in enumerate(categories):
+                    cont_table[0, i] = s_counts.get(cat, 0)  # Suspicious
+                    cont_table[1, i] = f_counts.get(cat, 0) - s_counts.get(cat, 0)  # Non-suspicious
+                
+                # Ensure no negative values
+                cont_table[cont_table < 0] = 0
+                
+                # Remove columns with all zeros
+                non_zero_cols = cont_table.sum(axis=0) > 0
+                cont_table = cont_table[:, non_zero_cols]
+                categories = [cat for i, cat in enumerate(categories) if non_zero_cols[i]]
+                
+                # Calculate chi-square test if possible
+                p_chi2 = None
+                if cont_table.shape[1] >= 2 and (cont_table > 0).all():
+                    try:
+                        _, p_chi2, _, _ = stats.chi2_contingency(cont_table)
+                    except Exception as e:
+                        print(f"Chi-square test calculation failed: {str(e)}")
+                
+                # Calculate representation ratios
+                analysis = self.calculate_representation_ratio(
+                    s_counts, f_counts, min_occurrences
+                )
+                
+                # Print results
+                print("=" * 80)
+                print(f"{title} Analysis")
+                print(f"Chi-square test p-value: {p_chi2 if p_chi2 is not None else 'N/A'}")
+                
+                if not analysis.empty:
+                    print("Top over-represented categories (top 100):")
+                    for idx, row in analysis.head(100).iterrows():
+                        if row["Representation_Ratio"] > 0:
+                            print(
+                                f"{idx}: {row['Representation_Ratio']:.2f}x more common in suspicious loans "
+                                f"({int(row['Suspicious_Count'])} occurrences, {row['Suspicious_Pct']:.3%} vs {row['Overall_Pct']:.3%})"
+                            )
+                else:
+                    print("No categories met the minimum occurrence threshold")
+                    
+            except Exception as e:
+                print(f"Error analyzing {title}: {str(e)}")
+            
     def analyze_geographic_clusters(self, sus: pd.DataFrame, full: pd.DataFrame) -> None:
         """Analyze geographic clusters with proper error handling."""
         try:
