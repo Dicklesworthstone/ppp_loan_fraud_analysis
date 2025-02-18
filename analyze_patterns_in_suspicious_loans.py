@@ -1390,17 +1390,14 @@ f"{pname}: {sus_match:.3%} in suspicious vs {full_match:.3%} overall ({ratio:.2f
                 print("Error: No suspicious loans found in the full dataset after flagging.")
                 return
 
-            # Define features
+            # Define features - reduced set to target ~30 columns
             numerical_features = [
                 "InitialApprovalAmount", "JobsReported", "NameLength", "WordCount",
                 "AmountPerEmployee", "HasResidentialIndicator", "HasCommercialIndicator",
                 "BusinessesAtAddress", "IsExactMaxAmount", "IsRoundAmount",
                 "HasSuspiciousKeyword", "MissingDemographics"
             ]
-            categorical_features = [
-                "BusinessType", "Race", "Gender", "Ethnicity",
-                "BorrowerState", "BorrowerCity", "NAICSCode", "OriginatingLender"
-            ]
+            categorical_features = ["BusinessType", "Race", "Gender", "Ethnicity"]  # Reduced from 8 to 4
 
             # Filter available features
             numerical_features = [f for f in numerical_features if f in full_prepared.columns]
@@ -1414,15 +1411,13 @@ f"{pname}: {sus_match:.3%} in suspicious vs {full_match:.3%} overall ({ratio:.2f
             X = full_prepared[numerical_features].copy()
             y = full_prepared["Flagged"]
 
-            # Add interaction features
-            X['Jobs_X_Amount'] = X['JobsReported'] * X['InitialApprovalAmount']
-            X['Address_X_AmtPerEmp'] = X['BusinessesAtAddress'] * X['AmountPerEmployee']
-            numerical_features.extend(['Jobs_X_Amount', 'Address_X_AmtPerEmp'])
+            # No interaction features to keep feature count low
+            # Removed: X['Jobs_X_Amount'], X['Address_X_AmtPerEmp']
 
             # Diagnose and clean numerical features
             print("\nDiagnosing feature variance and correlations...")
             variances = X.var()
-            low_variance_cols = variances[variances < 0.005].index.tolist()
+            low_variance_cols = variances[variances < 0.01].index.tolist()  # Tightened from 0.005 to 0.01
             if low_variance_cols:
                 print(f"Removing low-variance numerical features: {low_variance_cols}")
                 X = X.drop(columns=low_variance_cols)
@@ -1431,9 +1426,9 @@ f"{pname}: {sus_match:.3%} in suspicious vs {full_match:.3%} overall ({ratio:.2f
             # Address multicollinearity explicitly
             corr_matrix = X.corr().abs()
             upper_tri = corr_matrix.where(np.triu(np.ones(corr_matrix.shape), k=1).astype(bool))
-            high_corr_pairs = [((row_idx, col_idx), value) for (row_idx, col_idx), value in upper_tri.stack().items() if value > 0.9]
+            high_corr_pairs = [((row_idx, col_idx), value) for (row_idx, col_idx), value in upper_tri.stack().items() if value > 0.85]  # Tightened from 0.9 to 0.85
             if high_corr_pairs:
-                print("High correlations detected (r > 0.9):")
+                print("High correlations detected (r > 0.85):")
                 to_drop = set()
                 for (row_idx, col_idx), corr_value in high_corr_pairs:
                     print(f"  {row_idx} - {col_idx}: {corr_value:.3f}")
@@ -1447,9 +1442,9 @@ f"{pname}: {sus_match:.3%} in suspicious vs {full_match:.3%} overall ({ratio:.2f
             for feature in categorical_features:
                 print(f"\nProcessing categorical feature: {feature}")
                 value_counts = full[feature].value_counts()
-                print(f"  Unique categories: {len(value_counts):,}, Min count: {value_counts.min()}")
+                print(f"  Unique categories: {len(value_counts)}, Min count: {value_counts.min()}")
                 
-                min_occurrences = max(10, int(len(full) * 0.0001))
+                min_occurrences = max(50, int(len(full) * 0.001))  # Increased from 0.0001 to 0.001 (~6267 occurrences)
                 common_categories = value_counts[value_counts >= min_occurrences].index
                 temp_df = full[feature].fillna('Unknown').astype(str).apply(
                     lambda x: x if x in common_categories else 'Other'
@@ -1459,9 +1454,9 @@ f"{pname}: {sus_match:.3%} in suspicious vs {full_match:.3%} overall ({ratio:.2f
                 dummies.columns = [f"{feature}_{col.replace(' ', '_')}" for col in dummies.columns]
                 
                 dummy_variances = dummies.var()
-                low_variance_dummies = dummy_variances[dummy_variances < 0.005].index.tolist()
+                low_variance_dummies = dummy_variances[dummy_variances < 0.02].index.tolist()  # Tightened from 0.005 to 0.02
                 if low_variance_dummies:
-                    print(f"  Removing {len(low_variance_dummies):,} low-variance dummy columns: {low_variance_dummies[:30]}...")
+                    print(f"  Removing low-variance dummy columns: {low_variance_dummies}")
                     dummies = dummies.drop(columns=low_variance_dummies)
                 
                 for col in dummies.columns:
