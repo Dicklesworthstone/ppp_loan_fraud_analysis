@@ -1,0 +1,10 @@
+aiofiles
+httpx
+nameparser
+numpy
+pandas
+ruff
+scikit-learn
+scipy
+termcolor
+tqdm
