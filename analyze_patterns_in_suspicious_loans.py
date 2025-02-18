@@ -17,6 +17,7 @@ from joblib import Parallel, delayed, parallel_backend
 from functools import lru_cache
 from multiprocessing import Pool
 import statsmodels.api as sm
+import dask.dataframe as dd
 
 @lru_cache(maxsize=1000000)
 def parse_name_cached(name_str: str):
@@ -45,6 +46,15 @@ class XGBoostAnalyzer:
         self.feature_names = None
         self.categorical_features = None
         self.category_feature_map = {}
+
+    def _sanitize_feature_name(self, name: str) -> str:
+        """Sanitize feature names to remove or replace characters not allowed by XGBoost."""
+        # Replace invalid characters with underscores or remove them
+        invalid_chars = r'[\[\]<>,;:]'
+        sanitized = re.sub(invalid_chars, '_', name)
+        # Remove multiple consecutive underscores and trim
+        sanitized = re.sub(r'_+', '_', sanitized).strip('_')
+        return sanitized
 
     def prepare_enhanced_features(self, df: pd.DataFrame, min_instances: int = 100) -> pd.DataFrame:
         """Prepare enhanced features for XGBoost, including useful categorical columns."""
@@ -123,13 +133,17 @@ class XGBoostAnalyzer:
                 
                 df[feature] = df[feature].apply(lambda x: x if x in common_categories else f'Other_{feature}')
                 dummies = pd.get_dummies(df[feature], dtype='uint8')
+                # Sanitize dummy column names
                 dummies.columns = [
-                    f"{feature}_{col.replace(' ', '_').replace('/', '_').replace('&', '_')}"
-                    if col != f'Other_{feature}' else f"{feature}_Other"
-                    for col in dummies.columns
+                    self._sanitize_feature_name(
+                        f"{feature}_{col}" if col != f'Other_{feature}' else f"{feature}_Other"
+                    ) for col in dummies.columns
                 ]
                 
+                # Check for problematic names
                 for col in dummies.columns:
+                    if any(c in col for c in ['[', ']', '<']):
+                        print(f"Warning: Sanitized feature name still contains invalid characters: {col}")
                     self.category_feature_map[col] = feature
                 df = pd.concat([df, dummies], axis=1)
                 df = df.drop(columns=[feature])
@@ -138,7 +152,8 @@ class XGBoostAnalyzer:
             drop_cols = ['BorrowerName', 'BorrowerAddress', 'LoanNumber', 'Location']
             df = df.drop(columns=[col for col in drop_cols if col in df.columns])
             
-            self.feature_names = df.columns.tolist()
+            self.feature_names = [self._sanitize_feature_name(col) for col in df.columns.tolist()]
+            df.columns = self.feature_names  # Ensure DataFrame columns are sanitized
             print(f"Prepared feature matrix shape: {df.shape}, Memory usage: {df.memory_usage().sum() / (1024**3):.2f} GiB")
             return df
             
@@ -183,7 +198,7 @@ class XGBoostAnalyzer:
                 eval_metric='auc',
                 random_state=42,
                 tree_method='hist',
-                nthread=16,
+                n_jobs=16,
                 max_bin=256
             )
             
@@ -196,7 +211,8 @@ class XGBoostAnalyzer:
                 cv=2,
                 random_state=42,
                 n_jobs=2,
-                verbose=2
+                verbose=2,
+                error_score='raise'  # Raise errors to debug
             )
             
             with parallel_backend('loky', n_jobs=2):
@@ -213,15 +229,16 @@ class XGBoostAnalyzer:
                 eval_metric='auc',
                 random_state=42,
                 tree_method='hist',
-                nthread=16,
+                n_jobs=16,
                 max_bin=256
             )
             
             print("Fitting final model with early stopping...")
             self.model.fit(
-                X_train, y_train,
+                X_train,
+                y_train,
                 eval_set=[(X_test, y_test)],
-                early_stopping_rounds=10,
+                early_stopping_rounds=10,  # Use early_stopping_rounds instead of deprecated parameter
                 verbose=True
             )
             
@@ -413,44 +430,54 @@ class SuspiciousLoanAnalyzer:
         return naics_dict
         
     def load_data(self) -> Tuple[pd.DataFrame, pd.DataFrame]:
-        """Load both suspicious and full datasets with proper error handling."""
         print("Loading suspicious loans data...")
         try:
-            sus = pd.read_csv(self.suspicious_file, low_memory=False)
-            print("Loading full loan dataset...")
+            # Load suspicious data with pandas (assuming it's smaller)
+            sus = pd.read_csv(
+                self.suspicious_file,
+                engine='pyarrow',  # Faster parsing
+                dtype={"LoanNumber": str}
+            )
+            print("Loading full loan dataset with Dask...")
             cols = [
                 "LoanNumber", "BorrowerName", "BorrowerAddress", "BorrowerCity", "BorrowerState",
                 "OriginatingLender", "InitialApprovalAmount", "BusinessType",
                 "Race", "Gender", "Ethnicity", "NAICSCode", "JobsReported"
             ]
-
-            full = pd.read_csv(
+            dtypes = {
+                "LoanNumber": str,
+                "NAICSCode": str,
+                "InitialApprovalAmount": "float32",
+                "JobsReported": "Int32",  # Nullable integer for NA handling
+                "BorrowerState": "object"  # Explicitly string to avoid float inference
+            }
+            # Load with Dask
+            full_dd = dd.read_csv(
                 self.full_data_file,
                 usecols=cols,
-                dtype={"LoanNumber": str, "NAICSCode": str},
-                low_memory=False
+                dtype=dtypes,
+                blocksize="64MB"  # Adjust based on your 256GB RAM
             )
-            
-            # Filter amount range
-            full = full[
-                (full["InitialApprovalAmount"] >= 5000) &
-                (full["InitialApprovalAmount"] < 22000)
+            # Filter in Dask (lazy evaluation)
+            full_dd = full_dd[
+                (full_dd["InitialApprovalAmount"] >= 5000) &
+                (full_dd["InitialApprovalAmount"] < 22000)
             ]
+            # Convert NA in JobsReported to 0 to match original behavior
+            full_dd["JobsReported"] = full_dd["JobsReported"].fillna(0)
+            # Convert to pandas DataFrame
+            full = full_dd.compute(scheduler='processes', num_workers=32)  # Use all 32 cores
             
             # Debugging checks
             print(f"Suspicious dataset shape: {sus.shape}")
-            print(f"Full dataset shape before filtering: {pd.read_csv(self.full_data_file, nrows=0).shape}")
             print(f"Full dataset shape after filtering: {full.shape}")
             print(f"Suspicious LoanNumbers unique: {sus['LoanNumber'].nunique()}")
             print(f"Full LoanNumbers unique: {full['LoanNumber'].nunique()}")
             
-            # Store data for later use
             self.sus_data = sus.copy()
             self.full_data = full.copy()
-            
             print(f"Loaded {len(sus):,} suspicious loans and {len(full):,} total loans in range.")
             return sus, full
-            
         except Exception as e:
             print(f"Error loading data: {str(e)}")
             raise
@@ -1411,31 +1438,39 @@ f"{pname}: {sus_match:.3%} in suspicious vs {full_match:.3%} overall ({ratio:.2f
             X = full_prepared[numerical_features].copy()
             y = full_prepared["Flagged"]
 
-            # No interaction features to keep feature count low
-            # Removed: X['Jobs_X_Amount'], X['Address_X_AmtPerEmp']
+            # Pre-scale numerical features to improve conditioning
+            scaler = StandardScaler()
+            X[numerical_features] = scaler.fit_transform(X[numerical_features])
 
             # Diagnose and clean numerical features
             print("\nDiagnosing feature variance and correlations...")
             variances = X.var()
-            low_variance_cols = variances[variances < 0.01].index.tolist()  # Tightened from 0.005 to 0.01
+            low_variance_cols = variances[variances < 0.01].index.tolist()
             if low_variance_cols:
                 print(f"Removing low-variance numerical features: {low_variance_cols}")
                 X = X.drop(columns=low_variance_cols)
                 numerical_features = [f for f in numerical_features if f not in low_variance_cols]
 
-            # Address multicollinearity explicitly
-            corr_matrix = X.corr().abs()
-            upper_tri = corr_matrix.where(np.triu(np.ones(corr_matrix.shape), k=1).astype(bool))
-            high_corr_pairs = [((row_idx, col_idx), value) for (row_idx, col_idx), value in upper_tri.stack().items() if value > 0.85]  # Tightened from 0.9 to 0.85
-            if high_corr_pairs:
-                print("High correlations detected (r > 0.85):")
-                to_drop = set()
-                for (row_idx, col_idx), corr_value in high_corr_pairs:
-                    print(f"  {row_idx} - {col_idx}: {corr_value:.3f}")
-                    to_drop.add(col_idx)  # Remove the second column in highly correlated pairs
-                print(f"Removing correlated features: {to_drop}")
-                X = X.drop(columns=to_drop)
+            # Hardcode dropping WordCount due to high correlation with NameLength
+            to_drop = {'WordCount'}
+            if to_drop.intersection(numerical_features):
+                print(f"Removing known correlated features: {to_drop}")
+                X = X.drop(columns=to_drop.intersection(numerical_features))
                 numerical_features = [f for f in numerical_features if f not in to_drop]
+            else:
+                # Fallback correlation check (though unlikely needed now)
+                corr_matrix = X.corr().abs()
+                upper_tri = corr_matrix.where(np.triu(np.ones(corr_matrix.shape), k=1).astype(bool))
+                high_corr_pairs = [((row_idx, col_idx), value) for (row_idx, col_idx), value in upper_tri.stack().items() if value > 0.85]
+                if high_corr_pairs:
+                    print("High correlations detected (r > 0.85):")
+                    to_drop = set()
+                    for (row_idx, col_idx), corr_value in high_corr_pairs:
+                        print(f"  {row_idx} - {col_idx}: {corr_value:.3f}")
+                        to_drop.add(col_idx)
+                    print(f"Removing correlated features: {to_drop}")
+                    X = X.drop(columns=to_drop)
+                    numerical_features = [f for f in numerical_features if f not in to_drop]
 
             # Handle categorical features with meaningful names
             category_feature_map = {}
@@ -1444,7 +1479,7 @@ f"{pname}: {sus_match:.3%} in suspicious vs {full_match:.3%} overall ({ratio:.2f
                 value_counts = full[feature].value_counts()
                 print(f"  Unique categories: {len(value_counts)}, Min count: {value_counts.min()}")
                 
-                min_occurrences = max(50, int(len(full) * 0.001))  # Increased from 0.0001 to 0.001 (~6267 occurrences)
+                min_occurrences = max(50, int(len(full) * 0.001))
                 common_categories = value_counts[value_counts >= min_occurrences].index
                 temp_df = full[feature].fillna('Unknown').astype(str).apply(
                     lambda x: x if x in common_categories else 'Other'
@@ -1454,7 +1489,7 @@ f"{pname}: {sus_match:.3%} in suspicious vs {full_match:.3%} overall ({ratio:.2f
                 dummies.columns = [f"{feature}_{col.replace(' ', '_')}" for col in dummies.columns]
                 
                 dummy_variances = dummies.var()
-                low_variance_dummies = dummy_variances[dummy_variances < 0.02].index.tolist()  # Tightened from 0.005 to 0.02
+                low_variance_dummies = dummy_variances[dummy_variances < 0.02].index.tolist()
                 if low_variance_dummies:
                     print(f"  Removing low-variance dummy columns: {low_variance_dummies}")
                     dummies = dummies.drop(columns=low_variance_dummies)
@@ -1466,13 +1501,11 @@ f"{pname}: {sus_match:.3%} in suspicious vs {full_match:.3%} overall ({ratio:.2f
                 if dummies.shape[1] > 0:
                     X = pd.concat([X, dummies], axis=1)
 
-            # Final feature check
             print(f"\nFinal feature matrix shape: {X.shape}")
             if X.shape[1] == 0:
                 print("Error: No valid features remain after preprocessing.")
                 return
 
-            # Handle class imbalance and scaling
             if len(y.unique()) >= 2:
                 df_majority = X[y == 0]
                 df_minority = X[y == 1]
@@ -1483,27 +1516,23 @@ f"{pname}: {sus_match:.3%} in suspicious vs {full_match:.3%} overall ({ratio:.2f
                     X_balanced = pd.concat([df_majority, df_minority_upsampled])
                     y_balanced = pd.Series([0] * len(df_majority) + [1] * len(df_minority_upsampled))
                     
-                    # Enhanced scaling to prevent overflow
-                    scaler = StandardScaler()
-                    X_scaled = scaler.fit_transform(X_balanced)
-                    X_scaled = np.clip(X_scaled, -10, 10)
+                    # Numerical features are already scaled, just clip
+                    X_scaled = np.clip(X_balanced, -10, 10)
                     
                     X_train, X_test, y_train, y_test = train_test_split(
                         X_scaled, y_balanced, test_size=0.3, random_state=42, stratify=y_balanced
                     )
                     
-                    # Scikit-learn model with adjusted parameters
                     model_sk = LogisticRegression(
                         max_iter=2000, class_weight="balanced", random_state=42,
-                        penalty='l2', C=0.1, solver='lbfgs'
+                        penalty='l2', C=0.1, solver='lbfgs', tol=1e-3
                     )
                     model_sk.fit(X_train, y_train)
                     
-                    # Statsmodels with L2 regularization and increased iterations
                     X_train_sm = sm.add_constant(X_train.astype(float))
                     try:
                         model_sm = sm.Logit(y_train, X_train_sm).fit(
-                            method='lbfgs', maxiter=5000, disp=0
+                            method='lbfgs', maxiter=2000, tol=1e-3, disp=0
                         )
                         print("Statsmodels logistic regression converged successfully.")
                     except Exception as e:
@@ -1520,29 +1549,18 @@ f"{pname}: {sus_match:.3%} in suspicious vs {full_match:.3%} overall ({ratio:.2f
                     print(confusion_matrix(y_test, y_pred))
                     
                     feature_names = ["const"] + X.columns.tolist() if model_sm else X.columns.tolist()
-                    if model_sm:
+                    if model_sm and hasattr(model_sm, 'cov_params'):
                         coef_dict = dict(zip(feature_names, model_sm.params))
                         pval_dict = dict(zip(feature_names, model_sm.pvalues))
                         print("\nFeature Importance (Coefficients):")
                         sorted_coefs = sorted(coef_dict.items(), key=lambda x: abs(x[1]), reverse=True)
-                        
                         numerical_coefs = [(feat, coef) for feat, coef in sorted_coefs if feat not in category_feature_map and feat != "const"]
-                        categorical_coefs = [(feat, coef) for feat, coef in sorted_coefs if feat in category_feature_map]
-                        
                         print("Top Numerical Features:")
                         for feat, coef in numerical_coefs[:15]:
                             p_val = pval_dict.get(feat, 1.0)
                             sig_note = " (p < 0.05, significant)" if p_val < 0.05 else " (p >= 0.05, not significant)"
                             print(f"  {feat}: {coef:.4f}{sig_note}")
-                        
-                        categorical_by_base = {}
-                        for feat, coef in categorical_coefs:
-                            base = category_feature_map[feat]
-                            if base not in categorical_by_base:
-                                categorical_by_base[base] = []
-                            categorical_by_base[base].append((feat, coef, pval_dict.get(feat, 1.0)))
-                        
-                        for base, coef_list in categorical_by_base.items():
+                        for base, coef_list in {base: [(f, c, pval_dict.get(f, 1.0)) for f, c in sorted_coefs if category_feature_map.get(f) == base] for base in set(category_feature_map.values())}.items():
                             print(f"\nAll Categories for {base}:")
                             if base == "Race":
                                 print("  Note: Racial patterns reflect data distribution, not targeted focus.")
@@ -1563,7 +1581,6 @@ f"{pname}: {sus_match:.3%} in suspicious vs {full_match:.3%} overall ({ratio:.2f
                     print("No suspicious loans found for modeling.")
             else:
                 print("Not enough classes for logistic regression.")
-                                        
         except Exception as e:
             print(f"Error in multivariate analysis: {str(e)}")
             

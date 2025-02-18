@@ -1,10 +1,12 @@
 aiofiles
+dask
 httpx
 joblib
 nameparser
 numpy
 pandas
 psutil
+pyarrow
 ruff
 scikit-learn
 scipy
