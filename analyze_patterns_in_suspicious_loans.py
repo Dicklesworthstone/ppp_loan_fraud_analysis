@@ -55,29 +55,42 @@ class XGBoostAnalyzer:
         # Remove multiple consecutive underscores and trim
         sanitized = re.sub(r'_+', '_', sanitized).strip('_')
         return sanitized
-
+    
     def prepare_enhanced_features(self, df: pd.DataFrame, min_instances: int = 250) -> pd.DataFrame:
         """Prepare enhanced features for XGBoost, including useful categorical columns."""
         try:
             df = df.copy()
             print("Preparing features for XGBoost...")
 
-            # Numerical features
+            # Numerical features with proper NA handling
             df['JobsReported'] = pd.to_numeric(df['JobsReported'], errors='coerce').fillna(0).astype('int32')
             df['InitialApprovalAmount'] = pd.to_numeric(df['InitialApprovalAmount'], errors='coerce').fillna(0).astype('float32')
             df['NameLength'] = df['BorrowerName'].astype(str).str.len().astype('int16')
             df['WordCount'] = df['BorrowerName'].astype(str).apply(lambda x: len(x.split())).astype('int8')
-            df['AmountPerEmployee'] = df.apply(
-                lambda x: x['InitialApprovalAmount'] / x['JobsReported'] if x['JobsReported'] > 0 else x['InitialApprovalAmount'],
-                axis=1
-            ).astype('float32')
-            df['IsRoundAmount'] = (df['InitialApprovalAmount'] % 100 == 0).astype('uint8')
+            
+            df['AmountPerEmployee'] = (
+                df.apply(
+                    lambda x: x['InitialApprovalAmount'] / x['JobsReported'] 
+                    if x['JobsReported'] > 0 
+                    else x['InitialApprovalAmount'],
+                    axis=1
+                )
+                .fillna(0)
+                .astype('float32')
+            )
+            
+            df['IsRoundAmount'] = (
+                pd.to_numeric(df['InitialApprovalAmount'], errors='coerce')
+                .fillna(0)
+                .apply(lambda x: x % 100 == 0)
+            ).astype('uint8')
 
             max_amounts = {20832, 20833, 20834}
             df['IsExactMaxAmount'] = df['InitialApprovalAmount'].apply(
-                lambda x: int(float(x)) in max_amounts if pd.notna(x) else False
+                lambda x: int(float(x)) in max_amounts if pd.notna(x) and not pd.isna(x) else False
             ).astype('uint8')
 
+            # Boolean indicators
             df['IsHubzone'] = (df['HubzoneIndicator'] == 'Y').astype('uint8')
             df['IsLMI'] = (df['LMIIndicator'] == 'Y').astype('uint8')
             df['IsNonProfit'] = (df['NonProfit'] == 'Y').astype('uint8')            
@@ -88,12 +101,19 @@ class XGBoostAnalyzer:
             address_str = df['BorrowerAddress'].astype(str).str.lower()
             df['HasResidentialIndicator'] = address_str.apply(lambda x: any(ind in x for ind in residential_indicators)).astype('uint8')
             df['HasCommercialIndicator'] = address_str.apply(lambda x: any(ind in x for ind in commercial_indicators)).astype('uint8')
-            address_key = df[['BorrowerAddress', 'BorrowerCity', 'BorrowerState']].astype(str).agg('_'.join, axis=1)
+            
+            # Business concentration with proper string handling
+            address_key = (
+                df[['BorrowerAddress', 'BorrowerCity', 'BorrowerState']]
+                .fillna('')
+                .astype(str)
+                .agg('_'.join, axis=1)
+            )
             address_counts = address_key.value_counts()
-            df['BusinessesAtAddress'] = address_key.map(address_counts).astype('int16')
+            df['BusinessesAtAddress'] = address_key.map(address_counts).fillna(0).astype('int16')
 
             # Business name pattern
-            name_str = df['BorrowerName'].astype(str).str.lower()
+            name_str = df['BorrowerName'].fillna('').astype(str).str.lower()
             suspicious_keywords = {'consulting', 'holdings', 'enterprise', 'solutions', 'services', 'investment', 'trading', 'group', 'international', 'global'}
             df['HasSuspiciousKeyword'] = name_str.apply(lambda x: any(kw in x for kw in suspicious_keywords)).astype('uint8')
 
@@ -120,7 +140,7 @@ class XGBoostAnalyzer:
                     print(f"Skipping {feature}: not present or all NaN")
                     continue
                 
-                df[feature] = df[feature].astype(str).fillna('Unknown')
+                df[feature] = df[feature].fillna('Unknown').astype(str)
                 value_counts = df[feature].value_counts()
                 common_categories = value_counts[value_counts >= min_instances].index
                 print(f"{feature}: {len(value_counts)} total categories, {len(common_categories)} with >= {min_instances} instances")
@@ -141,6 +161,7 @@ class XGBoostAnalyzer:
                 
                 df[feature] = df[feature].apply(lambda x: x if x in common_categories else f'Other_{feature}')
                 dummies = pd.get_dummies(df[feature], dtype='uint8')
+                
                 # Sanitize dummy column names
                 dummies.columns = [
                     self._sanitize_feature_name(
@@ -183,7 +204,7 @@ class XGBoostAnalyzer:
             
             # Exclude 'Flagged' from features
             feature_cols = [col for col in full_prepared.columns 
-                        if col != "Flagged" 
+                        if col not in ["Flagged", "RiskScore", "RiskFlags"]
                         and full_prepared[col].dtype in ['int8', 'int16', 'int32', 'uint8', 'float32']]
                 
             X = full_prepared[feature_cols]
@@ -207,7 +228,7 @@ class XGBoostAnalyzer:
             
             xgb_clf = xgb.XGBClassifier(
                 objective='binary:logistic',
-                eval_metric='auprc',
+                eval_metric='aucpr',
                 random_state=42,
                 tree_method='hist',
                 n_jobs=24,
@@ -219,7 +240,7 @@ class XGBoostAnalyzer:
                 xgb_clf,
                 param_distributions=param_grid,
                 n_iter=n_iter,
-                scoring='roc_auc',
+                scoring='average_precision',
                 cv=2,
                 random_state=42,
                 n_jobs=24,
@@ -449,7 +470,7 @@ class SuspiciousLoanAnalyzer:
         try:
             # Define columns to load for suspicious loans
             sus_cols = [
-                "LoanNumber", "BorrowerName", "BorrowerAddress", "BorrowerCity", "BorrowerState",
+                "LoanNumber", "BorrowerName", "RiskScore", "RiskFlags", "BorrowerAddress", "BorrowerCity", "BorrowerState",
                 "BorrowerZip", "Latitude", "Longitude", "Census Tract Code", "OriginatingLender",
                 "InitialApprovalAmount", "BusinessType", "Race", "Gender", "Ethnicity", "NAICSCode",
                 "JobsReported", "HubzoneIndicator", "LMIIndicator", "NonProfit"
@@ -457,6 +478,8 @@ class SuspiciousLoanAnalyzer:
             sus_dtypes = {
                 "LoanNumber": str,
                 "BorrowerName": str,
+                "RiskScore": "float32",
+                "RiskFlags": str,
                 "BorrowerAddress": str,
                 "BorrowerCity": str,
                 "BorrowerState": str,
@@ -496,9 +519,35 @@ class SuspiciousLoanAnalyzer:
                 )
             
             print("Loading full loan dataset with Dask...")
-            # Define columns for full dataset (same as sus_cols)
-            full_cols = sus_cols
-            full_dtypes = sus_dtypes
+            # Define columns for full dataset (excludes RiskScore and RiskFlags)
+            full_cols = [
+                "LoanNumber", "BorrowerName", "BorrowerAddress", "BorrowerCity", "BorrowerState",
+                "BorrowerZip", "Latitude", "Longitude", "Census Tract Code", "OriginatingLender",
+                "InitialApprovalAmount", "BusinessType", "Race", "Gender", "Ethnicity", "NAICSCode",
+                "JobsReported", "HubzoneIndicator", "LMIIndicator", "NonProfit"
+            ]
+            full_dtypes = {
+                "LoanNumber": str,
+                "BorrowerName": str,
+                "BorrowerAddress": str,
+                "BorrowerCity": str,
+                "BorrowerState": str,
+                "BorrowerZip": str,
+                "Latitude": "float32",
+                "Longitude": "float32",
+                "Census Tract Code": str,
+                "OriginatingLender": str,
+                "InitialApprovalAmount": "float32",
+                "BusinessType": str,
+                "Race": str,
+                "Gender": str,
+                "Ethnicity": str,
+                "NAICSCode": str,
+                "JobsReported": "Int32",
+                "HubzoneIndicator": str,
+                "LMIIndicator": str,
+                "NonProfit": str,
+            }
             # Load with Dask
             full_dd = dd.read_csv(
                 self.full_data_file,
@@ -711,7 +760,7 @@ class SuspiciousLoanAnalyzer:
             
             # Prepare enhanced features, keeping LoanNumber initially
             full_prepared = self.prepare_enhanced_features(full.copy())
-            full_prepared["LoanNumber"] = full["LoanNumber"].astype(str).str.strip()  # Preserve LoanNumber
+            full_prepared["LoanNumber"] = full["LoanNumber"].astype(str).str.strip()
             sus["LoanNumber"] = sus["LoanNumber"].astype(str).str.strip()
             
             full_prepared["Flagged"] = full_prepared["LoanNumber"].isin(sus["LoanNumber"]).astype(int)
@@ -791,18 +840,23 @@ class SuspiciousLoanAnalyzer:
                     ).pvalue
                     feature_auprc[feature] = (auprc, p_val)
             
+            # Sort features by AUPRC
+            sorted_features = sorted(feature_auprc.items(), key=lambda x: x[1][0], reverse=True)
+            
             # Display detailed feature analysis
             print("\nDetailed Feature Analysis:")
             print("Note: Patterns reflect data distribution and statistical significance, not targeted focus on any group.")
-            sorted_features = sorted(feature_auprc.items(), key=lambda x: x[1][0], reverse=True)
             
-            # Print details for all features, including categorical breakdowns
+            # Track which categorical features have been displayed to avoid repetition
+            displayed_categories = set()
+            
             for feature, (auprc, p_val) in sorted_features:
                 sig_note = " (p < 0.05, significant)" if p_val < 0.05 else " (p >= 0.05, not significant)"
                 print(f"{feature}: AUPRC = {auprc:.4f}{sig_note}")
-                # If feature is categorical, show breakdown
+                
+                # Check if it's a categorical feature and display breakdown only once
                 base_feature = feature.split('_')[0] if '_' in feature else feature
-                if base_feature in category_auprc_dict:
+                if base_feature in category_auprc_dict and base_feature not in displayed_categories:
                     print(f"  All categories for {base_feature}:")
                     if base_feature == "Race":
                         print("  Note: Racial patterns reflect data distribution, not targeted focus.")
@@ -815,8 +869,9 @@ class SuspiciousLoanAnalyzer:
                         prefix = "**" if i == 0 else "  "
                         suffix = "**" if i == 0 else ""
                         print(f"    {prefix}{cat}: AUPRC = {cat_auprc:.4f}{suffix}")
+                    displayed_categories.add(base_feature)
             
-            # Overall feature ranking with individual categories
+            # Overall feature ranking
             print("\nFeatures ranked by AUPRC (discriminative power):")
             for feature, (auprc, _) in sorted_features:
                 print(f"{feature}: AUPRC = {auprc:.4f}")
@@ -1349,11 +1404,11 @@ f"{pname}: {sus_match:.3%} in suspicious vs {full_match:.3%} overall ({ratio:.2f
             return df
 
     def prepare_enhanced_features(self, df: pd.DataFrame, min_instances: int = 100) -> pd.DataFrame:
-        """Prepare enhanced features for Multivariate Analysis with explicit category names and minimum instance threshold."""
+        """Prepare enhanced features for Multivariate Analysis with improved NA handling."""
         try:
             df = df.copy()
             
-            # Basic numerical features with efficient types
+            # Basic numerical features with efficient types and proper NA handling
             df['JobsReported'] = pd.to_numeric(df['JobsReported'], errors='coerce').fillna(0).astype('int32')
             df['InitialApprovalAmount'] = pd.to_numeric(df['InitialApprovalAmount'], errors='coerce').fillna(0).astype('float32')
             df['NameLength'] = df['BorrowerName'].astype(str).str.len().astype('int16')
@@ -1362,13 +1417,18 @@ f"{pname}: {sus_match:.3%} in suspicious vs {full_match:.3%} overall ({ratio:.2f
             df['IsLMI'] = (df['LMIIndicator'] == 'Y').astype('uint8')
             df['IsNonProfit'] = (df['NonProfit'] == 'Y').astype('uint8')
                         
-            # Advanced amount features
+            # Advanced amount features with NA handling
             df['AmountPerEmployee'] = df.apply(
                 lambda x: x['InitialApprovalAmount'] / x['JobsReported']
                 if x['JobsReported'] > 0 else x['InitialApprovalAmount'],
                 axis=1
-            ).astype('float32')
-            df['IsRoundAmount'] = (df['InitialApprovalAmount'].apply(lambda x: x % 100 == 0)).astype('uint8')
+            ).fillna(0).astype('float32')
+            
+            df['IsRoundAmount'] = (
+                pd.to_numeric(df['InitialApprovalAmount'], errors='coerce')
+                .fillna(0)
+                .apply(lambda x: x % 100 == 0)
+            ).astype('uint8')
             
             # Address-based features
             residential_indicators = {'apt', 'unit', 'suite', '#', 'po box', 'residence', 'residential', 'apartment', 'room', 'floor'}
@@ -1385,12 +1445,12 @@ f"{pname}: {sus_match:.3%} in suspicious vs {full_match:.3%} overall ({ratio:.2f
             # Business concentration
             address_key = df[['BorrowerAddress', 'BorrowerCity', 'BorrowerState']].astype(str).agg('_'.join, axis=1)
             address_counts = address_key.value_counts()
-            df['BusinessesAtAddress'] = address_key.map(address_counts).astype('int16')
-            
-            # Loan amount pattern features
+            df['BusinessesAtAddress'] = address_key.map(address_counts).fillna(0).astype('int16')
+
+            # Loan amount pattern features with proper NA handling
             max_amounts = {20832, 20833, 20834}
             df['IsExactMaxAmount'] = df['InitialApprovalAmount'].apply(
-                lambda x: int(float(x)) in max_amounts if pd.notna(x) else False
+                lambda x: int(float(x)) in max_amounts if pd.notna(x) and not pd.isna(x) else False
             ).astype('uint8')
 
             # Business name pattern features
@@ -1413,6 +1473,7 @@ f"{pname}: {sus_match:.3%} in suspicious vs {full_match:.3%} overall ({ratio:.2f
                 
                 df[feature] = df[feature].astype(str).fillna('Unknown')
                 value_counts = df[feature].value_counts()
+                
                 if feature == 'BorrowerCity':
                     common_categories = value_counts.head(100).index  # Top 100 cities
                     df[feature] = df[feature].apply(lambda x: x if x in common_categories else 'Other_City')
@@ -1431,6 +1492,7 @@ f"{pname}: {sus_match:.3%} in suspicious vs {full_match:.3%} overall ({ratio:.2f
                     f"{feature}_{col.replace(' ', '_').replace('/', '_').replace('&', '_')}"
                     for col in dummies.columns
                 ]
+                
                 for col in dummies.columns:
                     self.category_feature_map[col] = feature
                 df = pd.concat([df, dummies], axis=1)
@@ -1591,7 +1653,7 @@ f"{pname}: {sus_match:.3%} in suspicious vs {full_match:.3%} overall ({ratio:.2f
                     try:
                         print("Fitting Statsmodels logistic regression...")
                         model_sm = sm.Logit(y_train, X_train_sm).fit(
-                            method='lbfgs', maxiter=3000, disp=0
+                            method='newton', maxiter=3000, disp=0
                         )
                         print("Statsmodels logistic regression converged successfully.")
                     except Exception as e:
@@ -1668,18 +1730,18 @@ f"{pname}: {sus_match:.3%} in suspicious vs {full_match:.3%} overall ({ratio:.2f
             xgb_analyzer = XGBoostAnalyzer()
 
             analysis_steps = [
-                ("Geographic Clusters", self.analyze_geographic_clusters),
-                ("Lender Patterns", self.analyze_lender_patterns),
-                ("Business Patterns", self.analyze_business_patterns),
-                ("Name Patterns", self.analyze_name_patterns),
-                ("Business Name Patterns", self.analyze_business_name_patterns),
-                ("Demographic Patterns", self.analyze_demographic_patterns),
-                ("Risk Flags Analysis", lambda s, f: self.analyze_risk_flags(s)),
-                ("Loan Amount Distribution", self.analyze_loan_amount_distribution),
-                ("Jobs Reported Patterns", self.analyze_jobs_reported_patterns),
-                ("Risk Score Distribution", lambda s, f: self.analyze_risk_score_distribution(s)),
-                ("Risk Flags Count Distribution", lambda s, f: self.analyze_flag_count_distribution(s)),
-                ("Correlations", lambda s, f: self.analyze_correlations(f)),
+                # ("Geographic Clusters", self.analyze_geographic_clusters),
+                # ("Lender Patterns", self.analyze_lender_patterns),
+                # ("Business Patterns", self.analyze_business_patterns),
+                # ("Name Patterns", self.analyze_name_patterns),
+                # ("Business Name Patterns", self.analyze_business_name_patterns),
+                # ("Demographic Patterns", self.analyze_demographic_patterns),
+                # ("Risk Flags Analysis", lambda s, f: self.analyze_risk_flags(s)),
+                # ("Loan Amount Distribution", self.analyze_loan_amount_distribution),
+                # ("Jobs Reported Patterns", self.analyze_jobs_reported_patterns),
+                # ("Risk Score Distribution", lambda s, f: self.analyze_risk_score_distribution(s)),
+                # ("Risk Flags Count Distribution", lambda s, f: self.analyze_flag_count_distribution(s)),
+                # ("Correlations", lambda s, f: self.analyze_correlations(f)),
                 ("Multivariate Analysis", self.analyze_multivariate),
                 ("XGBoost Analysis", lambda s, f: xgb_analyzer.analyze_with_xgboost(s, f, n_iter=15)),
                 ("Feature Discrimination (AUPRC)", self.analyze_feature_discrimination)
