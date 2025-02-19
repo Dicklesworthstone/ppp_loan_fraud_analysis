@@ -72,7 +72,15 @@ class XGBoostAnalyzer:
                 axis=1
             ).astype('float32')
             df['IsRoundAmount'] = (df['InitialApprovalAmount'] % 100 == 0).astype('uint8')
-            df['IsExactMaxAmount'] = df['InitialApprovalAmount'].apply(lambda x: int(x) in {20832, 20833, 20834}).astype('uint8')
+
+            max_amounts = {20832, 20833, 20834}
+            df['IsExactMaxAmount'] = df['InitialApprovalAmount'].apply(
+                lambda x: int(float(x)) in max_amounts if pd.notna(x) else False
+            ).astype('uint8')
+
+            df['IsHubzone'] = (df['HubzoneIndicator'] == 'Y').astype('uint8')
+            df['IsLMI'] = (df['LMIIndicator'] == 'Y').astype('uint8')
+            df['IsNonProfit'] = (df['NonProfit'] == 'Y').astype('uint8')            
             
             # Address-based features
             residential_indicators = {'apt', 'unit', 'suite', '#', 'po box', 'residence', 'residential', 'apartment', 'room', 'floor'}
@@ -211,7 +219,7 @@ class XGBoostAnalyzer:
                 xgb_clf,
                 param_distributions=param_grid,
                 n_iter=n_iter,
-                scoring='auprc',
+                scoring='roc_auc',
                 cv=2,
                 random_state=42,
                 n_jobs=24,
@@ -439,48 +447,81 @@ class SuspiciousLoanAnalyzer:
     def load_data(self) -> Tuple[pd.DataFrame, pd.DataFrame]:
         print("Loading suspicious loans data...")
         try:
-            # Load suspicious data with pandas (assuming it's smaller)
-            sus = pd.read_csv(
-                self.suspicious_file,
-                engine='pyarrow',  # Faster parsing
-                dtype={"LoanNumber": str}
-            )
-            print("Loading full loan dataset with Dask...")
-            cols = [
+            # Define columns to load for suspicious loans
+            sus_cols = [
                 "LoanNumber", "BorrowerName", "BorrowerAddress", "BorrowerCity", "BorrowerState",
-                "OriginatingLender", "InitialApprovalAmount", "BusinessType",
-                "Race", "Gender", "Ethnicity", "NAICSCode", "JobsReported"
+                "BorrowerZip", "Latitude", "Longitude", "Census Tract Code", "OriginatingLender",
+                "InitialApprovalAmount", "BusinessType", "Race", "Gender", "Ethnicity", "NAICSCode",
+                "JobsReported", "HubzoneIndicator", "LMIIndicator", "NonProfit"
             ]
-            dtypes = {
+            sus_dtypes = {
                 "LoanNumber": str,
-                "NAICSCode": str,
+                "BorrowerName": str,
+                "BorrowerAddress": str,
+                "BorrowerCity": str,
+                "BorrowerState": str,
+                "BorrowerZip": str,
+                "Latitude": "float32",
+                "Longitude": "float32",
+                "Census Tract Code": str,
+                "OriginatingLender": str,
                 "InitialApprovalAmount": "float32",
-                "JobsReported": "Int32",  # Nullable integer for NA handling
-                "BorrowerState": "object"  # Explicitly string to avoid float inference
+                "BusinessType": str,
+                "Race": str,
+                "Gender": str,
+                "Ethnicity": str,
+                "NAICSCode": str,
+                "JobsReported": "Int32",
+                "HubzoneIndicator": str,
+                "LMIIndicator": str,
+                "NonProfit": str,
             }
+            # Load suspicious data with pandas, handling missing columns
+            try:
+                sus = pd.read_csv(
+                    self.suspicious_file,
+                    engine='pyarrow',
+                    dtype=sus_dtypes,
+                    usecols=sus_cols
+                )
+            except ValueError as e:
+                print(f"Warning: Some columns are missing in suspicious loans data: {str(e)}")
+                # Load only available columns
+                available_cols = [col for col in sus_cols if col in pd.read_csv(self.suspicious_file, nrows=0).columns]
+                sus = pd.read_csv(
+                    self.suspicious_file,
+                    engine='pyarrow',
+                    dtype={col: sus_dtypes[col] for col in available_cols if col in sus_dtypes},
+                    usecols=available_cols
+                )
+            
+            print("Loading full loan dataset with Dask...")
+            # Define columns for full dataset (same as sus_cols)
+            full_cols = sus_cols
+            full_dtypes = sus_dtypes
             # Load with Dask
             full_dd = dd.read_csv(
                 self.full_data_file,
-                usecols=cols,
-                dtype=dtypes,
-                blocksize="64MB"  # Adjust based on your 256GB RAM
+                usecols=full_cols,
+                dtype=full_dtypes,
+                blocksize="64MB"  # Suitable for 256GB RAM
             )
             # Filter in Dask (lazy evaluation)
             full_dd = full_dd[
                 (full_dd["InitialApprovalAmount"] >= 5000) &
                 (full_dd["InitialApprovalAmount"] < 22000)
             ]
-            # Convert NA in JobsReported to 0 to match original behavior
+            # Convert NA in JobsReported to 0
             full_dd["JobsReported"] = full_dd["JobsReported"].fillna(0)
-            # Convert to pandas DataFrame
-            full = full_dd.compute(scheduler='processes', num_workers=32)  # Use all 32 cores
-            
+            # Compute to pandas DataFrame
+            full = full_dd.compute(scheduler='processes', num_workers=32)  # Utilize all 32 cores
+
             # Debugging checks
             print(f"Suspicious dataset shape: {sus.shape}")
             print(f"Full dataset shape after filtering: {full.shape}")
             print(f"Suspicious LoanNumbers unique: {sus['LoanNumber'].nunique()}")
             print(f"Full LoanNumbers unique: {full['LoanNumber'].nunique()}")
-            
+
             self.sus_data = sus.copy()
             self.full_data = full.copy()
             print(f"Loaded {len(sus):,} suspicious loans and {len(full):,} total loans in range.")
@@ -683,8 +724,8 @@ class SuspiciousLoanAnalyzer:
                 "InitialApprovalAmount", "JobsReported", "NameLength", "WordCount",
                 "AmountPerEmployee", "HasResidentialIndicator", "HasCommercialIndicator",
                 "BusinessesAtAddress", "IsExactMaxAmount", "IsRoundAmount",
-                "HasSuspiciousKeyword", "MissingDemographics", "BusinessType",
-                "Race", "Gender", "Ethnicity"
+                "HasSuspiciousKeyword", "MissingDemographics", "IsHubzone", "IsLMI", "IsNonProfit",
+                "BusinessType", "Race", "Gender", "Ethnicity"
             ]
             
             y_true = full_prepared["Flagged"]
@@ -830,6 +871,8 @@ class SuspiciousLoanAnalyzer:
             self.analyze_categorical_patterns(
                 sus, full, "NAICSSector", "Industry Sector Patterns"
             )
+
+            self.analyze_categorical_patterns(sus, full, "NonProfit", "Non-Profit Status Patterns")
         except Exception as e:
             print(f"Error in business patterns analysis: {str(e)}")
 
@@ -1306,7 +1349,7 @@ f"{pname}: {sus_match:.3%} in suspicious vs {full_match:.3%} overall ({ratio:.2f
             return df
 
     def prepare_enhanced_features(self, df: pd.DataFrame, min_instances: int = 100) -> pd.DataFrame:
-        """Prepare enhanced features for XGBoost with explicit category names and minimum instance threshold."""
+        """Prepare enhanced features for Multivariate Analysis with explicit category names and minimum instance threshold."""
         try:
             df = df.copy()
             
@@ -1315,7 +1358,10 @@ f"{pname}: {sus_match:.3%} in suspicious vs {full_match:.3%} overall ({ratio:.2f
             df['InitialApprovalAmount'] = pd.to_numeric(df['InitialApprovalAmount'], errors='coerce').fillna(0).astype('float32')
             df['NameLength'] = df['BorrowerName'].astype(str).str.len().astype('int16')
             df['WordCount'] = df['BorrowerName'].astype(str).apply(lambda x: len(x.split())).astype('int8')
-            
+            df['IsHubzone'] = (df['HubzoneIndicator'] == 'Y').astype('uint8')
+            df['IsLMI'] = (df['LMIIndicator'] == 'Y').astype('uint8')
+            df['IsNonProfit'] = (df['NonProfit'] == 'Y').astype('uint8')
+                        
             # Advanced amount features
             df['AmountPerEmployee'] = df.apply(
                 lambda x: x['InitialApprovalAmount'] / x['JobsReported']
@@ -1343,8 +1389,10 @@ f"{pname}: {sus_match:.3%} in suspicious vs {full_match:.3%} overall ({ratio:.2f
             
             # Loan amount pattern features
             max_amounts = {20832, 20833, 20834}
-            df['IsExactMaxAmount'] = df['InitialApprovalAmount'].apply(lambda x: int(x) in max_amounts).astype('uint8')
-            
+            df['IsExactMaxAmount'] = df['InitialApprovalAmount'].apply(
+                lambda x: int(float(x)) in max_amounts if pd.notna(x) else False
+            ).astype('uint8')
+
             # Business name pattern features
             name_str = df['BorrowerName'].astype(str).str.lower()
             suspicious_keywords = {'consulting', 'holdings', 'enterprise', 'solutions', 'services', 'investment', 'trading', 'group', 'international', 'global'}
@@ -1430,7 +1478,7 @@ f"{pname}: {sus_match:.3%} in suspicious vs {full_match:.3%} overall ({ratio:.2f
                 "InitialApprovalAmount", "JobsReported", "NameLength", "WordCount",
                 "AmountPerEmployee", "HasResidentialIndicator", "HasCommercialIndicator",
                 "BusinessesAtAddress", "IsExactMaxAmount", "IsRoundAmount",
-                "HasSuspiciousKeyword", "MissingDemographics"
+                "HasSuspiciousKeyword", "MissingDemographics", "IsHubzone", "IsLMI", "IsNonProfit"
             ]
             categorical_features = ["BusinessType", "Race", "Gender", "Ethnicity"]  # Reduced from 8 to 4
 
@@ -1661,7 +1709,7 @@ def main():
     p.nice(psutil.BELOW_NORMAL_PRIORITY_CLASS if os.name == 'nt' else 10)  # Windows or Unix
     
     analyzer = SuspiciousLoanAnalyzer(
-        suspicious_file="suspicious_loans.csv",
+        suspicious_file="suspicious_loans_sorted.csv",
         full_data_file="ppp-full.csv"
     )
     try:
