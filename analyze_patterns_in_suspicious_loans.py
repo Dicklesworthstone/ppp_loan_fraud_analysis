@@ -60,13 +60,49 @@ class XGBoostAnalyzer:
         """Prepare enhanced features for XGBoost, including useful categorical columns."""
         try:
             df = df.copy()
-            print("Preparing features for XGBoost...")
+            
+            # Basic numerical features with efficient types and proper NA handling
+            df['JobsReported'] = (
+                pd.to_numeric(df['JobsReported'].replace({pd.NA: np.nan}), errors='coerce')
+                .fillna(0)
+                .astype('int32')
+            )
 
-            # Numerical features with proper NA handling
-            df['JobsReported'] = pd.to_numeric(df['JobsReported'], errors='coerce').fillna(0).astype('int32')
-            df['InitialApprovalAmount'] = pd.to_numeric(df['InitialApprovalAmount'], errors='coerce').fillna(0).astype('float32')
-            df['NameLength'] = df['BorrowerName'].astype(str).str.len().astype('int16')
-            df['WordCount'] = df['BorrowerName'].astype(str).apply(lambda x: len(x.split())).astype('int8')
+            df['InitialApprovalAmount'] = (
+                pd.to_numeric(df['InitialApprovalAmount'].replace({pd.NA: np.nan}), errors='coerce')
+                .fillna(0)
+                .astype('float32')
+            )
+            df['NameLength'] = (
+                df['BorrowerName']
+                .fillna('')
+                .astype(str)
+                .str.len()
+                .astype('int16')
+            )
+
+            df['WordCount'] = (
+                df['BorrowerName']
+                .fillna('')
+                .astype(str)
+                .apply(lambda x: len(x.split()))
+                .astype('int8')
+            )
+
+            df['IsHubzone'] = (
+                (df['HubzoneIndicator'].fillna('') == 'Y')
+                .astype('uint8')
+            )
+
+            df['IsLMI'] = (
+                (df['LMIIndicator'].fillna('') == 'Y')
+                .astype('uint8')
+            )
+
+            df['IsNonProfit'] = (
+                (df['NonProfit'].fillna('') == 'Y')
+                .astype('uint8')
+            )
             
             df['AmountPerEmployee'] = (
                 df.apply(
@@ -86,8 +122,10 @@ class XGBoostAnalyzer:
             ).astype('uint8')
 
             max_amounts = {20832, 20833, 20834}
-            df['IsExactMaxAmount'] = df['InitialApprovalAmount'].apply(
-                lambda x: int(float(x)) in max_amounts if pd.notna(x) and not pd.isna(x) else False
+            df['IsExactMaxAmount'] = (
+                pd.to_numeric(df['InitialApprovalAmount'], errors='coerce')
+                .fillna(0)
+                .apply(lambda x: int(x) in max_amounts)
             ).astype('uint8')
 
             # Boolean indicators
@@ -187,7 +225,7 @@ class XGBoostAnalyzer:
             return df
             
         except Exception as e:
-            print(f"Error preparing features: {str(e)}")
+            print(f"Error preparing enhanced features for XGBoost analysis: {str(e)}")
             return df
 
     def analyze_with_xgboost(self, sus: pd.DataFrame, full: pd.DataFrame, n_iter: int = 10, min_instances: int = 250) -> None:
@@ -1383,8 +1421,12 @@ f"{pname}: {sus_match:.3%} in suspicious vs {full_match:.3%} overall ({ratio:.2f
             
             # Handle numerical features
             df['JobsReported'] = pd.to_numeric(df['JobsReported'], errors='coerce').fillna(0)
-            df['InitialApprovalAmount'] = pd.to_numeric(df['InitialApprovalAmount'], errors='coerce').fillna(0)
             
+            df['InitialApprovalAmount'] = pd.to_numeric(df['InitialApprovalAmount'], errors='coerce').fillna(0)
+            if df['InitialApprovalAmount'].isna().any():
+                print("Warning: NaN values remain in InitialApprovalAmount")
+                df['InitialApprovalAmount'] = df['InitialApprovalAmount'].fillna(0)            
+                        
             # Add name-based features
             df['NameLength'] = df['BorrowerName'].astype(str).str.len()
             df['WordCount'] = df['BorrowerName'].astype(str).apply(lambda x: len(x.split()))
@@ -1403,33 +1445,56 @@ f"{pname}: {sus_match:.3%} in suspicious vs {full_match:.3%} overall ({ratio:.2f
             print(f"Error preparing features: {str(e)}")
             return df
 
-    def prepare_enhanced_features(self, df: pd.DataFrame, min_instances: int = 100) -> pd.DataFrame:
-        """Prepare enhanced features for Multivariate Analysis with improved NA handling."""
+    def prepare_enhanced_features(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Prepare enhanced features for multivariate logit analysis with safe NA handling (not as many features as XGBoost analysis)."""
         try:
             df = df.copy()
             
-            # Basic numerical features with efficient types and proper NA handling
-            df['JobsReported'] = pd.to_numeric(df['JobsReported'], errors='coerce').fillna(0).astype('int32')
-            df['InitialApprovalAmount'] = pd.to_numeric(df['InitialApprovalAmount'], errors='coerce').fillna(0).astype('float32')
-            df['NameLength'] = df['BorrowerName'].astype(str).str.len().astype('int16')
-            df['WordCount'] = df['BorrowerName'].astype(str).apply(lambda x: len(x.split())).astype('int8')
-            df['IsHubzone'] = (df['HubzoneIndicator'] == 'Y').astype('uint8')
-            df['IsLMI'] = (df['LMIIndicator'] == 'Y').astype('uint8')
-            df['IsNonProfit'] = (df['NonProfit'] == 'Y').astype('uint8')
-                        
-            # Advanced amount features with NA handling
+            # Ensure numeric columns never see pd.NA
+            df['JobsReported'] = (
+                pd.to_numeric(df['JobsReported'].replace({pd.NA: np.nan}), errors='coerce')
+                .fillna(0)
+            )
+            df['InitialApprovalAmount'] = (
+                pd.to_numeric(df['InitialApprovalAmount'].replace({pd.NA: np.nan}), errors='coerce')
+                .fillna(0)
+            )
+            
+            # Safely handle BorrowerName
+            df['BorrowerName'] = df['BorrowerName'].fillna('')
+            df['NameLength'] = df['BorrowerName'].astype(str).str.len()
+            df['WordCount'] = df['BorrowerName'].astype(str).apply(lambda x: len(x.split()))
+            df['IsHubzone'] = (
+                (df['HubzoneIndicator'].fillna('') == 'Y')
+                .astype('uint8')
+            )
+            df['IsLMI'] = (
+                (df['LMIIndicator'].fillna('') == 'Y')
+                .astype('uint8')
+            )
+            df['IsNonProfit'] = (
+                (df['NonProfit'].fillna('') == 'Y')
+                .astype('uint8')
+            )
+
+            # Calculate amount per employee
             df['AmountPerEmployee'] = df.apply(
                 lambda x: x['InitialApprovalAmount'] / x['JobsReported']
                 if x['JobsReported'] > 0 else x['InitialApprovalAmount'],
                 axis=1
-            ).fillna(0).astype('float32')
+            )
             
             df['IsRoundAmount'] = (
                 pd.to_numeric(df['InitialApprovalAmount'], errors='coerce')
                 .fillna(0)
                 .apply(lambda x: x % 100 == 0)
             ).astype('uint8')
-            
+                        
+            # Fill missing address pieces so .groupby won't see NAType
+            df['BorrowerAddress'] = df['BorrowerAddress'].fillna('')
+            df['BorrowerCity'] = df['BorrowerCity'].fillna('')
+            df['BorrowerState'] = df['BorrowerState'].fillna('')
+
             # Address-based features
             residential_indicators = {'apt', 'unit', 'suite', '#', 'po box', 'residence', 'residential', 'apartment', 'room', 'floor'}
             commercial_indicators = {'plaza', 'building', 'tower', 'office', 'complex', 'center', 'mall', 'commercial', 'industrial', 'park'}
@@ -1438,76 +1503,44 @@ f"{pname}: {sus_match:.3%} in suspicious vs {full_match:.3%} overall ({ratio:.2f
             df['HasResidentialIndicator'] = address_str.apply(
                 lambda x: any(ind in x for ind in residential_indicators)
             ).astype('uint8')
+
             df['HasCommercialIndicator'] = address_str.apply(
                 lambda x: any(ind in x for ind in commercial_indicators)
             ).astype('uint8')
             
-            # Business concentration
-            address_key = df[['BorrowerAddress', 'BorrowerCity', 'BorrowerState']].astype(str).agg('_'.join, axis=1)
-            address_counts = address_key.value_counts()
-            df['BusinessesAtAddress'] = address_key.map(address_counts).fillna(0).astype('int16')
-
-            # Loan amount pattern features with proper NA handling
-            max_amounts = {20832, 20833, 20834}
+            # Multiple businesses at same address
+            address_counts = df.groupby(
+                ['BorrowerAddress', 'BorrowerCity', 'BorrowerState']
+            )['BorrowerName'].count()
+            df['HasMultipleBusinesses'] = df.apply(
+                lambda x: address_counts.get(
+                    (x['BorrowerAddress'], x['BorrowerCity'], x['BorrowerState']), 0
+                ) > 1,
+                axis=1
+            ).astype(int)
+            
+            # Exact maximum amounts
+            max_amounts = [20832, 20833, 20834]
             df['IsExactMaxAmount'] = df['InitialApprovalAmount'].apply(
-                lambda x: int(float(x)) in max_amounts if pd.notna(x) and not pd.isna(x) else False
-            ).astype('uint8')
-
-            # Business name pattern features
-            name_str = df['BorrowerName'].astype(str).str.lower()
-            suspicious_keywords = {'consulting', 'holdings', 'enterprise', 'solutions', 'services', 'investment', 'trading', 'group', 'international', 'global'}
-            df['HasSuspiciousKeyword'] = name_str.apply(lambda x: any(kw in x for kw in suspicious_keywords)).astype('uint8')
+                lambda x: int(x) in max_amounts
+            ).astype(int)
+            
+            # Handle categorical variables: replace NA with 'Unknown'
+            df['BusinessType'] = df['BusinessType'].fillna('Unknown')
+            df['Race'] = df['Race'].fillna('Unknown')
+            df['Gender'] = df['Gender'].fillna('Unknown')
+            df['Ethnicity'] = df['Ethnicity'].fillna('Unknown')
             
             # Demographic completeness features
             demographic_fields = ['Race', 'Gender', 'Ethnicity']
-            df['MissingDemographics'] = df[demographic_fields].isna().sum(axis=1).astype('uint8')
-            
-            # Categorical features with explicit naming and minimum instance threshold
-            categorical_features = ['BusinessType', 'Race', 'Gender', 'Ethnicity', 'BorrowerState', 'BorrowerCity', 'NAICSCode', 'OriginatingLender'] 
-            self.categorical_features = categorical_features
-            self.category_feature_map = {}
-            
-            for feature in categorical_features:
-                if feature not in df.columns or df[feature].isna().all():
-                    continue
-                
-                df[feature] = df[feature].astype(str).fillna('Unknown')
-                value_counts = df[feature].value_counts()
-                
-                if feature == 'BorrowerCity':
-                    common_categories = value_counts.head(100).index  # Top 100 cities
-                    df[feature] = df[feature].apply(lambda x: x if x in common_categories else 'Other_City')
-                elif feature == 'NAICSCode':
-                    common_categories = value_counts.head(50).index  # Top 50 NAICS codes
-                    df[feature] = df[feature].apply(lambda x: x if x in common_categories else 'Other_NAICS')
-                elif feature == 'OriginatingLender':
-                    common_categories = value_counts.head(20).index  # Top 20 lenders
-                    df[feature] = df[feature].apply(lambda x: x if x in common_categories else 'Other_Lender')
-                else:
-                    common_categories = value_counts[value_counts >= min_instances].index
-                    df[feature] = df[feature].apply(lambda x: x if x in common_categories else f'Other_{feature}')
-                
-                dummies = pd.get_dummies(df[feature], dtype='uint8')
-                dummies.columns = [
-                    f"{feature}_{col.replace(' ', '_').replace('/', '_').replace('&', '_')}"
-                    for col in dummies.columns
-                ]
-                
-                for col in dummies.columns:
-                    self.category_feature_map[col] = feature
-                df = pd.concat([df, dummies], axis=1)
-                df = df.drop(columns=[feature])
-
-            # Update drop_cols to keep these features until encoded
-            drop_cols = ['BorrowerName', 'BorrowerAddress', 'LoanNumber', 'Location']
-            df = df.drop(columns=[col for col in drop_cols if col in df.columns])
-            
-            self.feature_names = df.columns.tolist()
-            print(f"Prepared feature matrix shape: {df.shape}, Memory usage: {df.memory_usage().sum() / (1024**3):.2f} GiB")
+            df['MissingDemographics'] = df[demographic_fields].apply(
+                lambda row: sum(val == 'Unknown' for val in row),
+                axis=1
+            ).astype('uint8')
             return df
             
         except Exception as e:
-            print(f"Error preparing features: {str(e)}")
+            print(f"Error preparing enhanced features for multivariate logit analysis: {str(e)}")
             return df
 
     def analyze_multivariate(self, sus: pd.DataFrame, full: pd.DataFrame) -> None:
