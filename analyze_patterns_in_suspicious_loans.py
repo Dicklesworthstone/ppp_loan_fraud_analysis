@@ -7,7 +7,7 @@ import numpy as np
 from scipy import stats
 from nameparser import HumanName
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import classification_report, confusion_matrix, roc_auc_score, average_precision_score
+from sklearn.metrics import classification_report, confusion_matrix, roc_auc_score, average_precision_score, f1_score
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split, RandomizedSearchCV
 from sklearn.utils import resample
@@ -56,7 +56,7 @@ class XGBoostAnalyzer:
         sanitized = re.sub(r'_+', '_', sanitized).strip('_')
         return sanitized
 
-    def prepare_enhanced_features(self, df: pd.DataFrame, min_instances: int = 100) -> pd.DataFrame:
+    def prepare_enhanced_features(self, df: pd.DataFrame, min_instances: int = 250) -> pd.DataFrame:
         """Prepare enhanced features for XGBoost, including useful categorical columns."""
         try:
             df = df.copy()
@@ -161,7 +161,7 @@ class XGBoostAnalyzer:
             print(f"Error preparing features: {str(e)}")
             return df
 
-    def analyze_with_xgboost(self, sus: pd.DataFrame, full: pd.DataFrame, n_iter: int = 10, min_instances: int = 100) -> None:
+    def analyze_with_xgboost(self, sus: pd.DataFrame, full: pd.DataFrame, n_iter: int = 10, min_instances: int = 250) -> None:
         try:
             print("\nEnhanced XGBoost Analysis")
             full_prepared = self.prepare_enhanced_features(full.copy(), min_instances=min_instances)
@@ -173,7 +173,11 @@ class XGBoostAnalyzer:
             # Drop LoanNumber after flagging
             full_prepared = full_prepared.drop(columns=["LoanNumber"])
             
-            feature_cols = [col for col in full_prepared.columns if full_prepared[col].dtype in ['int8', 'int16', 'int32', 'uint8', 'float32']]
+            # Exclude 'Flagged' from features
+            feature_cols = [col for col in full_prepared.columns 
+                        if col != "Flagged" 
+                        and full_prepared[col].dtype in ['int8', 'int16', 'int32', 'uint8', 'float32']]
+                
             X = full_prepared[feature_cols]
             y = full_prepared["Flagged"]
             print(f"Feature matrix ready. Shape: {X.shape}, Columns: {len(feature_cols)}")
@@ -195,10 +199,10 @@ class XGBoostAnalyzer:
             
             xgb_clf = xgb.XGBClassifier(
                 objective='binary:logistic',
-                eval_metric='auc',
+                eval_metric='auprc',
                 random_state=42,
                 tree_method='hist',
-                n_jobs=16,
+                n_jobs=24,
                 max_bin=256
             )
             
@@ -207,10 +211,10 @@ class XGBoostAnalyzer:
                 xgb_clf,
                 param_distributions=param_grid,
                 n_iter=n_iter,
-                scoring='roc_auc',
+                scoring='auprc',
                 cv=2,
                 random_state=42,
-                n_jobs=2,
+                n_jobs=24,
                 verbose=2,
                 error_score='raise'  # Raise errors to debug
             )
@@ -219,40 +223,37 @@ class XGBoostAnalyzer:
                 print("Performing hyperparameter tuning...")
                 random_search.fit(X_train, y_train)
             
-            # Fit the best model with early stopping
             best_params = random_search.best_params_
             print(f"Best parameters from tuning: {best_params}")
             
             self.model = xgb.XGBClassifier(
                 **best_params,
                 objective='binary:logistic',
-                eval_metric='auc',
+                eval_metric='aucpr',
                 random_state=42,
                 tree_method='hist',
-                n_jobs=16,
+                n_jobs=24,
                 max_bin=256
             )
             
-            print("Fitting final model with early stopping...")
+            print("Fitting final model...")
             self.model.fit(
                 X_train,
                 y_train,
                 eval_set=[(X_test, y_test)],
-                early_stopping_rounds=10,  # Use early_stopping_rounds instead of deprecated parameter
-                verbose=True
             )
-            
-            print(f"Best iteration: {self.model.best_iteration}")
             
             y_pred = self.model.predict(X_test)
             y_pred_proba = self.model.predict_proba(X_test)[:, 1]
             
             roc_auc = roc_auc_score(y_test, y_pred_proba)
-            avg_precision = average_precision_score(y_test, y_pred_proba)
+            avg_precision_recall = average_precision_score(y_test, y_pred_proba)
+            f1_score_result = f1_score(y_test, y_pred)
             
             print("\nModel Performance:")
             print(f"ROC-AUC Score: {roc_auc:.3f}")
-            print(f"Average Precision Score: {avg_precision:.3f}")
+            print(f"Area Under Precision Recall Curve: {avg_precision_recall:.3f}")
+            print(f"F1 Score: {f1_score_result:.3f}")
             print("\nClassification Report:")
             print(classification_report(y_test, y_pred, digits=3))
             
@@ -310,7 +311,13 @@ class XGBoostAnalyzer:
         try:
             print("\nAnalyzing feature interactions with SHAP values...")
             explainer = shap.TreeExplainer(self.model)
-            interaction_values = explainer.shap_interaction_values(X_test)
+            
+            # Subsample X_test (e.g., 10,000 rows)
+            sample_size = min(10000, len(X_test))  # Use 10k or total size if smaller
+            X_test_sample = X_test.sample(n=sample_size, random_state=42)
+            print(f"Using a subsample of {sample_size:,} rows for SHAP analysis (original size: {len(X_test):,})")
+            
+            interaction_values = explainer.shap_interaction_values(X_test_sample)
             
             np.fill_diagonal(interaction_values, 0)
             interaction_sum = np.sum(np.abs(interaction_values), axis=(0, 1))
@@ -345,7 +352,7 @@ class XGBoostAnalyzer:
                     prefix = "**" if i == 0 else "  "
                     suffix = "**" if i == 0 else ""
                     print(f"    {prefix}{feat}: {strength:.4f}{suffix}")
-                
+                    
         except Exception as e:
             print(f"Error analyzing SHAP values: {str(e)}")
 
@@ -1399,6 +1406,7 @@ f"{pname}: {sus_match:.3%} in suspicious vs {full_match:.3%} overall ({ratio:.2f
             print("\nEnhanced Multivariate Analysis via Logistic Regression")
             
             # Prepare dataset with enhanced features, keeping LoanNumber initially
+            print("Preparing enhanced features...")
             full_prepared = self.prepare_enhanced_features(full.copy())
             full_prepared["LoanNumber"] = full["LoanNumber"].astype(str).str.strip()
             sus["LoanNumber"] = sus["LoanNumber"].astype(str).str.strip()
@@ -1438,39 +1446,31 @@ f"{pname}: {sus_match:.3%} in suspicious vs {full_match:.3%} overall ({ratio:.2f
             X = full_prepared[numerical_features].copy()
             y = full_prepared["Flagged"]
 
-            # Pre-scale numerical features to improve conditioning
-            scaler = StandardScaler()
-            X[numerical_features] = scaler.fit_transform(X[numerical_features])
+            # No interaction features to keep feature count low
+            # Removed: X['Jobs_X_Amount'], X['Address_X_AmtPerEmp']
 
             # Diagnose and clean numerical features
             print("\nDiagnosing feature variance and correlations...")
             variances = X.var()
-            low_variance_cols = variances[variances < 0.01].index.tolist()
+            low_variance_cols = variances[variances < 0.01].index.tolist()  # Tightened from 0.005 to 0.01
             if low_variance_cols:
                 print(f"Removing low-variance numerical features: {low_variance_cols}")
                 X = X.drop(columns=low_variance_cols)
                 numerical_features = [f for f in numerical_features if f not in low_variance_cols]
 
-            # Hardcode dropping WordCount due to high correlation with NameLength
-            to_drop = {'WordCount'}
-            if to_drop.intersection(numerical_features):
-                print(f"Removing known correlated features: {to_drop}")
-                X = X.drop(columns=to_drop.intersection(numerical_features))
+            # Address multicollinearity explicitly
+            corr_matrix = X.corr().abs()
+            upper_tri = corr_matrix.where(np.triu(np.ones(corr_matrix.shape), k=1).astype(bool))
+            high_corr_pairs = [((row_idx, col_idx), value) for (row_idx, col_idx), value in upper_tri.stack().items() if value > 0.85]  # Tightened from 0.9 to 0.85
+            if high_corr_pairs:
+                print("High correlations detected (r > 0.85):")
+                to_drop = set()
+                for (row_idx, col_idx), corr_value in high_corr_pairs:
+                    print(f"  {row_idx} - {col_idx}: {corr_value:.3f}")
+                    to_drop.add(col_idx)  # Remove the second column in highly correlated pairs
+                print(f"Removing correlated features: {to_drop}")
+                X = X.drop(columns=to_drop)
                 numerical_features = [f for f in numerical_features if f not in to_drop]
-            else:
-                # Fallback correlation check (though unlikely needed now)
-                corr_matrix = X.corr().abs()
-                upper_tri = corr_matrix.where(np.triu(np.ones(corr_matrix.shape), k=1).astype(bool))
-                high_corr_pairs = [((row_idx, col_idx), value) for (row_idx, col_idx), value in upper_tri.stack().items() if value > 0.85]
-                if high_corr_pairs:
-                    print("High correlations detected (r > 0.85):")
-                    to_drop = set()
-                    for (row_idx, col_idx), corr_value in high_corr_pairs:
-                        print(f"  {row_idx} - {col_idx}: {corr_value:.3f}")
-                        to_drop.add(col_idx)
-                    print(f"Removing correlated features: {to_drop}")
-                    X = X.drop(columns=to_drop)
-                    numerical_features = [f for f in numerical_features if f not in to_drop]
 
             # Handle categorical features with meaningful names
             category_feature_map = {}
@@ -1489,7 +1489,7 @@ f"{pname}: {sus_match:.3%} in suspicious vs {full_match:.3%} overall ({ratio:.2f
                 dummies.columns = [f"{feature}_{col.replace(' ', '_')}" for col in dummies.columns]
                 
                 dummy_variances = dummies.var()
-                low_variance_dummies = dummy_variances[dummy_variances < 0.02].index.tolist()
+                low_variance_dummies = dummy_variances[dummy_variances < 0.001].index.tolist()
                 if low_variance_dummies:
                     print(f"  Removing low-variance dummy columns: {low_variance_dummies}")
                     dummies = dummies.drop(columns=low_variance_dummies)
@@ -1501,44 +1501,56 @@ f"{pname}: {sus_match:.3%} in suspicious vs {full_match:.3%} overall ({ratio:.2f
                 if dummies.shape[1] > 0:
                     X = pd.concat([X, dummies], axis=1)
 
+            # Final feature check
             print(f"\nFinal feature matrix shape: {X.shape}")
             if X.shape[1] == 0:
                 print("Error: No valid features remain after preprocessing.")
                 return
 
+            # Handle class imbalance and scaling
             if len(y.unique()) >= 2:
                 df_majority = X[y == 0]
                 df_minority = X[y == 1]
                 if len(df_minority) > 0:
+                    print(f"Upsampling minority class from {len(df_minority):,} to {len(df_majority):,}")
                     df_minority_upsampled = resample(
                         df_minority, replace=True, n_samples=len(df_majority), random_state=42
                     )
                     X_balanced = pd.concat([df_majority, df_minority_upsampled])
                     y_balanced = pd.Series([0] * len(df_majority) + [1] * len(df_minority_upsampled))
                     
-                    # Numerical features are already scaled, just clip
-                    X_scaled = np.clip(X_balanced, -10, 10)
+                    # Enhanced scaling to prevent overflow
+                    print("Scaling features...")
+                    scaler = StandardScaler()
+                    X_scaled = scaler.fit_transform(X_balanced)
+                    X_scaled = np.clip(X_scaled, -10, 10)
                     
+                    print("Splitting data into training and test sets...")
                     X_train, X_test, y_train, y_test = train_test_split(
                         X_scaled, y_balanced, test_size=0.3, random_state=42, stratify=y_balanced
                     )
                     
+                    # Scikit-learn model with adjusted parameters
                     model_sk = LogisticRegression(
                         max_iter=2000, class_weight="balanced", random_state=42,
-                        penalty='l2', C=0.1, solver='lbfgs', tol=1e-3
+                        penalty='l2', C=0.1, solver='lbfgs'
                     )
+                    print("Fitting Scikit-learn logistic regression (to be used as a backup in case Statsmodels fails)...")
                     model_sk.fit(X_train, y_train)
                     
+                    # Statsmodels with L2 regularization and increased iterations
                     X_train_sm = sm.add_constant(X_train.astype(float))
                     try:
+                        print("Fitting Statsmodels logistic regression...")
                         model_sm = sm.Logit(y_train, X_train_sm).fit(
-                            method='lbfgs', maxiter=2000, tol=1e-3, disp=0
+                            method='lbfgs', maxiter=3000, disp=0
                         )
                         print("Statsmodels logistic regression converged successfully.")
                     except Exception as e:
                         print(f"Statsmodels failed: {str(e)}. Falling back to sklearn model.")
                         model_sm = None
                     
+                    print("Predicting on test set...")
                     y_pred = model_sk.predict(X_test)
                     y_pred_proba = model_sk.predict_proba(X_test)[:, 1]
                     
@@ -1549,18 +1561,29 @@ f"{pname}: {sus_match:.3%} in suspicious vs {full_match:.3%} overall ({ratio:.2f
                     print(confusion_matrix(y_test, y_pred))
                     
                     feature_names = ["const"] + X.columns.tolist() if model_sm else X.columns.tolist()
-                    if model_sm and hasattr(model_sm, 'cov_params'):
+                    if model_sm:
                         coef_dict = dict(zip(feature_names, model_sm.params))
                         pval_dict = dict(zip(feature_names, model_sm.pvalues))
                         print("\nFeature Importance (Coefficients):")
                         sorted_coefs = sorted(coef_dict.items(), key=lambda x: abs(x[1]), reverse=True)
+                        
                         numerical_coefs = [(feat, coef) for feat, coef in sorted_coefs if feat not in category_feature_map and feat != "const"]
+                        categorical_coefs = [(feat, coef) for feat, coef in sorted_coefs if feat in category_feature_map]
+                        
                         print("Top Numerical Features:")
                         for feat, coef in numerical_coefs[:15]:
                             p_val = pval_dict.get(feat, 1.0)
                             sig_note = " (p < 0.05, significant)" if p_val < 0.05 else " (p >= 0.05, not significant)"
                             print(f"  {feat}: {coef:.4f}{sig_note}")
-                        for base, coef_list in {base: [(f, c, pval_dict.get(f, 1.0)) for f, c in sorted_coefs if category_feature_map.get(f) == base] for base in set(category_feature_map.values())}.items():
+                        
+                        categorical_by_base = {}
+                        for feat, coef in categorical_coefs:
+                            base = category_feature_map[feat]
+                            if base not in categorical_by_base:
+                                categorical_by_base[base] = []
+                            categorical_by_base[base].append((feat, coef, pval_dict.get(feat, 1.0)))
+                        
+                        for base, coef_list in categorical_by_base.items():
                             print(f"\nAll Categories for {base}:")
                             if base == "Race":
                                 print("  Note: Racial patterns reflect data distribution, not targeted focus.")
@@ -1576,11 +1599,14 @@ f"{pname}: {sus_match:.3%} in suspicious vs {full_match:.3%} overall ({ratio:.2f
                             print(f"  {feat}: {coef:.4f}")
                     
                     roc_auc = roc_auc_score(y_test, y_pred_proba)
+                    auprc = average_precision_score(y_test, y_pred_proba)
                     print(f"\nROC-AUC Score: {roc_auc:.3f}")
+                    print(f"AUPRC Score: {auprc:.3f}")
                 else:
                     print("No suspicious loans found for modeling.")
             else:
                 print("Not enough classes for logistic regression.")
+                                        
         except Exception as e:
             print(f"Error in multivariate analysis: {str(e)}")
             
@@ -1594,20 +1620,20 @@ f"{pname}: {sus_match:.3%} in suspicious vs {full_match:.3%} overall ({ratio:.2f
             xgb_analyzer = XGBoostAnalyzer()
 
             analysis_steps = [
-                # ("Geographic Clusters", self.analyze_geographic_clusters),
-                # ("Lender Patterns", self.analyze_lender_patterns),
-                # ("Business Patterns", self.analyze_business_patterns),
-                # ("Name Patterns", self.analyze_name_patterns),
-                # ("Business Name Patterns", self.analyze_business_name_patterns),
-                # ("Demographic Patterns", self.analyze_demographic_patterns),
-                # ("Risk Flags Analysis", lambda s, f: self.analyze_risk_flags(s)),
-                # ("Loan Amount Distribution", self.analyze_loan_amount_distribution),
-                # ("Jobs Reported Patterns", self.analyze_jobs_reported_patterns),
-                # ("Risk Score Distribution", lambda s, f: self.analyze_risk_score_distribution(s)),
-                # ("Risk Flags Count Distribution", lambda s, f: self.analyze_flag_count_distribution(s)),
-                # ("Correlations", lambda s, f: self.analyze_correlations(f)),
+                ("Geographic Clusters", self.analyze_geographic_clusters),
+                ("Lender Patterns", self.analyze_lender_patterns),
+                ("Business Patterns", self.analyze_business_patterns),
+                ("Name Patterns", self.analyze_name_patterns),
+                ("Business Name Patterns", self.analyze_business_name_patterns),
+                ("Demographic Patterns", self.analyze_demographic_patterns),
+                ("Risk Flags Analysis", lambda s, f: self.analyze_risk_flags(s)),
+                ("Loan Amount Distribution", self.analyze_loan_amount_distribution),
+                ("Jobs Reported Patterns", self.analyze_jobs_reported_patterns),
+                ("Risk Score Distribution", lambda s, f: self.analyze_risk_score_distribution(s)),
+                ("Risk Flags Count Distribution", lambda s, f: self.analyze_flag_count_distribution(s)),
+                ("Correlations", lambda s, f: self.analyze_correlations(f)),
                 ("Multivariate Analysis", self.analyze_multivariate),
-                ("XGBoost Analysis", lambda s, f: xgb_analyzer.analyze_with_xgboost(s, f, n_iter=5)),
+                ("XGBoost Analysis", lambda s, f: xgb_analyzer.analyze_with_xgboost(s, f, n_iter=15)),
                 ("Feature Discrimination (AUPRC)", self.analyze_feature_discrimination)
             ]
             
