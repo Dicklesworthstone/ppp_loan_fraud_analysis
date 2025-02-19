@@ -2,6 +2,7 @@ aiofiles
 dask
 httpx
 joblib
+line_profiler
 nameparser
 numpy
 pandas

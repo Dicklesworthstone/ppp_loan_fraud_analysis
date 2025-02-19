@@ -5,7 +5,9 @@ import asyncio
 import aiofiles
 import httpx
 import logging
+from math import log
 import pandas as pd
+import numpy as np
 from tqdm import tqdm
 from termcolor import colored
 from typing import List, Set, Tuple
@@ -37,6 +39,11 @@ def setup_logging() -> logging.Logger:
     logger.addHandler(ch)
     return logger
 
+if 'profile' not in globals():
+    def profile(func):
+        """A no-op decorator for when line_profiler is not active."""
+        return func
+    
 async def download_and_extract_csv() -> None:
     logger = setup_logging()
     if not os.path.exists(CSV_FILENAME):
@@ -91,7 +98,9 @@ class PPPLoanProcessor:
             'naics': 0.10,
             'lender': 0.10,
             'demographics': 0.05,
-            'name_pattern': 0.05
+            'name_pattern': 0.05,
+            'geospatial_cluster': 0.05,
+            'sba_office_cluster': 0.05 
         }
         self.HIGH_RISK_LENDERS = {
             'Celtic Bank Corporation': 0.8,
@@ -199,7 +208,6 @@ class PPPLoanProcessor:
             r'blessed\s*by\s*gov': 0.95,
             r'uncle\s*sam\s*bless': 0.95,
             r'government\s*cheese': 0.95,
-            r'stack[sz]': 0.9,
             r'bread\s*winner': 0.85,
             r'get\s*this\s*bread': 0.9,
             r'paper\s*chase': 0.9,
@@ -299,7 +307,12 @@ class PPPLoanProcessor:
             r'instagram': 0.9,
         }
         # Precompile suspicious patterns for faster reuse.
-        self.compiled_suspicious_patterns = {re.compile(pat, re.IGNORECASE): weight for pat, weight in self.SUSPICIOUS_PATTERNS.items()}
+        pattern_list = [f'(?P<pat{i}>{pat})' for i, pat in enumerate(self.SUSPICIOUS_PATTERNS.keys())]
+        pattern_str = '|'.join(pattern_list)
+        self.compiled_suspicious_pattern = re.compile(pattern_str, re.IGNORECASE)
+        # Map group names back to original patterns and weights
+        self.pattern_weights = {f'pat{i}': weight for i, (pat, weight) in enumerate(self.SUSPICIOUS_PATTERNS.items())}
+        self.pattern_to_original = {f'pat{i}': pat for i, pat in enumerate(self.SUSPICIOUS_PATTERNS.keys())}        
         self.LEGITIMATE_KEYWORDS = {
             'consulting', 'services', 'solutions', 'associates',
             'partners', 'group', 'inc', 'llc', 'ltd', 'corporation',
@@ -308,8 +321,8 @@ class PPPLoanProcessor:
         self.known_businesses = set()
         self.date_patterns = defaultdict(lambda: defaultdict(list))
         self.lender_loan_sequences = defaultdict(list)
-        self.ZIP_CLUSTER_THRESHOLD = 3
-        self.SEQUENCE_THRESHOLD = 3
+        self.ZIP_CLUSTER_THRESHOLD = 5
+        self.SEQUENCE_THRESHOLD = 5
         self.address_to_businesses = defaultdict(set)
         self.business_to_addresses = defaultdict(set)
         self.lender_batches = defaultdict(list)
@@ -328,46 +341,57 @@ class PPPLoanProcessor:
         }
         self.business_name_patterns = defaultdict(int)
         self.SUSPICIOUS_NAME_PATTERNS = {
-            r'consulting.*llc': 0.4,
-            r'holdings.*llc': 0.4,
-            r'enterprise.*llc': 0.4,
-            r'solutions.*llc': 0.4,
-            r'services.*llc': 0.3,
-            r'investment.*llc': 0.4,
-            r'\d+.*consulting': 0.6,
-            r'[A-Z]\s*&\s*[A-Z]\s+': 0.5,
-            r'[A-Z]{3,}': 0.4
+            r'consulting.*llc': 0.1,
+            r'holdings.*llc': 0.1,
+            r'enterprise.*llc': 0.1,
+            r'solutions.*llc': 0.1,
+            r'services.*llc': 0.05,
+            r'investment.*llc': 0.05,
         }
+        # Precompiled patterns for validate_address
+        self.address_fake_patterns = [
+            re.compile(r'\d{1,3}\s*[a-z]+\s*(st|street|ave|avenue|rd|road)', re.IGNORECASE),
+            re.compile(r'p\.?o\.?\s*box\s*\d+', re.IGNORECASE),
+            re.compile(r'general\s*delivery', re.IGNORECASE)
+        ]
+        # Precompiled patterns for validate_business_name
+        self.business_name_personal = re.compile(r'^[a-z]+\s+[a-z]+$', re.IGNORECASE)
+        self.business_name_suspicious_chars = re.compile(r'[@#$%^&*]')
+        # Precompiled patterns for analyze_address_type
+        self.address_range = re.compile(r'\d+\s*-\s*\d+')
+        self.address_street_end = re.compile(r'(st|street|ave|avenue|road|rd)\s*$', re.IGNORECASE)        
         # Precompile suspicious name patterns.
         self.compiled_suspicious_name_patterns = {re.compile(pat, re.IGNORECASE): weight for pat, weight in self.SUSPICIOUS_NAME_PATTERNS.items()}
+        # Track geospatial coordinates
+        self.seen_coordinates = defaultdict(set)  # (lat, lon) -> set of loan numbers
+        # New: Track SBA office code volumes by date
+        self.daily_office_counts = defaultdict(lambda: defaultdict(int))  # date -> office_code ->
+        self.UNANSWERED_SET = {'unanswered', 'unknown'}
+        self.INVALID_ADDRESS_SET = {'n/a', 'none', '', 'nan'}
 
     def validate_address(self, address: str) -> tuple[bool, List[str]]:
-        self.logger.debug("Validating address input")
         flags = []
         address_str = str(address).lower().strip()
-        if pd.isna(address) or address_str in ('n/a', 'none', '', 'nan'):
+        if pd.isna(address) or address_str in self.INVALID_ADDRESS_SET:
             return False, ['Invalid/missing address']
-        residential_indicators = {'apt': 0.7, 'unit': 0.5, 'suite': 0.3, '#': 0.4, 'po box': 0.8, 'box': 0.7, 'residential': 0.9, 'house': 0.8}
-        commercial_indicators = {'plaza', 'building', 'tower', 'office', 'complex', 'center', 'mall', 'commercial', 'industrial', 'park'}
-        residential_score = 0
-        for indicator, weight in residential_indicators.items():
-            if indicator in address_str:
-                residential_score += weight
-        for indicator in commercial_indicators:
-            if indicator in address_str:
-                residential_score -= 0.5
-        if residential_score > 0.7:
+        
+        # Combine indicators into one regex
+        residential_pattern = re.compile('|'.join(self.RESIDENTIAL_INDICATORS.keys()), re.IGNORECASE)
+        commercial_pattern = re.compile('|'.join(self.COMMERCIAL_INDICATORS.keys()), re.IGNORECASE)
+        
+        residential_score = sum(weight for ind, weight in self.RESIDENTIAL_INDICATORS.items() if ind in address_str)
+        commercial_score = sum(weight for ind, weight in self.COMMERCIAL_INDICATORS.items() if ind in address_str)
+        total_score = residential_score + commercial_score
+        
+        if total_score > 0.7:
             flags.append('Residential address')
         if len(address_str) < 10:
             flags.append('Suspiciously short address')
-        fake_patterns = [r'\d{1,3}\s*[a-z]+\s*(st|street|ave|avenue|rd|road)', r'p\.?o\.?\s*box\s*\d+', r'general\s*delivery']
-        if any(re.search(pattern, address_str) for pattern in fake_patterns):
+        if any(pat.search(address_str) for pat in self.address_fake_patterns):
             flags.append('Potentially fake address pattern')
-        self.logger.debug("Address validation complete")
         return (len(flags) == 0), flags
 
     def validate_business_name(self, name: str) -> tuple[float, List[str]]:
-        self.logger.debug("Validating business name")
         flags = []
         risk_score = 0
         name_str = str(name).lower().strip()
@@ -378,37 +402,64 @@ class PPPLoanProcessor:
         for cre, weight in self.compiled_suspicious_patterns.items():
             if cre.search(name_str):
                 risk_score += weight
-                flags.append(f'Suspicious name pattern: {cre.pattern}')
+                flags.append(f'Suspicious name pattern: {cre.pattern}') 
         legitimate_count = sum(1 for keyword in self.LEGITIMATE_KEYWORDS if keyword in name_str)
         risk_score -= (legitimate_count * 0.2)
-        if re.match(r'^[a-z]+\s+[a-z]+$', name_str):
+        if self.business_name_personal.match(name_str):
             risk_score += 0.4
             flags.append('Personal name only')
-        if re.search(r'[@#$%^&*]', name_str):
+        if self.business_name_suspicious_chars.search(name_str):
             risk_score += 0.5
             flags.append('Suspicious characters in name')
-        self.logger.debug("Business name validation complete")
         return max(0, min(1, risk_score)), flags
 
-    def check_multiple_applications(self, loan: pd.Series) -> tuple[bool, List[str]]:
-        self.logger.debug("Checking for multiple applications")
-        flags = []
-        name_key = f"{loan['BorrowerName']}_{loan['BorrowerCity']}_{loan['BorrowerState']}"
-        address_key = f"{loan['BorrowerAddress']}_{loan['BorrowerCity']}_{loan['BorrowerState']}"
-        exact_key = f"{name_key}_{loan['InitialApprovalAmount']}"
-        if exact_key in self.seen_loans:
-            flags.append("Duplicate exact loan detected")
-            self.stats['duplicate_loans'] += 1
-        self.borrower_loans[name_key] = self.borrower_loans.get(name_key, 0) + 1
-        if self.borrower_loans[name_key] > 1:
-            flags.append(f"Multiple loans ({self.borrower_loans[name_key]}) for same borrower")
-        self.seen_addresses[address_key] = self.seen_addresses.get(address_key, 0) + 1
-        if self.seen_addresses[address_key] > 2:
-            flags.append(f"Address used {self.seen_addresses[address_key]} times")
-        self.seen_loans.add(exact_key)
-        self.logger.debug("Multiple application check complete")
-        return len(flags) > 0, flags
+    @profile
+    def check_multiple_applications(self, chunk: pd.DataFrame) -> tuple[pd.Series, List[List[str]]]:
+        chunk = chunk.copy()
+        # Precompute keys as lists to avoid pandas operations later
+        exact_keys = [f"{row['BorrowerName']}_{row['BorrowerCity']}_{row['BorrowerState']}_{row['InitialApprovalAmount']}" 
+                    for _, row in chunk.iterrows()]
+        name_keys = [f"{row['BorrowerName']}_{row['BorrowerCity']}_{row['BorrowerState']}" 
+                    for _, row in chunk.iterrows()]
+        address_keys = [f"{row['BorrowerAddress']}_{row['BorrowerCity']}_{row['BorrowerState']}" 
+                        for _, row in chunk.iterrows()]
 
+        # Update global state
+        self.seen_loans.update(exact_keys)
+        name_counts_dict = {key: self.borrower_loans.get(key, 0) + 1 for key in name_keys}
+        self.borrower_loans.update({key: self.borrower_loans.get(key, 0) + sum(1 for k in name_keys if k == key) 
+                                    for key in set(name_keys)})
+        address_counts_dict = {key: self.seen_addresses.get(key, 0) + 1 for key in address_keys}
+        self.seen_addresses.update({key: self.seen_addresses.get(key, 0) + sum(1 for k in address_keys if k == key) 
+                                    for key in set(address_keys)})
+
+        # Initialize outputs
+        scores = pd.Series(0.0, index=chunk.index)  # Keep scores as Series for risk scoring
+        flags = [[] for _ in range(len(chunk))]  # Plain list of lists for flags
+
+        # Process each row manually
+        for i, (exact_key, name_key, address_key) in enumerate(zip(exact_keys, name_keys, address_keys)):
+            # Exact duplicates
+            if exact_key in self.seen_loans and exact_key in exact_keys[:i]:  # Check if seen before this row
+                scores.iloc[i] += 30
+                flags[i].append('Duplicate exact loan detected')
+            
+            # Multiple loans
+            name_count = name_counts_dict[name_key]
+            if name_count > 1:
+                scores.iloc[i] += 30
+                flags[i].append(f'Multiple loans ({name_count}) for same borrower')
+            
+            # Multi address
+            address_count = address_counts_dict[address_key]
+            if address_count > 2:
+                scores.iloc[i] += 30
+                flags[i].append(f'Address used {address_count} times')
+
+        self.stats['duplicate_loans'] += sum(1 for key in exact_keys if exact_keys.count(key) > 1)
+        return scores, flags
+
+    @profile
     def analyze_time_patterns(self, loan: pd.Series) -> tuple[float, List[str]]:
         risk_score = 0
         flags = []
@@ -432,88 +483,73 @@ class PPPLoanProcessor:
             amounts = [l['amount'] for l in zip_cluster]
             business_types = [l['business_type'] for l in zip_cluster]
             if max(amounts) - min(amounts) < min(amounts) * 0.1:
-                risk_score += 20
-                flags.append(f"Part of cluster: {len(zip_cluster)} similar loans in ZIP {zip_code} on {date}")
+                risk_score += 10
+                flags.append(f'Part of cluster: {len(zip_cluster)} similar loans in ZIP {zip_code} on {date}')
             if len(set(business_types)) == 1:
                 risk_score += 15
-                flags.append(f"Cluster of identical business types in ZIP {zip_code}")
+                flags.append(f'Cluster of identical business types in ZIP {zip_code}')
         
-        # New daily clustering: Track total loans per day by ZIP and lender
-        # Initialize tracking dictionaries in __init__ if not already present
-        if not hasattr(self, 'daily_zip_counts'):
-            self.daily_zip_counts = defaultdict(lambda: defaultdict(int))  # date -> zip -> count
-            self.daily_lender_counts = defaultdict(lambda: defaultdict(int))  # date -> lender -> count
-        
+        # Track total loans per day by ZIP and lender
         self.daily_zip_counts[date][zip_code] += 1
         self.daily_lender_counts[date][lender] += 1
         
-        # Calculate cluster intensity (requires tracking total days processed)
-        if not hasattr(self, 'total_days'):
-            self.total_days = set()  # Track unique dates
+        # Calculate cluster intensity
         self.total_days.add(date)
         days_processed = len(self.total_days)
         
-        if days_processed > 1:  # Need at least 2 days for meaningful comparison
+        if days_processed > 1:
             # ZIP-based intensity
             total_zip_loans = sum(self.daily_zip_counts[date].values())
             avg_daily_zip_loans = total_zip_loans / days_processed
             zip_loans_today = self.daily_zip_counts[date][zip_code]
-            if avg_daily_zip_loans > 0:
+            MIN_LOANS_FOR_CLUSTER = 5
+            if zip_loans_today >= MIN_LOANS_FOR_CLUSTER and avg_daily_zip_loans >= 1:
                 zip_intensity = zip_loans_today / avg_daily_zip_loans
-                if zip_intensity > 5:  # Threshold: 5x average daily volume
-                    intensity_score = min(20 * (zip_intensity / 5), 40)  # Scale up to max 40
-                    risk_score += intensity_score
-                    flags.append(f"Unusual ZIP cluster intensity: {zip_loans_today} loans vs {avg_daily_zip_loans:.1f} avg on {date}")
-            
+                if zip_intensity > 5:
+                    base_score = 20
+                    cluster_score = base_score + 10 * log(max(zip_loans_today - MIN_LOANS_FOR_CLUSTER + 1, 1), 2)
+                    risk_score += cluster_score
+                    flags.append(f'Unusual ZIP cluster intensity: {zip_loans_today:,} loans vs {avg_daily_zip_loans:.1f} avg on {date} (score: {cluster_score:.1f})')
+                        
             # Lender-based intensity
             total_lender_loans = sum(self.daily_lender_counts[date].values())
             avg_daily_lender_loans = total_lender_loans / days_processed
             lender_loans_today = self.daily_lender_counts[date][lender]
-            if avg_daily_lender_loans > 0:
+            MIN_LOANS_FOR_CLUSTER = 5
+            if lender_loans_today >= MIN_LOANS_FOR_CLUSTER and avg_daily_lender_loans >= 1:
                 lender_intensity = lender_loans_today / avg_daily_lender_loans
-                if lender_intensity > 5:  # Threshold: 5x average daily volume
-                    intensity_score = min(20 * (lender_intensity / 5), 40)  # Scale up to max 40
+                if lender_intensity > 5:
+                    intensity_score = min(20 * (lender_intensity / 5), 40)
                     risk_score += intensity_score
-                    flags.append(f"Unusual lender cluster intensity: {lender_loans_today} loans vs {avg_daily_lender_loans:.1f} avg on {date}")
-        
+                    flags.append(f'Unusual lender cluster intensity: {lender_loans_today:,} loans vs {avg_daily_lender_loans:.1f} avg on {date}')
+
         # Existing sequential check
         self.lender_loan_sequences[lender].append(loan_number)
         recent_loans = self.lender_loan_sequences[lender][-self.SEQUENCE_THRESHOLD:]
         if len(recent_loans) >= self.SEQUENCE_THRESHOLD and self.is_roughly_sequential(recent_loans):
             risk_score += 25
-            flags.append(f"Sequential loan numbers from {lender}")
+            flags.append(f'Sequential loan numbers from {lender}')
         
         return risk_score, flags
 
     def is_roughly_sequential(self, loan_numbers: List[str]) -> bool:
-        self.logger.debug("Checking if loan numbers are roughly sequential")
-        import numpy as np
-        numbers = [int(re.findall(r'\d+', loan_num)[-1]) for loan_num in loan_numbers if re.findall(r'\d+', loan_num)]
+        # Minimize regex overhead by pre-filtering and extracting in one pass
+        numbers = np.array([int(m[-1]) for num in loan_numbers if (m := re.findall(r'\d+', num))], dtype=np.int64)
         if len(numbers) < 2:
             return False
-        arr = np.array(numbers)
-        arr.sort()
-        gaps = np.diff(arr)
-        avg_gap = gaps.mean()
-        result = (avg_gap < 10) and np.all(gaps < 20)
-        self.logger.debug(f"Sequential check result: {result}")
+        np.sort(numbers, kind='quicksort')  # In-place sort is slightly faster
+        gaps = np.diff(numbers)
+        result = (gaps.mean() < 10) & np.all(gaps < 20)  # Use bitwise & for consistency
         return result
 
     def analyze_address_type(self, address: str) -> float:
-        self.logger.debug("Analyzing address type")
         address_str = str(address).lower()
-        score = 0
-        for indicator, weight in self.RESIDENTIAL_INDICATORS.items():
-            if indicator in address_str:
-                score += weight
-        for indicator, weight in self.COMMERCIAL_INDICATORS.items():
-            if indicator in address_str:
-                score += weight
-        if re.search(r'\d+\s*-\s*\d+', address_str):
+        score = sum(weight for ind, weight in self.RESIDENTIAL_INDICATORS.items() if ind in address_str)
+        score += sum(weight for ind, weight in self.COMMERCIAL_INDICATORS.items() if ind in address_str)
+        if self.address_range.search(address_str):
             score += 0.6
-        if re.search(r'(st|street|ave|avenue|road|rd)\s*$', address_str):
+        if self.address_street_end.search(address_str):
             score += 0.4
-        self.logger.debug("Address type analysis complete")
         return score
 
     def analyze_name_patterns(self, business_names: Set[str]) -> Tuple[float, List[str]]:
@@ -574,10 +610,13 @@ class PPPLoanProcessor:
         self.logger.debug("Sequential pattern check complete")
         return score, flags
 
+    @profile
     def analyze_networks(self, loan: pd.Series) -> tuple[float, List[str]]:
         self.logger.debug("Analyzing networks for loan")
         risk_score = 0
-        flags = []
+        flags = []  # Start with a clean list
+        
+        # Address-based network analysis
         if pd.notna(loan['BorrowerAddress']):
             address_key = f"{loan['BorrowerAddress']}_{loan['BorrowerCity']}_{loan['BorrowerState']}"
             business_name = loan['BorrowerName']
@@ -585,13 +624,15 @@ class PPPLoanProcessor:
             self.business_to_addresses[business_name].add(address_key)
             residential_score = self.analyze_address_type(loan['BorrowerAddress'])
             businesses_at_address = len(self.address_to_businesses[address_key])
+            
             if businesses_at_address >= 2:
                 if residential_score > 0.5:
                     risk_score += 15 * businesses_at_address
-                    flags.append("Multiple businesses at residential address")
+                    flags.append(f"Multiple businesses at residential address ({businesses_at_address})")
                 else:
                     risk_score += 8 * businesses_at_address
                 flags.append(f"Shared address with {businesses_at_address-1} other businesses")
+                
                 connected_businesses = set()
                 for addr in self.business_to_addresses[business_name]:
                     connected_businesses.update(self.address_to_businesses[addr])
@@ -601,6 +642,8 @@ class PPPLoanProcessor:
                     flags.extend(pattern_flags)
                     risk_score += 5 * len(connected_businesses)
                     flags.append(f"Connected to {len(connected_businesses)-1} other businesses")
+        
+        # Lender batch analysis
         lender_key = f"{loan['OriginatingLender']}_{loan['OriginatingLenderLocationID']}_{loan['DateApproved']}"
         batch_info = {
             'loan_number': loan['LoanNumber'],
@@ -610,6 +653,7 @@ class PPPLoanProcessor:
         }
         self.lender_batches[lender_key].append(batch_info)
         current_batch = self.lender_batches[lender_key]
+        
         if len(current_batch) >= 5:
             amounts = [l['amount'] for l in current_batch]
             if max(amounts) - min(amounts) < min(amounts) * 0.1:
@@ -618,6 +662,8 @@ class PPPLoanProcessor:
                 risk_score += 15 + pattern_score
                 flags.append(f"Part of suspicious batch: {len(current_batch)} similar loans from same lender")
                 flags.extend(pattern_flags)
+        
+        # Lender sequence analysis
         lender_base = f"{loan['OriginatingLender']}_{loan['OriginatingLenderLocationID']}"
         self.lender_sequences[lender_base] = self.lender_sequences[lender_base][-50:] + [{
             'loan_number': loan['LoanNumber'],
@@ -626,180 +672,259 @@ class PPPLoanProcessor:
         }]
         recent_loans = self.lender_sequences[lender_base][-5:]
         sequence_score, sequence_flags = self.check_sequential_pattern(recent_loans)
-        if sequence_score > 0:
-            risk_score += sequence_score
-            flags.extend(sequence_flags)
+        risk_score += sequence_score
+        flags.extend(sequence_flags)  # Extend without adding semicolons here
+        
         self.logger.debug("Network analysis complete")
         return risk_score, flags
-
+    
+    @profile
     def calculate_risk_scores(self, chunk: pd.DataFrame) -> pd.DataFrame:
         self.logger.debug("Calculating risk scores for chunk")
         
-        # Define interaction rules (flag pairs and multipliers)
         INTERACTION_RULES = {
-            ("High amount per employee", "Residential address"): 1.5,
-            ("Exact maximum loan amount detected", "High-risk lender"): 1.3,
-            ("Multiple businesses at residential address", "Cluster of identical business types"): 1.4,
-            ("Missing all demographics", "High-risk business type"): 1.2
+            ("High amount per employee", "Residential address"): 1.05,
+            ("Exact maximum loan amount detected", "High-risk lender"): 1.05,
+            ("Multiple businesses at residential address", "Cluster of identical business types"): 1.15,
+            ("Missing all demographics", "High-risk business type"): 1.05,
+            ("Geospatial cluster", "Sequential loan numbers"): 1.05,
+            ("SBA office cluster", "Sequential loan numbers"): 1.05  
         }
 
-        def score_loan(loan: pd.Series) -> pd.Series:
-            score = 0
-            flags = []
-            
-            # Check for multiple applications
-            has_duplicates, duplicate_flags = self.check_multiple_applications(loan)
-            if has_duplicates:
-                score += 30
-                flags.extend(duplicate_flags)
-            
-            # Validate address
-            valid, address_flags = self.validate_address(loan['BorrowerAddress'])
-            if not valid:
-                score += 10
-            flags.extend(address_flags)
-            
-            # Check suspicious patterns in business name
-            name = str(loan['BorrowerName']).lower()
-            for pattern, weight in self.SUSPICIOUS_PATTERNS.items():
-                if re.search(pattern, name):
-                    score += 30 * weight
-                    flags.append(f'Suspicious pattern in name: {pattern}')
-            
-            # Analyze jobs reported and amount per employee
-            if loan['JobsReported'] > 0:
-                amount = float(loan['InitialApprovalAmount'])
-                per_employee = amount / loan['JobsReported']
-                if per_employee > 12000:
-                    score += 15
-                    flags.append(f'High amount per employee: ${per_employee:,.2f}')
-                    if per_employee > 14000:
-                        score += 15
-                        flags.append('Extremely high amount per employee')
-                if loan['JobsReported'] == 1:
-                    score += 20
-                    flags.append("Only one employee reported: Very high fraud risk")
-                elif loan['JobsReported'] < 3:
-                    score += 10
-                    flags.append("Fewer than three employees reported: Increased fraud risk")
-            
-            # Check for exact maximum loan amounts
-            if loan['InitialApprovalAmount'] == 20832 or loan['InitialApprovalAmount'] == 20833:
-                score += 25
-                flags.append("Exact maximum loan amount detected")
-            
-            # Check lender risk
-            lender = str(loan['OriginatingLender'])
-            if lender in self.HIGH_RISK_LENDERS and len(flags) > 0:
-                score += 15 * self.HIGH_RISK_LENDERS[lender]
-                flags.append('High-risk lender')
-            
-            # Check demographic completeness
-            demographic_fields = ['Race', 'Gender', 'Ethnicity']
-            missing_demographics = sum(1 for field in demographic_fields 
-                                    if str(loan.get(field, '')).lower() in ['unanswered', 'unknown'])
-            if missing_demographics == len(demographic_fields) and len(flags) > 1:
-                score += 10
-                flags.append('Missing all demographics')
-            
-            # Check business type risk
-            business_type = str(loan['BusinessType'])
-            if business_type in self.HIGH_RISK_BUSINESS_TYPES:
-                if len(flags) > 1:
-                    score += 15 * self.HIGH_RISK_BUSINESS_TYPES[business_type]
-                    flags.append('High-risk business type')
-            
-            # Adjust for loan status
-            if loan['LoanStatus'] == 'Paid in Full':
-                score -= 15
-            
-            # Analyze temporal patterns
-            time_score, time_flags = self.analyze_time_patterns(loan)
-            score += time_score
-            flags.extend(time_flags)
-            
-            # Analyze network patterns
-            network_score, network_flags = self.analyze_networks(loan)
-            score += network_score
-            flags.extend(network_flags)
-            
-            # Adjust for business age
-            business_age = str(loan['BusinessAgeDescription']).lower()
-            if business_age in ['new', 'existing less than 2 years']:
-                if loan['InitialApprovalAmount'] > 15000 and loan['JobsReported'] <= 2:
-                    score += 20
-                    flags.append("New business with high loan amount and few jobs")
-            elif business_age in ['existing 2+ years', 'established']:
-                score -= 10  # Reduce false positives for established businesses
-                flags.append("Established business - lower risk")
-            
-            # Existing multiplier for sequential loan numbers
-            if any("Sequential loan numbers" in flag for flag in flags) and len(flags) > 1:
-                score = score * 1.5
-            
-            # Apply dynamic feature interaction scoring
-            flag_set = set(flags)
-            for (flag1, flag2), multiplier in INTERACTION_RULES.items():
-                if flag1 in flag_set and flag2 in flag_set:
-                    interaction_score = score * (multiplier - 1)  # Only the additional portion
-                    score += interaction_score
-                    flags.append(f"Interaction: {flag1} + {flag2} (x{multiplier})")
-            
-            # Apply cap logic
-            final_score = score
-            if "Exact maximum loan amount detected" not in flags and len(flags) < 2:
-                final_score = min(49, final_score)
-            
-            # Determine risk level
-            risk_level = (
-                'Very High Risk' if final_score >= 75 else
-                'High Risk' if final_score >= 50 else
-                'Medium Risk' if final_score >= 25 else
-                'Low Risk'
-            )
-            
-            return pd.Series({
-                'RiskScore': final_score,
-                'RiskLevel': risk_level,
-                'RiskFlags': '; '.join(flags)
-            })
+        chunk = chunk.copy()
+        chunk['BorrowerName_lower'] = chunk['BorrowerName'].str.lower().fillna('')
+        chunk['BorrowerAddress_lower'] = chunk['BorrowerAddress'].str.lower().fillna('')
+        chunk['BusinessAgeDescription_lower'] = chunk['BusinessAgeDescription'].str.lower().fillna('')
+        chunk['JobsReported'] = chunk['JobsReported'].fillna(0).astype(float)
+        chunk['InitialApprovalAmount'] = chunk['InitialApprovalAmount'].astype(float)
+        chunk['Latitude'] = chunk['Latitude'].fillna(0).astype(float)
+        chunk['Longitude'] = chunk['Longitude'].fillna(0).astype(float)
+        chunk['SBAOfficeCode'] = chunk['SBAOfficeCode'].fillna('')
         
-        # Apply the scoring function to the chunk and combine with original data
-        results = chunk.apply(score_loan, axis=1)
-        combined = pd.concat([chunk[['LoanNumber', 'BorrowerName']], results], axis=1)
+        risk_scores = pd.DataFrame(index=chunk.index)
+        risk_scores['RiskScore'] = 0.0
+        risk_scores['RiskFlags'] = [[] for _ in range(len(chunk))]  # Still a list of lists
+        
+        multi_scores, multi_flags = self.check_multiple_applications(chunk)
+        risk_scores['RiskScore'] += multi_scores
+        # Add multi_flags directly as lists
+        for i, flag_list in enumerate(multi_flags):
+            risk_scores['RiskFlags'].iloc[i].extend(flag_list)
+        
+        # Rest of the method unchanged, just adjust indexing where needed
+        invalid_addr_mask = chunk['BorrowerAddress_lower'].isin(self.INVALID_ADDRESS_SET)
+        residential_scores = pd.Series(0.0, index=chunk.index)
+        for indicator, weight in self.RESIDENTIAL_INDICATORS.items():
+            residential_scores += chunk['BorrowerAddress_lower'].str.contains(indicator, na=False) * weight
+        for indicator, weight in self.COMMERCIAL_INDICATORS.items():
+            residential_scores += chunk['BorrowerAddress_lower'].str.contains(indicator, na=False) * weight
+        residential_mask = residential_scores > 0.7
+        risk_scores.loc[invalid_addr_mask, 'RiskScore'] += 10
+        risk_scores.loc[invalid_addr_mask, 'RiskFlags'] = risk_scores.loc[invalid_addr_mask, 'RiskFlags'].apply(
+            lambda x: x + ['Invalid/missing address']
+        )
+        risk_scores.loc[residential_mask, 'RiskFlags'] = risk_scores.loc[residential_mask, 'RiskFlags'].apply(
+            lambda x: x + ['Residential address']
+        )
+        
+        def extract_pattern_matches(name):
+            if pd.isna(name) or not name:
+                return 0.0, []
+            score = 0.0
+            flags = []
+            matches = self.compiled_suspicious_pattern.finditer(name)
+            for match in matches:
+                matched_group = next(k for k, v in match.groupdict().items() if v)
+                weight = self.pattern_weights[matched_group]
+                original_pat = self.pattern_to_original[matched_group]
+                score += 30 * weight
+                flags.append(f'Suspicious pattern in name: {original_pat}')
+            return score, flags
+        
+        results = chunk['BorrowerName_lower'].apply(extract_pattern_matches)
+        risk_scores['RiskScore'] += results.apply(lambda x: x[0])
+        for i, flag_list in enumerate(results.apply(lambda x: x[1])):
+            risk_scores['RiskFlags'].iloc[i].extend(flag_list)
+        
+        per_employee = chunk['InitialApprovalAmount'] / chunk['JobsReported'].replace(0, np.nan)
+        high_per_emp_mask = (chunk['JobsReported'] > 0) & (per_employee > 12000)
+        very_high_per_emp_mask = (chunk['JobsReported'] > 0) & (per_employee > 14000)
+        one_emp_mask = chunk['JobsReported'] == 1
+        few_emp_mask = (chunk['JobsReported'] < 3) & (chunk['JobsReported'] > 0)
+        risk_scores.loc[high_per_emp_mask, 'RiskScore'] += 15
+        risk_scores.loc[high_per_emp_mask, 'RiskFlags'] = risk_scores.loc[high_per_emp_mask, 'RiskFlags'].apply(
+            lambda x, idx=high_per_emp_mask[high_per_emp_mask].index: x + [f'High amount per employee: ${per_employee[idx[0]]:,.2f}'] if len(idx) > 0 else x
+        )
+        risk_scores.loc[very_high_per_emp_mask, 'RiskScore'] += 15
+        risk_scores.loc[very_high_per_emp_mask, 'RiskFlags'] = risk_scores.loc[very_high_per_emp_mask, 'RiskFlags'].apply(
+            lambda x: x + ['Extremely high amount per employee']
+        )
+        risk_scores.loc[one_emp_mask, 'RiskScore'] += 20
+        risk_scores.loc[one_emp_mask, 'RiskFlags'] = risk_scores.loc[one_emp_mask, 'RiskFlags'].apply(
+            lambda x: x + ['Only one employee reported: Very high fraud risk']
+        )
+        risk_scores.loc[few_emp_mask, 'RiskScore'] += 10
+        risk_scores.loc[few_emp_mask, 'RiskFlags'] = risk_scores.loc[few_emp_mask, 'RiskFlags'].apply(
+            lambda x: x + ['Fewer than three employees reported: Increased fraud risk']
+        )
+        
+        exact_max_mask = chunk['InitialApprovalAmount'].isin([20832, 20833])
+        risk_scores.loc[exact_max_mask, 'RiskScore'] += 25
+        risk_scores.loc[exact_max_mask, 'RiskFlags'] = risk_scores.loc[exact_max_mask, 'RiskFlags'].apply(
+            lambda x: x + ['Exact maximum loan amount detected']
+        )
+        
+        lender_has_flags = risk_scores['RiskFlags'].apply(len) > 0
+        high_risk_lender_mask = chunk['OriginatingLender'].isin(self.HIGH_RISK_LENDERS) & lender_has_flags
+        lender_risk_scores = chunk['OriginatingLender'].map(lambda x: 15 * self.HIGH_RISK_LENDERS.get(x, 0)).astype(float).fillna(0.0)
+        risk_scores.loc[high_risk_lender_mask, 'RiskScore'] += lender_risk_scores[high_risk_lender_mask]
+        risk_scores.loc[high_risk_lender_mask, 'RiskFlags'] = risk_scores.loc[high_risk_lender_mask, 'RiskFlags'].apply(
+            lambda x: x + ['High-risk lender']
+        )
+        
+        demo_fields = ['Race', 'Gender', 'Ethnicity']
+        missing_all_demo = chunk[demo_fields].apply(lambda x: x.str.lower().isin(self.UNANSWERED_SET)).all(axis=1) & lender_has_flags
+        risk_scores.loc[missing_all_demo, 'RiskScore'] += 10
+        risk_scores.loc[missing_all_demo, 'RiskFlags'] = risk_scores.loc[missing_all_demo, 'RiskFlags'].apply(
+            lambda x: x + ['Missing all demographics']
+        )
+        
+        high_risk_bt_mask = chunk['BusinessType'].isin(self.HIGH_RISK_BUSINESS_TYPES) & lender_has_flags
+        bt_risk_scores = chunk['BusinessType'].map(lambda x: 15 * self.HIGH_RISK_BUSINESS_TYPES.get(x, 0)).astype(float).fillna(0.0)
+        risk_scores.loc[high_risk_bt_mask, 'RiskScore'] += bt_risk_scores[high_risk_bt_mask]
+        risk_scores.loc[high_risk_bt_mask, 'RiskFlags'] = risk_scores.loc[high_risk_bt_mask, 'RiskFlags'].apply(
+            lambda x: x + ['High-risk business type']
+        )
+        
+        paid_mask = chunk['LoanStatus'] == 'Paid in Full'
+        risk_scores.loc[paid_mask, 'RiskScore'] -= 15
+        
+        for idx, loan in chunk.iterrows():
+            time_score, time_flags = self.analyze_time_patterns(loan)
+            net_score, net_flags = self.analyze_networks(loan)
+            risk_scores.at[idx, 'RiskScore'] += time_score + net_score
+            risk_scores.at[idx, 'RiskFlags'].extend(time_flags + net_flags)
+        
+        new_business_mask = (chunk['BusinessAgeDescription_lower'].isin(['new', 'existing less than 2 years']) &
+                            (chunk['InitialApprovalAmount'] > 15000) & (chunk['JobsReported'] <= 2))
+        estab_business_mask = chunk['BusinessAgeDescription_lower'].isin(['existing 2+ years', 'established'])
+        risk_scores.loc[new_business_mask, 'RiskScore'] += 20
+        risk_scores.loc[new_business_mask, 'RiskFlags'] = risk_scores.loc[new_business_mask, 'RiskFlags'].apply(
+            lambda x: x + ['New business with high loan amount and few jobs']
+        )
+        risk_scores.loc[estab_business_mask, 'RiskScore'] -= 10
+        risk_scores.loc[estab_business_mask, 'RiskFlags'] = risk_scores.loc[estab_business_mask, 'RiskFlags'].apply(
+            lambda x: x + ['Established business - lower risk']
+        )
+        
+        valid_coords = (chunk['Latitude'] != 0) & (chunk['Longitude'] != 0)
+        if valid_coords.any():
+            coord_keys = pd.Series([
+                (round(lat, 4), round(lon, 4), str(date)) if valid else None
+                for lat, lon, date, valid in zip(chunk['Latitude'], chunk['Longitude'], chunk['DateApproved'], valid_coords)
+            ], index=chunk.index)
+            for idx in chunk[valid_coords].index:
+                coord_key = coord_keys[idx]
+                self.seen_coordinates[coord_key].add(chunk.at[idx, 'LoanNumber'])
+                cluster_size = len(self.seen_coordinates[coord_key])
+                if cluster_size > 5:
+                    cluster_score = 3 * log(max(cluster_size - 2, 1), 2)
+                    risk_scores.at[idx, 'RiskScore'] += cluster_score
+                    risk_scores.at[idx, 'RiskFlags'].append(
+                        f'Geospatial cluster: {cluster_size:,} loans at coordinates {coord_key[:2]} on {coord_key[2]} (score: {cluster_score:.1f})'
+                    )
+        
+        valid_office = (chunk['SBAOfficeCode'] != '') & chunk['DateApproved'].notna()
+        if valid_office.any():
+            for idx in chunk[valid_office].index:
+                office_code = str(chunk.at[idx, 'SBAOfficeCode'])
+                date = str(chunk.at[idx, 'DateApproved'])
+                self.daily_office_counts[date][office_code] += 1
+                self.total_days.add(date)
+                days_processed = len(self.total_days)
+                if days_processed > 1:
+                    total_office_loans = sum(self.daily_office_counts[date].values())
+                    office_loans_today = self.daily_office_counts[date][office_code]
+                    if office_loans_today >= 5:
+                        avg_daily_office_loans = total_office_loans / days_processed
+                        if avg_daily_office_loans >= 5:
+                            office_intensity = office_loans_today / avg_daily_office_loans
+                            if office_intensity > 15:
+                                cluster_score = 3 * log(max(office_loans_today - 3 + 1, 1), 2)
+                                risk_scores.at[idx, 'RiskScore'] += cluster_score
+                                risk_scores.at[idx, 'RiskFlags'].append(
+                                    f'SBA office cluster: {office_loans_today:,} loans vs {avg_daily_office_loans:.1f} avg from office {office_code} on {date} (score: {cluster_score:.1f})'
+                                )
+
+        def clean_flags(flags):
+            if not flags or not any(flags):
+                return ''
+            cleaned = [flag.strip() for flag in flags if flag.strip()]
+            return '; '.join(cleaned)
+
+        risk_scores['RiskFlags'] = risk_scores['RiskFlags'].apply(clean_flags)
+        
+        seq_mask = risk_scores['RiskFlags'].str.contains("Sequential loan numbers") & (risk_scores['RiskFlags'].str.count(';') > 1)
+        risk_scores.loc[seq_mask, 'RiskScore'] *= 1.5
+        
+        for (flag1, flag2), multiplier in INTERACTION_RULES.items():
+            interaction_mask = risk_scores['RiskFlags'].str.contains(flag1) & risk_scores['RiskFlags'].str.contains(flag2)
+            risk_scores.loc[interaction_mask, 'RiskScore'] *= multiplier
+            for idx in interaction_mask[interaction_mask].index:
+                current_flags = risk_scores.at[idx, 'RiskFlags']
+                if current_flags:
+                    risk_scores.at[idx, 'RiskFlags'] = f"{current_flags}; Interaction: {flag1} + {flag2} (x{multiplier})"
+                else:
+                    risk_scores.at[idx, 'RiskFlags'] = f"Interaction: {flag1} + {flag2} (x{multiplier})"
+        
+        no_exact_max = ~risk_scores['RiskFlags'].str.contains("Exact maximum loan amount detected")
+        few_flags = risk_scores['RiskFlags'].str.count(';') < 2
+        cap_mask = no_exact_max & few_flags
+        risk_scores.loc[cap_mask, 'RiskScore'] = np.minimum(risk_scores.loc[cap_mask, 'RiskScore'], 49)
+        
+        combined = pd.concat([chunk[['LoanNumber', 'BorrowerName']], risk_scores], axis=1)
         self.logger.debug("Risk score calculation complete for chunk")
-        return combined
+        return combined 
 
     def process_chunks(self) -> None:
-        total_rows = self.count_lines()
+        total_rows = self.count_lines()  # Assumes optimized count_lines from earlier
         self.log_message('info', f"Starting to process {total_rows:,} loans...", 'green')
+        
+        # Define dtypes for all 77 columns to avoid type inference overhead
+        dtypes = {
+            'Accuracy Score': float, 'Accuracy Type': str, 'BorrowerAddress': str, 'BorrowerCity': str,
+            'BorrowerName': str, 'BorrowerState': str, 'BorrowerZip': str, 'BusinessAgeDescription': str,
+            'BusinessType': str, 'CD': str, 'Census Block Code': str, 'Census Block Group': str,
+            'Census Tract Code': str, 'Census Year': str, 'City': str, 'Combined Statistical Area Code': str,
+            'Combined Statistical Area Name': str, 'Country': str, 'County': str, 'County FIPS': str,
+            'CurrentApprovalAmount': float, 'DateApproved': str, 'DEBT_INTEREST_PROCEED': float,
+            'Ethnicity': str, 'ForgivenessAmount': float, 'ForgivenessDate': str, 'FranchiseName': str,
+            'Full FIPS (block)': str, 'Full FIPS (tract)': str, 'Gender': str, 'HEALTH_CARE_PROCEED': float,
+            'HubzoneIndicator': str, 'InitialApprovalAmount': float, 'JobsReported': float, 'Latitude': float,
+            'LMIIndicator': str, 'LoanNumber': str, 'LoanStatus': str, 'LoanStatusDate': str, 'Longitude': float,
+            'Metro/Micro Statistical Area Code': str, 'Metro/Micro Statistical Area Name': str,
+            'Metro/Micro Statistical Area Type': str, 'Metropolitan Division Area Code': str,
+            'Metropolitan Division Area Name': str, 'MORTGAGE_INTEREST_PROCEED': float, 'NAICSCode': str,
+            'NonProfit': str, 'Number': str, 'OriginatingLender': str, 'OriginatingLenderCity': str,
+            'OriginatingLenderLocationID': str, 'OriginatingLenderState': str, 'PAYROLL_PROCEED': float,
+            'Place FIPS': str, 'Place Name': str, 'ProcessingMethod': str, 'ProjectCity': str,
+            'ProjectCountyName': str, 'ProjectState': str, 'ProjectZip': str, 'Race': str,
+            'REFINANCE_EIDL_PROCEED': float, 'RENT_PROCEED': float, 'RuralUrbanIndicator': str,
+            'SBAGuarantyPercentage': float, 'SBAOfficeCode': str, 'ServicingLenderAddress': str,
+            'ServicingLenderCity': str, 'ServicingLenderLocationID': str, 'ServicingLenderName': str,
+            'ServicingLenderState': str, 'ServicingLenderZip': str, 'Source': str, 'State': str,
+            'State FIPS': str, 'Street': str, 'Term': float, 'UndisbursedAmount': float, 'Unit Number': str,
+            'Unit Type': str, 'UTILITIES_PROCEED': float, 'Veteran': str, 'Zip': str
+        }
+        
         chunks = pd.read_csv(
             self.input_file,
             chunksize=self.chunk_size,
-            dtype={
-                'LoanNumber': str,
-                'BorrowerName': str,
-                'BorrowerAddress': str,
-                'BorrowerCity': str,
-                'BorrowerState': str,
-                'InitialApprovalAmount': float,
-                'JobsReported': float,
-                'ForgivenessAmount': float,
-                'NAICSCode': str,
-                'BusinessType': str,
-                'Race': str,
-                'Gender': str,
-                'Ethnicity': str,
-                'Veteran': str,
-                'OriginatingLender': str,
-                'OriginatingLenderLocationID': str,
-                'BusinessAgeDescription': str,
-                'LoanStatus': str,
-                'DateApproved': str,
-                'BorrowerZip': str
-            },
+            dtype=dtypes,
+            engine='c',  # Faster C engine for parsing
             low_memory=False
         )
+        
         first_chunk = True
         pbar = tqdm(total=total_rows, unit='loans', desc='Processing loans')
         try:
@@ -814,14 +939,14 @@ class PPPLoanProcessor:
                         validated_loans = self.validate_high_risk_loans(high_risk_loans)
                         if len(validated_loans) > 0:
                             if first_chunk:
-                                validated_loans.to_csv(self.output_file, index=False)
+                                validated_loans.to_csv(self.output_file, index=False, compression='gzip')
                                 first_chunk = False
                             else:
-                                validated_loans.to_csv(self.output_file, mode='a', header=False, index=False)
+                                validated_loans.to_csv(self.output_file, mode='a', header=False, index=False, compression='gzip')
                             self.log_suspicious_findings(validated_loans)
                 self.stats['processed'] += len(chunk)
                 pbar.update(len(chunk))
-                if chunk_number % 10 == 0:
+                if chunk_number % 5 == 0:
                     self.log_interim_stats()
         except Exception as e:
             self.log_message('error', f"Error processing chunk: {str(e)}", 'red')
@@ -830,14 +955,15 @@ class PPPLoanProcessor:
             pbar.close()
             self.log_final_stats()
 
+    @profile
     def validate_high_risk_loans(self, loans: pd.DataFrame) -> pd.DataFrame:
         self.logger.debug("Validating high risk loans")
         def validate_loan(loan: pd.Series) -> bool:
             if loan['BorrowerName'] in self.known_businesses:
                 return False
             validation_score = 0
-            flags = str(loan['RiskFlags']).split(';')
-            if len(flags) < 2:
+            flags = loan['RiskFlags'].split('; ')  # Split string into list of flags
+            if len(flags) < 2 or (len(flags) == 1 and not flags[0]):  # Check for empty or single empty flag
                 return False
             if loan['JobsReported'] > 0:
                 amount_per_job = loan['InitialApprovalAmount'] / loan['JobsReported']
@@ -850,7 +976,7 @@ class PPPLoanProcessor:
                 validation_score -= 10
             if loan['LoanStatus'] == 'Paid in Full':
                 validation_score -= 15
-            if not all(str(loan.get(field, '')).lower() in ['unanswered', 'unknown'] for field in ['Race', 'Gender', 'Ethnicity']):
+            if not all(str(loan.get(field, '')).lower() in self.UNANSWERED_SET for field in ['Race', 'Gender', 'Ethnicity']):
                 validation_score -= 10
             if not pd.isna(loan['BorrowerCity']) and not pd.isna(loan['BorrowerState']):
                 validation_score -= 5
@@ -859,6 +985,7 @@ class PPPLoanProcessor:
         self.logger.debug("High risk loan validation complete")
         return loans[valid_mask]
 
+    @profile
     def process_chunk(self, chunk: pd.DataFrame) -> pd.DataFrame:
         self.logger.debug("Processing a chunk of loans")
         risk_scores = self.calculate_risk_scores(chunk)
@@ -880,9 +1007,15 @@ class PPPLoanProcessor:
         self.log_message('info', "Counting total lines in file...", 'cyan')
         try:
             with open(self.input_file, 'rb') as f:
-                count = sum(1 for _ in f) - 1
-            self.log_message('info', f"Found {count:,} lines to process", 'cyan')
-            return count
+                buf_size = 1024 * 1024  # 1MB buffer
+                lines = 0
+                buffer = f.read(buf_size)
+                while buffer:
+                    lines += buffer.count(b'\n')
+                    buffer = f.read(buf_size)
+                lines -= 1  # Subtract header
+            self.log_message('info', f"Found {lines:,} lines to process", 'cyan')
+            return lines
         except FileNotFoundError:
             self.log_message('error', f"Input file '{self.input_file}' not found!", 'red')
             raise
@@ -933,8 +1066,8 @@ def main():
         asyncio.run(download_and_extract_csv())
     input_file = CSV_FILENAME
     output_file = "suspicious_loans.csv"
-    risk_threshold = 110
-    chunk_size = 250000
+    risk_threshold = 100
+    chunk_size = 50000
     processor = PPPLoanProcessor(input_file, output_file, risk_threshold, chunk_size)
     try:
         processor.process_chunks()
