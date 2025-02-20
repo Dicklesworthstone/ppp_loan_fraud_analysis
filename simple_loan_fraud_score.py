@@ -375,10 +375,6 @@ class PPPLoanProcessor:
         if pd.isna(address) or address_str in self.INVALID_ADDRESS_SET:
             return False, ['Invalid/missing address']
         
-        # Combine indicators into one regex
-        residential_pattern = re.compile('|'.join(self.RESIDENTIAL_INDICATORS.keys()), re.IGNORECASE)
-        commercial_pattern = re.compile('|'.join(self.COMMERCIAL_INDICATORS.keys()), re.IGNORECASE)
-        
         residential_score = sum(weight for ind, weight in self.RESIDENTIAL_INDICATORS.items() if ind in address_str)
         commercial_score = sum(weight for ind, weight in self.COMMERCIAL_INDICATORS.items() if ind in address_str)
         total_score = residential_score + commercial_score
@@ -580,9 +576,9 @@ class PPPLoanProcessor:
         current_batch = self.lender_batches[lender_key]
         
         if len(current_batch) >= 5:
-            amounts = [l['amount'] for l in current_batch]
+            amounts = [l['amount'] for l in current_batch]  # noqa: E741
             if max(amounts) - min(amounts) < min(amounts) * 0.1:
-                batch_names = {l['business_name'] for l in current_batch}
+                batch_names = {l['business_name'] for l in current_batch}  # noqa: E741
                 pattern_score, pattern_flags = self.analyze_name_patterns(batch_names)
                 risk_score += 15 + pattern_score
                 flags.append(f"Part of suspicious batch: {len(current_batch)} similar loans from same lender")
