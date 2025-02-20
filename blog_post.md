@@ -1012,3 +1012,17 @@ This component preprocesses features (e.g., address indicators, demographic data
 #### Conclusion
 
 The secondary analysis system combines efficient data handling, statistical testing, and machine learning to detect patterns indicative of fraud in PPP loan data. From chi-square tests identifying categorical anomalies to XGBoost uncovering complex interactions, it provides a comprehensive framework for analysis, grounded in robust computational techniques.
+
+---
+
+Thanks for reading this blog post! I hope you enjoyed it. If you did, I would really appreciate it if you checked out my web app, [FixMyDocuments.com](https://fixmydocuments.com/). It's a very useful service that leverages powerful AI tools to transform your documents from poorly formatted or scanned PDFs into beautiful, markdown formatted versions that can be easily edited and shared. Once you have processed a document, you can generate all sorts of derived documents from it with a single click, including:
+
+* Real interactive multiple choice quizzes you can take and get graded on (and share with anyone using a publicly accessible custom hosted URL).
+* Anki flashcards for studying, with a slick, interactive interface (and which you can also share with others).
+* A slick HTML presentation slide deck based on your document, or a PDF presentation formatted using LaTeX.
+* A really detailed and penetrating executive summary of your document.
+* Comprehensive "mindmap" diagrams and outlines that explore your document thoroughly.
+* Readability analysis and grade level versions of your original document.
+* Lesson plans generated from your document, where you can choose the level of the target audience.
+
+It's useful for teachers, tutors, business people, and more. When you sign up using a Google account, you get enough free credits that let you process several documents. Give it a try!
