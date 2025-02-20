@@ -1,6 +1,6 @@
 # Finding PPP Fraudsters: A Data Science Detective Story
 
-<div align="center">
+<div align="center" style="margin-bottom: 20px;">
   <img src="https://github.com/Dicklesworthstone/ppp_loan_fraud_analysis/raw/main/ppp_illustration.webp" width="1024">
 </div>
 
