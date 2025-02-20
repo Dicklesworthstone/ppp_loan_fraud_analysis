@@ -4,20 +4,23 @@
   <img src="https://github.com/Dicklesworthstone/ppp_loan_fraud_analysis/raw/main/ppp_illustration.webp" width="1024">
 </div>
 
-The Paycheck Protection Program (PPP) was a cornerstone of U.S. economic relief during the COVID-19 crisis, disbursing nearly $800 billion to small businesses. But with massive funds came massive fraud—hundreds of thousands, possibly over a million, loans exploited by opportunists. When I first explored the PPP’s 8.4GB dataset in early 2025, I anticipated uncovering fraud; what I didn’t expect was a system that would evolve into a three-part data science powerhouse: scoring loans for risk, filtering the most suspicious, and diving deep into patterns with cutting-edge analytics.
+The Paycheck Protection Program (PPP) was a cornerstone of U.S. economic relief during the COVID-19 crisis, disbursing nearly $800 billion to small businesses. But with massive funds came massive fraud—hundreds of thousands, possibly over a million, loans exploited by opportunists. When I first explored the PPP’s 8.4GB dataset in a few days ago, I anticipated uncovering fraud. What I didn't expect was that I would end up with a system that systematically uncovered fraud networks and patterns across millions of loans, implicating hundreds of thousands of fraudulent borrowers and hundreds of corrupt lenders and agents. 
 
-This project now comprises three scripts working in tandem:
+This project comprises three scripts working in tandem:
+
 - `simple_loan_fraud_score.py`: Processes the full 8.4GB `ppp-full.csv`, scoring each loan’s fraud risk and flagging those above a threshold (100) into `suspicious_loans.csv`. 
     - Using this threshold, the resulting suspicious_loans.csv is 2.55GB. 
 - `sort_suspicious_loans_by_risk_score.py`: Sorts and filters these loans by risk (default cutoff: 140), producing `suspicious_loans_sorted.csv`. 
     - Using these settings, the system flags 1,190,352 suspicious loans out of 6,267,512 loans in the $5k-$22k range. This results in a suspicious loan rate of 19% and a suspicious_loans_sorted.csv file that is 1.37GB.
 - `analyze_patterns_in_suspicious_loans.py`: Applies advanced statistical and machine learning techniques—think chi-square tests, XGBoost, and SHAP values—to uncover fraud networks and refine detection.
 
-What started as a hunch about sloppy fraudsters has become a robust tool revealing everything from "Wakanda LLC" scams to subtle lender collusion. Here’s how it works, why it matters, and what it’s taught me about catching fraud in big data.
+What started as a hunch about sloppy fraudsters has become a robust tool revealing everything from "Wakanda LLC" scams to subtle lender collusion. Here’s how it works, why it matters, and what it’s taught me about catching fraud in big data. If you'd like a more technical, formal explanation of the system, you should read the readme.md file in the repo [here](https://github.com/Dicklesworthstone/ppp_loan_fraud_analysis/blob/main/README.md), and of course, you can read the code itself. It's a total of 3,281 lines of code across 3 files (1,113 + 184 + 1,984), so it's fairly readable if you know Python and know a bit about statistics and data analysis.
 
 ## Why This Matters
 
-PPP fraud wasn't just a matter of people gaming the system– it was stealing for every single taxpayer in the US, and adding massively to the national debt. If those payments did in fact prevent a worthy business from going bankrupt so it could survive to live another day, then that's one thing. We can decide whether that benefit was worth the impact to the national debt and deficit. But the outright fraud, taking money that was probably mostly wasted on silly purchases for purely personal gain, is a different matter. These are not small dollar amounts here– the average fraudster got close to $20,000, and I believe that the number of fraudulent loans was easily in the hundreds of thousands, and probably even over a million. 
+PPP fraud wasn't just a matter of people gaming the system– it was stealing for every single taxpayer in the US, and adding massively to the national debt. If those payments did in fact prevent a worthy business from going bankrupt so it could survive to live another day, then that's one thing. We can debate and independently decide whether that benefit was worth the impact to the national debt and deficit. But the outright fraud, taking money that was probably mostly wasted on silly purchases for purely personal gain, is a different matter. These are not small dollar amounts here– the average fraudster got close to $20,000, and I believe that the number of fraudulent loans was easily in the hundreds of thousands, and probably even over a million. We should all be able to agree that this was a disgrace and that the people responsible should be held accountable. 
+
+In particular, the corrupt lenders and agents who facilitated this should be prosecuted to the fullest extent of the law. I suspect that in many cases they actively recruited fraudulant borrowers and guided them step by step about how to commit the fraud and what to write on their applications, knowing full well that the information was fake but that the loans would be approved anyway because of the extreme urgency and lack of proper controls and systems. Not only that, I believe many of these agents and lenders received payments from the SBA for originating and processing these loans. If a corrupt lender originated 100 fake loans-- and I believe that a very large number of them did at least that many-- then we could be talking about $20k*100 = $2 million in fraud from just one bad actor. It takes a lot of honest taxpayers to pay for that level of fraud, and it happened in cities across the country at a scale that is simply staggering.
 
 ## The Upshot
 
@@ -39,14 +42,15 @@ Fraudsters left digital fingerprints— some laughably obvious, others subtle:
 
 Fraudsters thought speed hid them, but their haste— batch submissions, generic names— created patterns we could systematize and catch.
 
-Here's where it gets interesting – and sometimes almost comical. Many PPP fraudsters seemed to operate under the assumption that no one would ever actually look at their applications. The patterns I discovered while building this detection system ranged from the blindingly obvious to the surprisingly subtle.
+Many PPP fraudsters seemed to operate under the assumption that no one would ever actually look at their applications. The patterns I discovered while building this detection system ranged from the blindingly obvious to the surprisingly subtle.
 
-### The "You Can't Make This Up" Department
+### Blatant Fraud Examples
 
-Imagine applying for a federal loan and naming your business "Fake Business LLC" or "PPP Loan Kingz." Surely no one would be that obvious, right? Wrong. During my analysis, I found loan applications from businesses with names that might as well have been neon signs screaming "FRAUD HERE!" Some personal favorites:
+Imagine applying for a federal loan and naming your business "Fake Business LLC" or "PPP Loan Kingz." Surely no one would be that obvious, right? Wrong. During my analysis, I found loan applications from businesses with names that are just blatantly fake and ridiculous. Some personal favorites:
 
 - Companies named after fictional places like "Wakanda"
 - Businesses with names including phrases like "Free Money" and "Get Paid"
+- A "Reparations LLC" that is perhaps making a political statement about the intent of the fraudulently obtained loan
 - References to luxury brands, suggesting someone's wishlist rather than a real business
 
 Beyond these standout names, the system examines more subtle patterns in business names. In `analyze_patterns_in_suspicious_loans.py`, the `analyze_business_name_patterns` function checks for indicators like multiple spaces or special characters, which can suggest automated or sloppy entries. It also calculates metrics such as name length and word count. For example, the code compares the average name length between suspicious and overall loans, using statistical tests like the t-test to determine if differences are meaningful. This helps identify less obvious red flags, like names that are unusually short or generic, complementing the detection of blatant cases.
@@ -56,43 +60,43 @@ Beyond these standout names, the system examines more subtle patterns in busines
 But not all fraudsters were quite so blatant. The more interesting cases required looking at subtle patterns that emerged only when analyzing thousands of applications together. Some of these indicators included:
 
 - Clusters of businesses registered to the same residential address
-- Sequential (or nearly sequential) loan applications submitted all on the same day
+- Sequential (or nearly sequential) loan applications submitted all on the same day, as measured by the digits of the loan number
 - Identical loan amounts for supposedly different businesses
 - Clusters of similar looking loans in the same ZIP code on the same day
+- Clusters of loans all originating from the same lender in the same area and on the same day, at a scale that makes them suspicious even if they don't have any other obvious red flags
+- Clusters of loans all originating from the same SBA office in the same area and on the same day
 
-What makes these patterns fascinating is that they often reveal how fraudsters, in trying to avoid detection, actually create new patterns that make them stand out. It's like someone trying so hard to walk normally that they end up walking weird.
+What makes these patterns fascinating is that they often reveal how fraudsters, in trying to avoid detection, actually create new patterns that make them stand out. Their attempts to hide create even clearer patterns.
 
-The real challenge – and what drove me to build this detection system – was finding ways to automatically identify these patterns across millions of records. When you're dealing with an 8GB CSV file, you can't exactly skim through it looking for suspicious entries. You need a systematic approach that can catch both the obvious cases (looking at you, "Wakanda Investments LLC") and the more subtle patterns that emerge only when you look at the data as a whole.
-
-These indicators gain depth through additional analysis in `analyze_patterns_in_suspicious_loans.py`. The `XGBoostAnalyzer` class uses a machine learning model to evaluate features like `AmountPerEmployee` and `BusinessesAtAddress`. After training, it reports feature importance scores, showing which factors most influence the likelihood of a loan being flagged. The code also examines geographic patterns by tracking loan concentrations at specific addresses or within cities, providing a broader view of potential fraud networks. This systematic approach helps reveal connections that might not stand out in individual records.
+The real challenge – and what drove me to build this detection system – was finding ways to automatically identify these patterns across millions of records. When you're dealing with an 8.4GB CSV file, you can't exactly skim through it looking for suspicious entries. You need a systematic approach that can catch both the obvious cases and the more subtle patterns that emerge only when you look at the data as a whole.
 
 ### Digging Deeper: How the Code Spots the Sneaky Stuff
 
-Let’s peel back the curtain a bit more on how this system turns these fraudster slip-ups into hard data. In `simple_loan_fraud_score.py`, the `SUSPICIOUS_PATTERNS` dictionary is a treasure trove of over 200 regex patterns—think `r'quick\s*cash'` or `r'pandemic\s*profit'`—each assigned a weight like 0.95 for maximum suspicion. When "Quick Cash LLC" pops up, it’s not just flagged; it’s hit with a 28.5-point boost (30 * 0.95) to its risk score, thanks to vectorized string matching that scans thousands of names in seconds. The code doesn’t stop there—it checks for structural clues too, like `r'\s{2,}'` for multiple spaces, hinting at sloppy copy-paste jobs, adding another layer of detection.
+Let’s investigate further how the system turns these fraudster slip-ups into hard data. In `simple_loan_fraud_score.py`, the `SUSPICIOUS_PATTERNS` dictionary contains a list of over 100 regex patterns— like `r'quick\s*cash'` or `r'pandemic\s*profit'`— each assigned a weight like 0.95 for maximum suspicion. When "Quick Cash LLC" pops up, it’s not just flagged; it’s hit with a 28.5-point boost (30 * 0.95) to its risk score, thanks to vectorized string matching that scans thousands of names in seconds. The code doesn’t stop there— it checks for structural clues too, like `r'\s{2,}'` for multiple spaces, hinting at sloppy copy-paste jobs, adding another layer of detection.
 
 Then there’s the address game. The `analyze_networks` function doesn’t just count businesses at "Apt 4B"; it builds a network graph with `defaultdict(set)`—if "ABC Consulting" and "XYZ Solutions" share that apartment, and "XYZ" links to another address with "123 Holdings," the risk score spikes by 15 points per overlap, plus 5 points per connected business. It’s a web of deceit unmasked by simple set operations, scaled to handle millions of records in memory-efficient chunks.
 
-Time-based tricks get even juicier. The `daily_zip_counts` and `daily_office_counts` in `calculate_risk_scores` track loan volumes by ZIP code and SBA office daily. If ZIP 90210 jumps from an average of 8 loans to 50 on June 1, 2021, the system calculates an intensity score—say, 20 + 10 * log(46, 2)—and slaps 34 points on each loan. Sequential loan numbers? The `check_sequential_pattern` method digs into the last five digits (e.g., 7801, 7802, 7803), using NumPy’s `diff` to spot gaps under 20, adding 25 points when it smells a batch job. These aren’t random checks; they’re rooted in fraudsters’ love for automation—too fast, too uniform, too obvious once you know where to look.
+Time-based patterns reveal even more. The `daily_zip_counts` and `daily_office_counts` in `calculate_risk_scores` track loan volumes by ZIP code and SBA office daily. If ZIP 90210 jumps from an average of 8 loans to 50 on June 1, 2021, the system calculates an intensity score—say, 20 + 10 * log(46, 2)—and slaps 34 points on each loan. Sequential loan numbers? The `check_sequential_pattern` method digs into the last five digits (e.g., 7801, 7802, 7803), using NumPy’s `diff` to spot gaps under 20, adding 25 points when it smells a batch job. These aren’t random checks; they’re rooted in fraudsters’ love for automation—too fast, too uniform, too obvious once you know where to look.
 
 The secondary analysis in `analyze_patterns_in_suspicious_loans.py` takes it further. The `analyze_name_patterns` function doesn’t just count words (1.8 vs. 2.5)—it runs a Mann-Whitney U test to confirm the difference isn’t chance (p<0.01), while `extract_names_optimized` uses parallel processing with `joblib` to split "John Doe LLC" into first and last names, caching results with `@lru_cache` to avoid re-parsing duplicates. This isn’t just about catching "Dodge Hellcat LLC"; it’s about proving statistically that suspicious names are shorter, simpler, and more repetitive than legit ones.
 
-### The Fraudster’s Folly: Overconfidence Meets Overlap
+### Overconfidence Meets Overlap
 
 What’s wilder still is how fraudsters’ overconfidence amplifies these patterns. Take demographics—they often leave `Race`, `Gender`, and `Ethnicity` as "Unanswered" across the board, thinking it’s safer to skip details. But `analyze_demographic_patterns` catches this, showing 60% of suspicious loans vs. 40% overall lack this data, with a chi-square p-value under 0.001 proving it’s no fluke. The `MissingDemographics` feature in `prepare_enhanced_features` turns this laziness into a 10-point risk bump when paired with other flags.
 
 Or consider loan amounts. The code flags exact matches to $20,832 or $20,833—PPP’s max for one employee—with 25 points in `calculate_risk_scores`. Why? Fraudsters loved hitting the ceiling, assuming it blended in. But when `analyze_loan_amount_distribution` compares suspicious ($19k mean) to overall ($17k mean) amounts with a t-test (p<0.05), it’s clear: they overshot consistently. Add in `IsRoundAmount` checking for multiples of 100, and you’ve got another subtle tell—fraudsters pick neat numbers, legit businesses don’t.
 
-### Systemic Slip-Ups: The Bigger Picture
+### Systemic Slip-Ups
 
 The system doesn’t just nab lone wolves—it sniffs out rings. The `daily_office_counts` tracks SBA office spikes—100 loans from office "0575" on July 1, 2021, vs. a 6-loan average triggers a logarithmic 15-point boost per loan. Why’s that damning? It suggests insider help or exploited loopholes, a pattern `analyze_lender_patterns` confirms with lenders like "Kabbage, Inc." showing 2.3x over-representation (chi-square p<0.001). The `XGBoostAnalyzer` ties it together, ranking `OriginatingLender` dummies high (e.g., 0.12 importance), with SHAP values showing how "Kabbage" loans amplify fraud odds by 0.15 when paired with residential flags.
 
-This mix of blatant and subtle—neon-sign names to sneaky SBA spikes—shows fraudsters’ dual nature: bold yet sloppy, clever yet rushed. The code exploits every angle, from regex to ML, proving that even the craftiest crooks leave tracks when you’ve got 8.4GB of data and the right tools to sift it.
+The range of clues—from obvious fake names to hidden SBA patterns—reveals how fraudsters operate: bold yet sloppy, clever yet rushed. The code exploits every angle, from regex to ML, proving that even the craftiest crooks leave tracks when you’ve got 8.4GB of data and the right tools to sift it.
 
-## Under the Hood: How the Fraud Detection System Works
+## How It Works: The Technical Details
 
 Let's dive into the technical details of how this system actually works. I'll break this down piece by piece, explaining both the high-level concepts and the nitty-gritty implementation details. Even if you're not a programmer, stick with me – I'll try to make the concepts clear while still providing enough depth for those who want to understand every line of code.
 
-### The Data Challenge: Processing an 8GB CSV Monster
+### The Data Size Challenge
 
 When you're dealing with an 8.4GB CSV file containing millions of loan records, you can't just load it into memory and start analyzing. A naive approach would crash most computers. Here's how we handle this beast efficiently:
 
@@ -114,13 +118,14 @@ def process_chunks(self) -> None:
             'NAICSCode': str,
             # ... other column definitions
         },
+        engine='c',  # Faster C engine for parsing
         low_memory=False
     )
 ```
 
 This code might look simple, but it's doing several sophisticated things to handle massive data efficiently:
 
-1. **Chunked Processing**: Instead of reading the entire 8GB file at once, we use pandas' `chunksize` parameter to read it in manageable pieces (defaulting to 10,000 rows at a time). Think of it like eating a whale - one bite at a time.
+1. **Chunked Processing**: Instead of reading the entire 8GB file at once, we use pandas' `chunksize` parameter to read it in manageable pieces (defaulting to 50,000 rows at a time).
 
 2. **Memory-Efficient Data Types**: Notice how we explicitly define the data type for each column? This is crucial for memory optimization:
    - `LoanNumber` as string prevents pandas from trying to convert it to integers (which would break with leading zeros)
@@ -146,7 +151,6 @@ target_loans = chunk[
 
 This filtering step means we spend processing power only on the loans we care about - those between $5,000 and $21,000 where fraud is most common.
 
-
 5. **Efficient Output Handling**: Instead of keeping all results in memory, we write them to disk as we go:
 ```python
 if first_chunk:
@@ -158,17 +162,23 @@ else:
 
 Handling large datasets also requires optimizing speed. In `analyze_patterns_in_suspicious_loans.py`, the `extract_names_optimized` function uses parallel processing with the `multiprocessing.Pool` to parse business names across multiple CPU cores, reducing computation time. Additionally, the `@lru_cache` decorator caches results of repeated name parsing, avoiding redundant work when the same names appear multiple times. These techniques ensure the system can efficiently analyze millions of loans, catching patterns like multiple businesses at one address without delays.
 
-For non-programmers: Think of this like processing a massive stack of paper documents. Instead of trying to look at every page at once (which would be impossible), we:
-1. Take a manageable stack of papers (chunked processing)
-2. Quickly sort out the ones we don't need to read carefully (targeted processing)
-3. Write down our findings as we go instead of trying to remember everything (efficient output)
-4. Keep track of how many papers we've gone through (progress tracking)
+**For non-programmers:** Handling an 8.4GB dataset is like organizing a warehouse of records without getting buried. Here’s how we do it:  
+1. Break it into smaller, workable batches (chunked processing).  
+2. Focus only on the records that matter, skipping the rest (targeted processing).  
+3. Save our notes as we go, so nothing piles up in memory (efficient output).  
+4. Track our progress to know how much we’ve covered (progress tracking).  
 
-This approach lets us analyze millions of loans on a standard laptop without running out of memory or taking days to complete.
+This approach lets us analyze millions of loans on a reasonably fast computer without running out of memory or taking days to complete.
 
-### Name Analysis: Finding the Not-So-Subtle Fraudsters
+---
 
-One of the first things we check is the business name itself. You might think this would be as simple as looking for obviously fake names, but it gets surprisingly complex. Here's a small sample of the patterns we look for:
+### Name Analysis: Unmasking Fraudsters Through Clever Patterns
+
+When hunting for fraud in PPP loan data, one of the first places to look is the business name. It might sound straightforward—spot the obvious fakes like "Wakanda Enterprises" and call it a day—but the reality is far more nuanced and fascinating. The code digs deep into business names, using a mix of suspicious keyword detection, structural analysis, and pattern matching to catch fraudsters who think they’ve outsmarted the system.
+
+#### Suspicious Keywords: The Red Flags You Can’t Ignore
+
+The heart of the name analysis lies in a massive dictionary of suspicious patterns, defined in `self.SUSPICIOUS_PATTERNS`. Here’s a taste of what it’s looking for:
 
 ```python
 self.SUSPICIOUS_PATTERNS = {
@@ -181,131 +191,209 @@ self.SUSPICIOUS_PATTERNS = {
     r'blessed\s*by\s*gov': 0.95,
     r'stonks': 0.95,
     r'diamond\s*hands': 0.95,
+    # ... and over 200 more patterns!
 }
 ```
+Each pattern comes with a weight between 0 and 1, reflecting its suspiciousness. A name like "Wakanda LLC" scores a hefty 0.95—practically screaming fraud—while "Quick Cash Solutions" gets a still-concerning 0.9. These weights aren’t arbitrary; they’re tuned to flag names tied to pop culture (e.g., "wakanda," "thanos"), get-rich-quick schemes (e.g., "money printer," "fast cash"), or pandemic opportunism (e.g., "covid cash," "stimulus helper").
 
-Each pattern has a weight between 0 and 1, representing how suspicious that pattern is. Finding "wakanda" in a business name is highly suspicious (0.95), while something like "quick cash" is slightly less so (0.9).
-
-But here's where it gets interesting – we don't just look for exact matches. Notice the `\s*` in patterns like `quick\s*cash`? That's a regular expression that matches any amount of whitespace, so it would catch variations like:
+What’s clever here is the use of regular expressions (regex). Take `r'quick\s*cash'`: the `\s*` means "zero or more whitespace characters," so it catches sneaky variations like:
 - "Quick Cash"
 - "QuickCash"
 - "Quick    Cash"
-- "QUICK CASH"
+- "QUICK   CASH"
 
-This flexibility is crucial because fraudsters often try to be "clever" by adding extra spaces or varying the formatting.
+The code precompiles these patterns into a single regex for efficiency (see `self.compiled_suspicious_pattern`), then scans every business name in `calculate_risk_scores`. If a match is found, it adds a risk score bump (30 times the pattern’s weight) and logs a flag like "Suspicious pattern in name: quick\s*cash". Fraudsters might think they’re slick with extra spaces or capitalization tricks, but this system doesn’t miss a beat.
 
-But suspicious keywords are just the beginning. Our name analysis also looks for structural patterns that can indicate auto-generated or hastily created business names:
+#### Beyond Keywords: Structural Clues in the Name
 
-```python
-def analyze_business_name_patterns(self, bus: pd.DataFrame, full: pd.DataFrame) -> None:
-    patterns = {
-        "Multiple Spaces": r"\s{2,}",          # Catches sloppy formatting
-        "Special Characters": r"[^a-zA-Z0-9\s]", # Non-standard characters
-        "Starts with The": r"^THE\s",          # Overly generic names
-        "Contains DBA": r"\bDBA\b",            # Doing Business As
-        "Contains Trading": r"\bTRADING\b",    # Common in fake businesses
-        "Contains Consulting": r"\bCONSULTING\b" # Generic business type
-    }
-```
-
-Each of these patterns tells us something different:
-- Multiple spaces between words often indicate copy-paste errors or automated name generation
-- Special characters can be a sign of someone trying to circumvent duplicate name checks
-- Generic prefixes like "The" are more common in hastily created fake businesses
-- Certain business type indicators ("Trading", "Consulting") appear disproportionately in fraudulent applications, especially when combined with other red flags
-
-For non-programmers: Think of this like a writing analysis expert who doesn't just look for specific words, but also pays attention to formatting, punctuation, and writing style. Just as an expert might spot a forged letter by noticing unusual spacing or punctuation, our system spots suspicious business names by analyzing their structure and format.
-
-We also track how these patterns cluster together. Finding one pattern might raise mild suspicion, but finding multiple patterns in the same name significantly increases the risk score:
+Suspicious keywords are just the start. The `validate_business_name` method digs into the structure of the name itself, looking for signs of fraud that go beyond specific words:
 
 ```python
-try:
-    for pname, pat in patterns.items():
-        if callable(pat):
-            sus_match = sus["BorrowerName"].astype(str).apply(pat).mean()
-            full_match = full["BorrowerName"].astype(str).apply(pat).mean()
-        else:
-            sus_match = (
-                sus["BorrowerName"]
-                .astype(str)
-                .str.contains(pat, case=False, regex=True, na=False)
-                .mean()
-            )
+def validate_business_name(self, name: str) -> tuple[float, List[str]]:
+    flags = []
+    risk_score = 0
+    name_str = str(name).lower().strip()
+    if pd.isna(name) or name_str in ('n/a', 'none', ''):
+        return 1.0, ['Invalid/missing business name']
+    for cre, weight in self.compiled_suspicious_patterns.items():
+        if cre.search(name_str):
+            risk_score += weight
+            flags.append(f'Suspicious name pattern: {cre.pattern}')
+    legitimate_count = sum(1 for keyword in self.LEGITIMATE_KEYWORDS if keyword in name_str)
+    risk_score -= (legitimate_count * 0.2)
+    if self.business_name_personal.match(name_str):
+        risk_score += 0.4
+        flags.append('Personal name only')
+    if self.business_name_suspicious_chars.search(name_str):
+        risk_score += 0.5
+        flags.append('Suspicious characters in name')
+    return max(0, min(1, risk_score)), flags
 ```
+Here’s what’s happening:
+- **Missing or Invalid Names**: If the name is blank or nonsense (e.g., "n/a"), it’s an instant 1.0 risk score—game over.
+- **Suspicious Patterns**: Matches against the keyword list above add to the risk score, weighted by their suspiciousness.
+- **Legitimate Keywords**: Words like "consulting," "llc," or "corporation" (from `self.LEGITIMATE_KEYWORDS`) reduce the risk by 0.2 per match, rewarding names that sound professional.
+- **Personal Names**: If the name looks like "John Smith" (matched via `r'^[a-z]+\s+[a-z]+$'`), it gets a 0.4 risk boost—legitimate businesses rarely use just a person’s name without qualifiers.
+- **Odd Characters**: Special characters like "@" or "#" (via `r'[@#$%^&*]'`) add 0.5 to the risk, hinting at attempts to game the system.
 
-This code calculates how often each pattern appears in suspicious versus legitimate business names, helping us refine our understanding of which patterns are truly indicative of fraud.
+The result? A risk score between 0 and 1, plus a list of flags explaining why. For example, "John@Cash" might score 0.9 with flags like "Personal name only" and "Suspicious characters in name."
 
-### Network Analysis: Finding Patterns in the Chaos
+#### Clustering and Context: The Bigger Picture
 
-While obvious red flags in business names are fun to catch, the really interesting fraud detection happens when we start looking at networks of relationships. Here's where we start to catch the more sophisticated fraudsters who might have used legitimate-sounding business names but give themselves away in other ways.
+The analysis doesn’t stop at individual names. Methods like `analyze_name_patterns` and `analyze_networks` look for patterns across multiple businesses:
+- **Similar Name Lengths**: If multiple businesses at the same address have names of nearly identical length (e.g., "CashKing," "LoanKing," "FastKing"), `analyze_name_patterns` adds a 10-point risk boost. This screams auto-generated fraud.
+- **Generic Patterns**: `self.SUSPICIOUS_NAME_PATTERNS` flags names like "Consulting LLC" or "Holdings LLC" with low weights (0.05–0.1), but if several pop up together, the risk escalates.
+- **Network Ties**: `analyze_networks` checks if businesses sharing an address have suspicious name patterns. A residential address with five "MoneyMaker"-style names? That’s a 15-point risk hike per business, plus extra for the cluster.
 
-Let's look at the core of our network analysis:
+#### Why It Works
+
+For non-programmers, think of this as a detective analyzing handwriting. Keywords are like obvious misspellings—easy red flags. But the structural checks are like spotting forged signatures through shaky lines or odd flourishes. By combining these layers—keywords, structure, and clustering—the code catches both the blatant fraudsters ("Stonks Inc.") and the subtler ones ("John Smith Consulting LLC" with no legit traits).
+
+The real magic? It’s all vectorized in `calculate_risk_scores` using pandas for speed, processing thousands of names in seconds. Each match adds to a cumulative risk score, and multiple flags trigger multipliers (e.g., 1.5x for sequential loan numbers plus other issues). So, a name like "Quick Cash LLC" at a residential address with a high loan amount? That’s not just suspicious—it’s a neon sign pointing to fraud.
+
+---
+
+### Network Analysis: Unraveling Fraud in the Web of Connections
+
+Catching obvious red flags in business names is satisfying, but the real detective work—and the most revealing fraud detection—happens when we dive into the networks of relationships. Sophisticated fraudsters might dodge scrutiny with polished, legitimate-sounding names, but their schemes often unravel when we trace the threads tying businesses, addresses, and lenders together. This is where the `analyze_networks` method shines, exposing patterns that lone red flags can’t reveal.
+
+Let’s break down the core of this network analysis:
 
 ```python
 def analyze_networks(self, loan: pd.Series) -> tuple[float, List[str]]:
+    self.logger.debug("Analyzing networks for loan")
     risk_score = 0
-    flags = []
+    flags = []  # Start with a clean list
     
-    # Create address key for consistency
-    address_key = f"{loan['BorrowerAddress']}_{loan['BorrowerCity']}_{loan['BorrowerState']}"
-    business_name = loan['BorrowerName']
-    
-    # Update our network mappings
-    self.address_to_businesses[address_key].add(business_name)
-    self.business_to_addresses[business_name].add(address_key)
+    # Address-based network analysis
+    if pd.notna(loan['BorrowerAddress']):
+        address_key = f"{loan['BorrowerAddress']}_{loan['BorrowerCity']}_{loan['BorrowerState']}"
+        business_name = loan['BorrowerName']
+        self.address_to_businesses[address_key].add(business_name)
+        self.business_to_addresses[business_name].add(address_key)
+        residential_score = self.analyze_address_type(loan['BorrowerAddress'])
+        businesses_at_address = len(self.address_to_businesses[address_key])
+        
+        if businesses_at_address >= 2:
+            if residential_score > 0.5:
+                risk_score += 15 * businesses_at_address
+                flags.append(f"Multiple businesses at residential address ({businesses_at_address})")
+            else:
+                risk_score += 8 * businesses_at_address
+            flags.append(f"Shared address with {businesses_at_address-1} other businesses")
+            
+            connected_businesses = set()
+            for addr in self.business_to_addresses[business_name]:
+                connected_businesses.update(self.address_to_businesses[addr])
+            if len(connected_businesses) > 2:
+                pattern_score, pattern_flags = self.analyze_name_patterns(connected_businesses)
+                risk_score += pattern_score
+                flags.extend(pattern_flags)
+                risk_score += 5 * len(connected_businesses)
+                flags.append(f"Connected to {len(connected_businesses)-1} other businesses")
 ```
 
-This code maintains two crucial data structures:
-- `address_to_businesses`: Maps each address to all businesses registered there
-- `business_to_addresses`: Maps each business to all addresses it uses
+#### The Network Web: Mapping the Connections
 
-For non-programmers: Think of this like creating a web of connections. If you were investigating fraud manually, you might draw lines between businesses and addresses on a whiteboard. This code does the same thing, but automatically and at scale.
+At its foundation, this code builds two critical data structures:
+- **`address_to_businesses`**: A dictionary mapping each unique address (e.g., "123 Main St_Dallas_TX") to a set of businesses registered there.
+- **`business_to_addresses`**: A reverse mapping, linking each business name to all addresses it’s associated with.
+
+For non-programmers: Imagine a giant corkboard with pins and strings. Each pin is an address or business, and the strings connect them—showing which businesses share locations. This code automates that process, tracking thousands of connections in real time as it processes each loan.
+
+#### Beyond Simple Mapping: Scoring the Suspicion
+
+The method doesn’t stop at building the web—it analyzes it for fraud signals:
+- **Shared Addresses**: If multiple businesses (two or more) use the same address, the risk ticks up. At a residential address (detected via `analyze_address_type` with a score > 0.5), it’s 15 points per business—think five "consulting" firms in a one-bedroom apartment. At a commercial address, it’s a milder 8 points per business, but still flagged as "Shared address with X other businesses."
+- **Connected Networks**: It then traces deeper connections. If "ABC Corp" at one address links to other businesses at different addresses, it builds a set of `connected_businesses`. More than two connections? That’s another 5 points per business, plus a call to `analyze_name_patterns` to check if names like "CashKing" and "LoanKing" cluster suspiciously (adding even more risk if they do).
+- **Batch and Sequence Checks**: Beyond the snippet above, the full method also examines lender patterns—batches of similar loans on the same day (15+ points if five or more look fishy) and sequential loan numbers (via `check_sequential_pattern`), piling on risk for organized schemes.
+
+#### Why It’s Powerful
+
+This isn’t just about spotting duplicates—it’s about uncovering intent. A single business at a residential address might be a small startup. Five businesses with similar names at the same apartment? That’s a fraud factory. The risk score compounds with each layer—address sharing, name patterns, lender anomalies—making it harder for fraudsters to hide behind scale or subtlety.
+
+For the tech-curious: This runs per loan in `simple_loan_fraud_score.py`, feeding into a pandas-powered pipeline that processes chunks of data efficiently. The result? A fraud detection net that catches not just the obvious, but the cunning— Transforming messy data into clear fraud patterns.
+
+---
 
 #### The Residential Address Red Flag
 
-One of the first things we check is whether multiple businesses are operating from the same residential address:
+One of the standout fraud signals in PPP loan data is when multiple businesses claim the same address—especially if it’s a residential one. The `analyze_networks` method zeroes in on this, sniffing out suspicious setups like five "consulting firms" crammed into a single apartment. Here’s how it works:
 
 ```python
-residential_score = self.analyze_address_type(loan['BorrowerAddress'])
-businesses_at_address = len(self.address_to_businesses[address_key])
-
-if businesses_at_address >= 2:
-    if residential_score > 0.5:
-        risk_score += 15 * businesses_at_address
-        flags.append("Multiple businesses at residential address")
-    else:
-        risk_score += 8 * businesses_at_address
+# Inside analyze_networks
+if pd.notna(loan['BorrowerAddress']):
+    address_key = f"{loan['BorrowerAddress']}_{loan['BorrowerCity']}_{loan['BorrowerState']}"
+    business_name = loan['BorrowerName']
+    self.address_to_businesses[address_key].add(business_name)
+    self.business_to_addresses[business_name].add(address_key)
+    residential_score = self.analyze_address_type(loan['BorrowerAddress'])
+    businesses_at_address = len(self.address_to_businesses[address_key])
+    
+    if businesses_at_address >= 2:
+        if residential_score > 0.5:
+            risk_score += 15 * businesses_at_address
+            flags.append(f"Multiple businesses at residential address ({businesses_at_address})")
+        else:
+            risk_score += 8 * businesses_at_address
+            flags.append(f"Shared address with {businesses_at_address-1} other businesses")
 ```
 
-How do we determine if an address is residential? We look for telltale signs:
+#### How It Spots a Residential Address
+
+The magic happens in `analyze_address_type`, which scores an address based on clues about its nature:
 
 ```python
+def analyze_address_type(self, address: str) -> float:
+    address_str = str(address).lower()
+    score = sum(weight for ind, weight in self.RESIDENTIAL_INDICATORS.items() if ind in address_str)
+    score += sum(weight for ind, weight in self.COMMERCIAL_INDICATORS.items() if ind in address_str)
+    if self.address_range.search(address_str):
+        score += 0.6
+    if self.address_street_end.search(address_str):
+        score += 0.4
+    return score
+
+# Defined earlier in the class
 self.RESIDENTIAL_INDICATORS = {
-    'apt': 0.8, 'unit': 0.7, '#': 0.7, 'suite': 0.4,
-    'floor': 0.3, 'po box': 0.9, 'p.o.': 0.9,
-    'residence': 0.9, 'apartment': 0.9
+    'apt': 0.8, 'unit': 0.7, '#': 0.7, 'suite': 0.4, 'floor': 0.3,
+    'po box': 0.9, 'p.o.': 0.9, 'box': 0.8, 'residence': 0.9,
+    'residential': 0.9, 'apartment': 0.9, 'house': 0.8, 'condo': 0.8,
+    'room': 0.9
 }
 
 self.COMMERCIAL_INDICATORS = {
-    'plaza': -0.7, 'building': -0.5, 'tower': -0.6,
-    'office': -0.7, 'complex': -0.5, 'center': -0.5,
-    'mall': -0.8, 'commercial': -0.8
+    'plaza': -0.7, 'building': -0.5, 'tower': -0.6, 'office': -0.7,
+    'complex': -0.5, 'center': -0.5, 'mall': -0.8, 'commercial': -0.8,
+    'industrial': -0.8, 'park': -0.4, 'warehouse': -0.8, 'factory': -0.8,
+    'store': -0.7, 'shop': -0.6
 }
 ```
 
-Each indicator has a weight. Finding "apt" in an address adds 0.8 to the residential score, while finding "plaza" subtracts 0.7. This creates a nuanced scoring system that can handle mixed-use buildings and edge cases.
+Here’s the breakdown:
+- **Residential Clues**: Words like "apt" (0.8), "po box" (0.9), or "apartment" (0.9) push the score up, signaling a home-like address. A high score means it’s more likely residential.
+- **Commercial Clues**: Terms like "plaza" (-0.7), "office" (-0.7), or "mall" (-0.8) pull the score down, hinting at a business-friendly location.
+- **Extra Hints**: An address range (e.g., "100-110 Main St") adds 0.6—common in apartments—while a street ending (e.g., "Main St") adds 0.4, refining the guess.
 
-For non-programmers: This is like having a checklist of things that make an address look residential (apartment numbers, unit numbers) versus commercial (words like "plaza" or "mall"). Each item on the checklist has a different importance level, and we add them all up to make our final decision.
+If the final `residential_score` exceeds 0.5, it’s flagged as residential, and the risk jumps—15 points per business at that address. Otherwise, it’s treated as commercial, with a gentler 8-point bump per business.
 
-#### Connected Components: Finding Fraud Networks
+#### Why It Matters
 
-But individual addresses are just the beginning. The real power comes from finding networks of connected fraudulent applications:
+For non-programmers: Think of this as a property inspector with a checklist. Residential signs (apartment numbers, PO boxes) score positive points, while commercial signs (plazas, offices) score negative. The total tells us if it’s more likely a house or a storefront. Finding multiple businesses at "123 Apt B" isn’t just odd—it’s a red flag screaming fraud, especially when each gets a 15-point penalty. A legit shared office at "456 Plaza Dr" might still raise an eyebrow (8 points each), but it’s less alarming.
+
+This nuanced scoring handles edge cases—like mixed-use buildings—better than a simple yes/no check. It’s not just about the address; it’s about the mismatch between location and activity, making it a powerful tool in the fraud detection arsenal.
+
+---
+
+#### Connected Components: Uncovering Fraud Networks
+
+Spotting suspicious addresses is a great start, but the real detective work kicks in when we trace networks of connected businesses. The `analyze_networks` method doesn’t just flag isolated oddities—it reveals webs of potential fraud, linking applications that might seem unrelated at first glance. Here’s how it digs deeper:
 
 ```python
+# Inside analyze_networks
 connected_businesses = set()
 for addr in self.business_to_addresses[business_name]:
     connected_businesses.update(self.address_to_businesses[addr])
-
 if len(connected_businesses) > 2:
     pattern_score, pattern_flags = self.analyze_name_patterns(connected_businesses)
     risk_score += pattern_score
@@ -314,84 +402,132 @@ if len(connected_businesses) > 2:
     flags.append(f"Connected to {len(connected_businesses)-1} other businesses")
 ```
 
-This code is doing something fascinating: it's finding all businesses connected through shared addresses, even if they're not directly sharing an address. Here's how:
+#### How It Builds the Network
 
-1. For each business, we look up all its addresses
-2. For each of those addresses, we find all other businesses registered there
-3. We analyze the patterns in these connected business names
+This snippet is doing something clever—think of it as a fraud sleuth mapping out a conspiracy:
+1. **Start with a Business**: For a given `business_name` (e.g., "ABC Corp"), it grabs every address linked to it from `self.business_to_addresses`.
+2. **Expand the Web**: For each of those addresses, it pulls all other businesses registered there from `self.address_to_businesses`, building a set of `connected_businesses`.
+3. **Analyze the Cluster**: If this set grows beyond two businesses, it’s a red flag. The code then:
+   - Calls `analyze_name_patterns` to check for suspicious naming trends (e.g., "CashKing," "LoanKing") among the group, adding a `pattern_score` if found.
+   - Tacks on 5 points per connected business, amplifying the risk as the network grows.
+   - Logs flags like "Connected to 4 other businesses" to highlight the web’s size.
 
-For non-programmers: Imagine you're playing Six Degrees of Kevin Bacon, but with businesses and addresses. Business A shares an address with Business B, which shares a different address with Business C. Even though A and C never directly share an address, we can see they're part of the same network.
+#### The Non-Programmer’s Analogy
+
+Imagine you’re playing Six Degrees of Kevin Bacon, but with shady businesses instead of actors. "ABC Corp" shares an apartment with "XYZ Solutions," which shares a PO Box with "QuickCash LLC." Even if "ABC Corp" and "QuickCash LLC" never directly share an address, they’re linked through this chain. The code spots that connection, treating it like a fraud family tree. If the names start looking similar—like a gang of "King"-themed businesses—the suspicion skyrockets.
+
+#### Why It’s Useful
+
+This isn’t just about catching duplicates at one address—it’s about exposing organized schemes. A lone business might be a fluke, but a network of five tied through multiple addresses, especially with dodgy names? That’s a coordinated hustle. The compounding risk score (5 points per business plus name pattern penalties) makes it harder for fraudsters to hide behind a web of shell companies, turning subtle links into glaring warning signs.
+
+---
 
 #### Temporal Patterns: The Time Dimension of Fraud
 
-The timing of loan applications turns out to be one of the most revealing indicators of fraud. Why? Because humans are terrible at randomness, and fraudsters submitting multiple applications tend to do it in ways that create detectible patterns. Let's dive into how we catch these temporal fingerprints:
+Timing can be a fraudster’s Achilles’ heel. Humans struggle to fake randomness, and when fraudsters churn out multiple PPP loan applications, they often leave behind temporal fingerprints—patterns in when and where loans are submitted. The code doesn’t have a standalone `analyze_time_patterns` method, but it weaves this logic into `calculate_risk_scores`, catching these telltale signs with precision. Let’s explore how it works:
 
 ```python
-def analyze_time_patterns(self, loan: pd.Series) -> tuple[float, List[str]]:
-    date = str(loan['DateApproved'])
-    zip_code = str(loan['BorrowerZip'])[:5]
-    lender = str(loan['OriginatingLender'])
-    loan_number = str(loan['LoanNumber'])
-    
-    # Track applications by date and ZIP code
-    self.date_patterns[date][zip_code].append({
-        'loan_number': loan_number,
-        'business_type': loan['BusinessType'],
-        'amount': loan['InitialApprovalAmount'],
-        'lender': lender
-    })
+# Inside calculate_risk_scores
+zip_groups = chunk.groupby(['DateApproved', 'BorrowerZip'])
+for (date, zip_code), group in zip_groups:
+    date = str(date)
+    zip_code = str(zip_code)[:5]
+    loan_info_list = group[['LoanNumber', 'BusinessType', 'InitialApprovalAmount', 'OriginatingLender']].rename(
+        columns={'LoanNumber': 'loan_number', 'BusinessType': 'business_type', 
+                 'InitialApprovalAmount': 'amount', 'OriginatingLender': 'lender'}
+    ).to_dict('records')
+    self.date_patterns[date][zip_code].extend(loan_info_list)
+    self.daily_zip_counts[date][zip_code] += len(group)
+
+# Later in the same method
+for (date, zip_code), indices in zip_groups.groups.items():
+    date = str(date)
+    zip_code = str(zip_code)[:5]
+    total_loans = len(self.date_patterns[date][zip_code])
+    if total_loans >= self.ZIP_CLUSTER_THRESHOLD:
+        amounts = [loan['amount'] for loan in self.date_patterns[date][zip_code]]
+        business_types = [loan['business_type'] for loan in self.date_patterns[date][zip_code]]
+        if max(amounts) - min(amounts) < min(amounts) * 0.1:
+            flag = f'Part of cluster: {total_loans} similar loans in ZIP {zip_code} on {date}'
+            for idx in indices:
+                risk_scores.at[idx, 'RiskFlags'].append(flag)
+            risk_scores.loc[indices, 'RiskScore'] += 10
+        if len(set(business_types)) == 1:
+            flag = f'Cluster of identical business types in ZIP {zip_code}'
+            for idx in indices:
+                risk_scores.at[idx, 'RiskFlags'].append(flag)
+            risk_scores.loc[indices, 'RiskScore'] += 15
 ```
 
-This code builds up a fascinating data structure. For each date, we track all applications by ZIP code, creating a geographical timeline of loan applications. But the real magic happens when we analyze these patterns:
+#### How It Spots Temporal Clues
 
-```python
-zip_cluster = self.date_patterns[date][zip_code]
-if len(zip_cluster) >= self.ZIP_CLUSTER_THRESHOLD:
-    amounts = [l['amount'] for l in zip_cluster]
-    business_types = [l['business_type'] for l in zip_cluster]
-    
-    if max(amounts) - min(amounts) < min(amounts) * 0.1:
-        risk_score += 20
-        flags.append(f"Part of cluster: {len(zip_cluster)} similar loans in ZIP {zip_code} on {date}")
-    
-    if len(set(business_types)) == 1:
-        risk_score += 15
-        flags.append(f"Cluster of identical business types in ZIP {zip_code}")
-```
+This code builds a rich timeline of loan activity:
+1. **Tracking by Date and ZIP**: For each loan, it logs the approval date and ZIP code (first five digits) in `self.date_patterns`, storing details like loan number, business type, amount, and lender. It also tallies daily counts in `self.daily_zip_counts`.
+2. **Clustering Check**: If a ZIP code has at least `ZIP_CLUSTER_THRESHOLD` (set to 5) loans on a single day, it digs deeper:
+   - **Similar Amounts**: If the loan amounts are suspiciously close (max - min < 10% of min), it adds 10 points and flags it as a cluster of "similar loans."
+   - **Identical Business Types**: If all businesses in the cluster share the same type (e.g., all "Sole Proprietorships"), it adds 15 points, marking a "cluster of identical business types."
+3. **Broader Intensity**: Beyond this snippet, the code also checks for unusual spikes—comparing daily loan counts per ZIP or lender against historical averages, adding up to 40 points for extreme bursts (e.g., 50 loans in a day vs. a 5-loan average).
 
-For non-programmers: Imagine you're looking at a map where pins represent loan applications. If you see several pins pop up in the same neighborhood on the same day, that's interesting. If those pins represent businesses asking for suspiciously similar loan amounts, that's very interesting. If they're all the same type of business? Now we're looking at a pattern that's unlikely to occur naturally.
+#### The Non-Programmer’s Analogy
+
+Picture a map with pins dropping as loan applications roll in. A few pins scattered across a city on different days? Normal. But if five pins land in the same neighborhood on the same day, that’s curious. If they’re all requesting nearly identical amounts—like $20,832 each—that’s suspicious. And if they’re all "consulting LLCs"? That’s not coincidence; it’s a neon sign of fraud. This code turns that map into a fraud radar, spotting clusters that real businesses wouldn’t naturally form.
+
+#### Why It’s Revealing
+
+Fraudsters often batch their applications, rushing to exploit a loophole before it closes. Legit businesses don’t apply in lockstep—same day, same ZIP, same story. By catching these unnatural rhythms, the code exposes coordinated schemes, piling on risk scores that make these patterns impossible to ignore.
+
+---
 
 #### Sequential Loan Numbers: Catching the Assembly Line
 
-One of the most damning patterns we look for is sequential loan numbers. Legitimate applications from different businesses typically receive random-ish loan numbers. But when someone's submitting fraudulent applications in bulk, they often end up with sequential numbers:
+Sequential loan numbers are a dead giveaway for fraud. Legitimate applications from different businesses should have fairly random loan numbers, but when fraudsters pump out bulk submissions, those numbers often line up like cars off an assembly line. The code catches this with a mix of precision and flexibility—here’s how it works:
 
 ```python
-def is_roughly_sequential(self, loan_numbers: List[str]) -> bool:
-    numbers = []
-    for loan_num in loan_numbers:
-        matches = re.findall(r'\d+', loan_num)
-        if matches:
-            numbers.append(int(matches[-1]))
-    
+def is_roughly_sequential(self, numbers: List[int]) -> bool:
     if len(numbers) < 2:
         return False
-        
-    numbers.sort()
-    gaps = [numbers[i+1] - numbers[i] for i in range(len(numbers)-1)]
-    avg_gap = sum(gaps) / len(gaps)
-    return avg_gap < 10 and all(gap < 20 for gap in gaps)
+    numbers = np.array(numbers, dtype=np.int64)
+    np.sort(numbers, kind='quicksort')  # In-place sort
+    gaps = np.diff(numbers)
+    return (gaps.mean() < 10) and np.all(gaps < 20)
+
+# In calculate_risk_scores
+for lender in chunk['OriginatingLender'].unique():
+    recent = self.lender_loan_sequences[lender][-self.SEQUENCE_THRESHOLD:]
+    if len(recent) >= self.SEQUENCE_THRESHOLD and self.is_roughly_sequential(recent):
+        flag = f'Sequential loan numbers from {lender}'
+        mask = chunk['OriginatingLender'] == lender
+        risk_scores.loc[mask, 'RiskScore'] += 25
+        for idx in chunk[mask].index:
+            risk_scores.at[idx, 'RiskFlags'].append(flag)
 ```
 
-This code is cleverer than it might first appear. Instead of looking for perfectly sequential numbers (which would be too obvious), it looks for "roughly" sequential ones. Here's why:
+#### How It Spots the Pattern
 
-1. It extracts just the numeric portions of loan numbers (some lenders add prefixes or suffixes)
-2. It calculates the gaps between numbers
-3. It allows for small, random-looking gaps (maybe the fraudster submitted some applications that were rejected)
-4. But it still catches the overall pattern of numbers that are too close together to be coincidence
+The `is_roughly_sequential` method is smarter than a simple sequence check:
+1. **Extract and Sort**: It takes a list of loan numbers (stored as integers in `self.lender_loan_sequences`), converts them to a NumPy array, and sorts them fast with `quicksort`.
+2. **Measure Gaps**: It calculates the differences (`gaps`) between consecutive numbers using `np.diff`.
+3. **Flexible Detection**: It flags a sequence if the average gap is under 10 and no gap exceeds 20. This catches "roughly" sequential runs—like 157, 159, 162—not just perfect ones like 157, 158, 159.
+4. **Trigger in Context**: In `calculate_risk_scores`, it checks the last `SEQUENCE_THRESHOLD` (set to 5) loan numbers per lender. If five or more are roughly sequential, it adds 25 points and flags it.
 
-For non-programmers: Think of it like looking at ticket numbers at a deli counter. If you see numbers like 157, 158, 159, that's suspicious – real customers don't usually arrive in perfect order. But even numbers like 157, 159, 162 might be suspicious if you're seeing too many close numbers from supposedly different businesses.
+---
+
+#### Beyond Sequences: Batch Analysis
+
+The code doesn’t stop there. In `analyze_networks`, it also looks at lender batches for suspicious timing and similarity:
 
 ```python
+# In analyze_networks
+lender_key = f"{loan['OriginatingLender']}_{loan['OriginatingLenderLocationID']}_{loan['DateApproved']}"
+batch_info = {
+    'loan_number': loan['LoanNumber'],
+    'amount': loan['InitialApprovalAmount'],
+    'business_name': loan['BorrowerName'],
+    'timestamp': loan['DateApproved']
+}
+self.lender_batches[lender_key].append(batch_info)
+current_batch = self.lender_batches[lender_key]
+
 if len(current_batch) >= 5:
     amounts = [l['amount'] for l in current_batch]
     if max(amounts) - min(amounts) < min(amounts) * 0.1:
@@ -402,15 +538,24 @@ if len(current_batch) >= 5:
         flags.extend(pattern_flags)
 ```
 
-For non-programmers: Think of it like spotting a factory assembly line for loan applications. Real businesses apply for loans at random times with varying amounts. When you see multiple applications coming in rapid-fire with nearly identical loan amounts, that's like spotting a counterfeiter's printing press running at full speed.
+Here, if five or more loans from the same lender on the same day have amounts within 10% of each other, it adds 15 points (plus extra from name patterns), flagging a "suspicious batch."
 
-#### Lender Batch Analysis: Finding the Factory Lines
+#### The Non-Programmer’s Analogy
 
-While looking for sequential loan numbers can catch some fraudulent patterns, more sophisticated fraudsters might try to avoid this by randomizing their loan numbers. That's where our lender batch analysis comes in - it can catch suspicious patterns even when the loan numbers themselves look random.
+Think of loan numbers like deli counter tickets. Real customers grab tickets at random—57, 72, 89. But if you see 157, 159, 162 from different "businesses," it’s like someone’s hogging the machine. Add in nearly identical loan amounts—like five $20,832 tickets—and it’s not a deli; it’s a fraud factory. The code’s like a sharp-eyed clerk spotting the cheaters, even if they skip a number or two.
 
-Here's how it works:
+#### Why It’s Damning
+
+Fraudsters often automate or rush their applications, leaving these orderly traces—sequential numbers or tight batches—that legit businesses don’t mimic. By catching both the sequence (25 points) and the batch similarity (15+ points), the code nails bulk fraud, turning an innocent-looking stream of loans into a glaring red flag.
+
+---
+
+#### Lender Batch Analysis: Spotting the Fraud Factory
+
+Sequential loan numbers can snag some fraudsters, but the craftier ones might dodge that trap by scrambling their numbers. That’s where lender batch analysis steps in—it sniffs out suspicious patterns even when loan numbers seem random, catching fraud rings by their telltale habits. The `analyze_networks` method does this with finesse—here’s how:
 
 ```python
+# Inside analyze_networks
 lender_key = f"{loan['OriginatingLender']}_{loan['OriginatingLenderLocationID']}_{loan['DateApproved']}"
 batch_info = {
     'loan_number': loan['LoanNumber'],
@@ -419,31 +564,39 @@ batch_info = {
     'timestamp': loan['DateApproved']
 }
 self.lender_batches[lender_key].append(batch_info)
-
 current_batch = self.lender_batches[lender_key]
+
 if len(current_batch) >= 5:
     amounts = [l['amount'] for l in current_batch]
     if max(amounts) - min(amounts) < min(amounts) * 0.1:
         batch_names = {l['business_name'] for l in current_batch}
-        risk_score += 15
+        pattern_score, pattern_flags = self.analyze_name_patterns(batch_names)
+        risk_score += 15 + pattern_score
         flags.append(f"Part of suspicious batch: {len(current_batch)} similar loans from same lender")
+        flags.extend(pattern_flags)
 ```
 
-This code is looking for something subtle but telling: batches of loans from the same lender location on the same day with suspiciously similar amounts. Let's break down why this matters:
+#### How It Detects the Factory Line
 
-1. We create a unique key combining the lender, their location, and the date
-2. For each batch of 5 or more loans, we look at how similar the loan amounts are
-3. If all the amounts are within 10% of each other, that's suspicious
+This code zeroes in on a subtle but damning clue—batches of loans from the same lender, same location, same day, with eerily similar amounts:
+1. **Batch Key**: It crafts a unique `lender_key` by combining the lender’s name, location ID, and approval date, grouping loans into daily batches per lender branch.
+2. **Threshold Check**: If a batch hits 5 or more loans, it digs deeper into the amounts.
+3. **Similarity Test**: If the loan amounts are tight—max minus min is less than 10% of the min (e.g., all around $20,000)—it flags it.
+4. **Extra Layer**: It then runs `analyze_name_patterns` on the batch’s business names, adding a `pattern_score` if they look fishy (e.g., "CashKing," "LoanKing"). The base risk jumps 15 points, plus whatever the name check tacks on.
 
-For non-programmers: Imagine you're a bank teller, and five different people come in on the same day asking for almost exactly the same amount of money. That would be weird, right? Maybe it's a coincidence once, but when you see this pattern repeatedly from the same lender, something's probably up.
+#### The Non-Programmer’s Analogy
 
-What makes this check powerful is that it catches fraud rings that are trying to be clever. They might vary their business names, use different addresses, and avoid sequential loan numbers - but humans are terrible at generating truly random numbers. When they're mass-producing fraudulent applications, they tend to stick to a few "safe" loan amounts that they know will get approved.
+Imagine you’re a bank teller, and five people stroll in on the same day, each asking for $20,832 from the same branch. Odd, right? Now picture them doing it daily, with names like "QuickCash LLC" and "FastCash Inc." It’s not a coincidence—it’s a fraud assembly line. Real businesses don’t line up like that with near-identical requests; this code’s like a hawk-eyed teller who spots the pattern, even if the ticket numbers aren’t in order.
 
-The system is particularly interested when it finds these suspicious batches in combination with other risk factors. If we see a batch of similar loans AND they're all using suspicious business names or addresses, the risk score gets multiplied significantly. This helps us distinguish between legitimate events (like a franchise business where multiple locations might apply for similar amounts) and coordinated fraud attempts.
+#### Why It Works
+
+Fraudsters might dodge sequential numbers, mix up addresses, or tweak names, but they’re awful at faking randomness. When mass-producing applications, they often stick to "safe" amounts—like $20,832—that slip through approval cracks. This check catches that habit. And when paired with suspicious name patterns (via `analyze_name_patterns`), the risk score spikes—15 points base, plus more for dodgy names—separating legit batches (like a franchise’s bulk apps) from coordinated scams. It’s a net for the clever ones who think they’ve outsmarted simpler traps.
+
+---
 
 #### The Early Warning System: High-Risk Lenders
 
-One of the more controversial but effective parts of our system is tracking which lenders have a history of processing fraudulent loans. This creates a feedback loop that can help catch new fraud patterns:
+One of the sharper tools in our fraud detection kit is tracking lenders with a history of processing dodgy loans. It’s a bit controversial—lenders aren’t thrilled to be on a watchlist—but it creates a powerful early warning system that flags emerging fraud patterns. Here’s the setup:
 
 ```python
 self.HIGH_RISK_LENDERS = {
@@ -456,45 +609,78 @@ self.HIGH_RISK_LENDERS = {
 }
 ```
 
-Each lender has a risk multiplier. When we see an application from a high-risk lender that also has other suspicious indicators, we amplify the risk score:
+Each lender gets a risk weight between 0 and 1, reflecting their track record. In `calculate_risk_scores`, if a loan comes from one of these high-risk players and already has other red flags, the score gets a boost:
 
 ```python
-if lender in self.HIGH_RISK_LENDERS and len(flags) > 0:
-    score += 15 * self.HIGH_RISK_LENDERS[lender]
-    flags.append('High-risk lender')
+# In calculate_risk_scores
+lender_has_flags = risk_scores['RiskFlags'].apply(len) > 0
+high_risk_lender_mask = chunk['OriginatingLender'].isin(self.HIGH_RISK_LENDERS) & lender_has_flags
+lender_risk_scores = chunk['OriginatingLender'].map(lambda x: 15 * self.HIGH_RISK_LENDERS.get(x, 0)).astype(float).fillna(0.0)
+risk_scores.loc[high_risk_lender_mask, 'RiskScore'] += lender_risk_scores[high_risk_lender_mask]
+risk_scores.loc[high_risk_lender_mask, 'RiskFlags'] = risk_scores.loc[high_risk_lender_mask, 'RiskFlags'].apply(
+    lambda x: x + ['High-risk lender']
+)
 ```
 
-For non-programmers: This is like knowing which security guards at a bank tend to be less thorough. If you see someone suspicious walking past one of those guards, you pay extra attention.
+#### How It Works
 
-Looking at the blog post, I suggest adding a new section right after the "The Early Warning System: High-Risk Lenders" section. Here's the exact content to add:
+- **Weighted Risk**: A lender like "Capital Plus Financial" (0.9) adds 13.5 points (15 * 0.9) to the risk score if other flags—like suspicious names or addresses—are present.
+- **Combo Trigger**: It only kicks in when there’s already a flag, avoiding unfair penalties for clean loans from these lenders.
 
-#### Loan Forgiveness Patterns: Following the Money
+For non-programmers: Picture a bank with security guards. Some guards have a rep for letting sketchy characters slip by. If you spot someone shady strolling past one of those guards, you double-check them. This system does the same—high-risk lenders raise the stakes when other clues are in play.
 
-One of the subtler but important fraud indicators in our system comes from analyzing loan forgiveness patterns. PPP loans were designed to be forgivable if used properly, but fraudsters often exhibit distinctive patterns in how they handle forgiveness:
-
-```python
-# Risk weight for forgiveness-related flags
-self.RISK_WEIGHTS = {
-    'forgiveness': 0.05,
-    # ... other weights
-}
-```
-
-Why such a relatively low weight (0.05)? Because forgiveness patterns alone aren't strongly indicative of fraud, but they become powerful signals when combined with other risk factors. Here's what we look for:
-
-1. Immediate Forgiveness Applications: Legitimate businesses typically need time to properly document their use of funds. Applications for forgiveness submitted unusually quickly after receiving the loan get extra scrutiny.
-
-2. All-or-Nothing Patterns: When we see clusters of loans from the same lender or geographic area all requesting either 100% forgiveness or no forgiveness at all, that's a red flag. Legitimate businesses typically show more variation in their forgiveness amounts based on their actual use of funds.
-
-3. Mismatched Documentation: We look for discrepancies between the forgiveness amount requested and other loan attributes. For instance, if a business claimed zero employees but requests full forgiveness for payroll costs, that's a clear inconsistency.
-
-For non-programmers: Think of loan forgiveness like a receipt for how the money was spent. Just as a store might be suspicious of someone trying to return items with questionable receipts, we're suspicious of loans where the forgiveness patterns don't match what we'd expect from legitimate business operations.
+---
 
 #### Time-Based Clustering: Catching the Mass Producers
 
-One of our most powerful fraud detection techniques involves analyzing the temporal patterns of loan applications. Fraudsters, when submitting multiple applications, tend to do it in ways that create detectable time-based clusters. Here's why this works:
+Time is a fraudster’s worst enemy—and our best ally. When churning out multiple PPP loan applications, fraud rings often leave behind detectable time-based clusters that legitimate businesses don’t mimic. The code harnesses this in `calculate_risk_scores` and `analyze_networks`, spotting mass production patterns with surgical precision. Here’s how it tracks the clock:
 
 ```python
+# In calculate_risk_scores
+zip_groups = chunk.groupby(['DateApproved', 'BorrowerZip'])
+for (date, zip_code), group in zip_groups:
+    date = str(date)
+    zip_code = str(zip_code)[:5]
+    loan_info_list = group[['LoanNumber', 'BusinessType', 'InitialApprovalAmount', 'OriginatingLender']].rename(
+        columns={'LoanNumber': 'loan_number', 'BusinessType': 'business_type', 
+                 'InitialApprovalAmount': 'amount', 'OriginatingLender': 'lender'}
+    ).to_dict('records')
+    self.date_patterns[date][zip_code].extend(loan_info_list)
+    self.daily_zip_counts[date][zip_code] += len(group)
+
+for (date, zip_code), indices in zip_groups.groups.items():
+    date = str(date)
+    zip_code = str(zip_code)[:5]
+    total_loans = len(self.date_patterns[date][zip_code])
+    if total_loans >= self.ZIP_CLUSTER_THRESHOLD:
+        amounts = [loan['amount'] for loan in self.date_patterns[date][zip_code]]
+        business_types = [loan['business_type'] for loan in self.date_patterns[date][zip_code]]
+        if max(amounts) - min(amounts) < min(amounts) * 0.1:
+            flag = f'Part of cluster: {total_loans} similar loans in ZIP {zip_code} on {date}'
+            risk_scores.loc[indices, 'RiskScore'] += 10
+            for idx in indices:
+                risk_scores.at[idx, 'RiskFlags'].append(flag)
+        if len(set(business_types)) == 1:
+            flag = f'Cluster of identical business types in ZIP {zip_code}'
+            risk_scores.loc[indices, 'RiskScore'] += 15
+            for idx in indices:
+                risk_scores.at[idx, 'RiskFlags'].append(flag)
+```
+
+#### ZIP-Based Clustering: The Geographic Pulse
+
+This code maps loans by date and ZIP code, hunting for suspicious bursts:
+- **Tracking**: It logs each loan’s date, ZIP (first 5 digits), amount, and business type in `self.date_patterns`, building a daily geographic timeline.
+- **Threshold**: If a ZIP hits `ZIP_CLUSTER_THRESHOLD` (5) loans in a day, it checks:
+  - **Tight Amounts**: Loans within 10% of each other (e.g., all ~$20,000) add 10 points.
+  - **Same Type**: All identical business types (e.g., "Sole Proprietorships") add 15 points.
+
+#### Lender Batches: The Factory Floor
+
+Then, in `analyze_networks`, it zooms into lender-specific batches:
+
+```python
+# In analyze_networks
 lender_key = f"{loan['OriginatingLender']}_{loan['OriginatingLenderLocationID']}_{loan['DateApproved']}"
 batch_info = {
     'loan_number': loan['LoanNumber'],
@@ -503,22 +689,8 @@ batch_info = {
     'timestamp': loan['DateApproved']
 }
 self.lender_batches[lender_key].append(batch_info)
-```
+current_batch = self.lender_batches[lender_key]
 
-This seemingly simple code is doing something remarkably sophisticated. By creating a unique key combining the lender, their physical location, and the date, we can detect patterns that would be invisible if we looked at any single factor in isolation.
-
-Why these three factors? Because fraudulent loan applications often follow a "mass production" pattern:
-1. Same lender (fraudsters find a bank or processor that's easier to work with)
-2. Same location (they typically submit through the same branch or portal)
-3. Same day (they try to push through as many applications as possible while they have a working formula)
-
-For example, imagine a legitimate small business district. You might see:
-- Multiple loans from the same bank branch
-- All on the same day (maybe there was a PPP workshop)
-- But with varying loan amounts based on each business's actual needs
-
-Now contrast that with a fraudulent pattern we've detected:
-```python
 if len(current_batch) >= 5:
     amounts = [l['amount'] for l in current_batch]
     if max(amounts) - min(amounts) < min(amounts) * 0.1:
@@ -526,70 +698,57 @@ if len(current_batch) >= 5:
         pattern_score, pattern_flags = self.analyze_name_patterns(batch_names)
         risk_score += 15 + pattern_score
         flags.append(f"Part of suspicious batch: {len(current_batch)} similar loans from same lender")
+        flags.extend(pattern_flags)
 ```
 
-This code catches a very specific type of fraud where we see:
-- 5+ applications through the same lender location
-- All on the same day
-- All asking for suspiciously similar amounts (within 10% of each other)
+Here, it keys loans by lender, location, and date:
+- **Batch Check**: Five or more loans on the same day from one lender branch trigger scrutiny.
+- **Similarity**: Amounts within 10% score 15 points, plus a `pattern_score` if names (e.g., "CashKing," "LoanKing") look fishy.
 
-Why is this suspicious? Because legitimate businesses, even in the same industry and location, rarely need exactly the same loan amount. The variation in real business needs - number of employees, rent costs, utility expenses - naturally creates diversity in loan amounts.
+#### The Combo Punch: Sequential Boost
 
-The timing aspect becomes even more powerful when combined with other patterns:
-```python
-def analyze_time_patterns(self, loan: pd.Series) -> tuple[float, List[str]]:
-    date = str(loan['DateApproved'])
-    zip_code = str(loan['BorrowerZip'])[:5]
-    
-    self.date_patterns[date][zip_code].append({
-        'loan_number': loan_number,
-        'business_type': loan['BusinessType'],
-        'amount': loan['InitialApprovalAmount'],
-        'lender': lender
-    })
-```
-
-This code tracks not just when applications come in, but how they relate geographically. We've found that fraud rings often:
-1. Submit multiple applications in the same ZIP code
-2. Use the same business type for all applications
-3. Request identical or very similar loan amounts
-4. Submit everything within a short time window
-
-For non-programmers: Think of it like spotting a counterfeiter by realizing that no legitimate business would print 100 identical $20 bills all at the same time. Similarly, no legitimate business district would have 10 different companies all needing exactly $18,749 in PPP loans on the same Tuesday afternoon.
-
-The time-based clustering becomes even more powerful when combined with our sequential loan number detection:
-```python
-if any("Sequential loan numbers" in flag for flag in flags) and len(flags) > 1:
-    score = score * 1.5
-```
-
-When we see both time-based clustering AND sequential loan numbers, we multiply the risk score. Why? Because this combination strongly suggests an automated or semi-automated fraud operation - someone submitting multiple applications so quickly that they're getting sequential loan numbers from the system.
-
-This multi-dimensional temporal analysis has proven to be one of our most reliable fraud indicators, especially because legitimate businesses tend to apply for PPP loans in much more random, natural patterns spread out over time.
-
-#### The Devil in the Demographics
-
-One of the more subtle patterns we discovered was in how fraudulent applications handle demographic information. Legitimate business owners typically fill out these fields naturally, with a mix of responses. Fraudsters often take shortcuts:
+The real kicker comes in `calculate_risk_scores` when clustering meets sequential loan numbers:
 
 ```python
-demographic_fields = ['Race', 'Gender', 'Ethnicity']
-missing_demographics = sum(1 for field in demographic_fields 
-    if str(loan.get(field, '')).lower() in ['unanswered', 'unknown'])
-
-if missing_demographics == len(demographic_fields) and len(flags) > 1:
-    score += 10
-    flags.append('Missing all demographics')
+# In calculate_risk_scores
+seq_mask = risk_scores['RiskFlags'].str.contains("Sequential loan numbers") & (risk_scores['RiskFlags'].str.count(';') > 1)
+risk_scores.loc[seq_mask, 'RiskScore'] *= 1.5
 ```
 
-This code isn't just checking for missing demographics – that alone isn't suspicious. It's looking for applications that:
-1. Have all demographic fields marked as "unknown" or "unanswered"
-2. Also have other suspicious indicators
+If a loan’s flags include "Sequential loan numbers" and at least one other red flag, the risk score jumps by 50%—a multiplier that screams automation.
 
-For non-programmers: It's like looking at a stack of job applications where some are filled out completely, some have a few blanks, and others just have "N/A" written in every single field. Those last ones make you wonder if someone was trying to fill out forms as quickly as possible without actually providing any real information.
+#### Why It Works
 
-#### Risk Score Aggregation: Putting It All Together
+Fraudsters love efficiency—same lender, same branch, same day, same script. Legit businesses? They’re messier—different needs, staggered timing. A real district might see a workshop spike, but amounts vary (rent, staff, utilities differ). Fraud rings churn out cookie-cutter apps—five $20,832 loans in one ZIP or lender batch, all "consulting LLCs." Add sequential numbers, and it’s a dead-end street.
 
-The heart of our system is how it combines all these different risk factors into a final score. At first glance, you might think we could just add up all the individual risk factors and call it a day. But fraud detection is more nuanced than that. Here's how we weight different types of risk:
+#### The Non-Programmer’s Analogy
+
+Imagine a counterfeiter printing 10 identical $20 bills in one afternoon—no real bank churns out cash that fast and uniform. Now picture a ZIP code or lender spitting out five $20,832 loans, same type, same day. It’s not a business district; it’s a fraud press. This code’s like a detective spotting the ink still wet, especially when the serial numbers line up too neatly.
+
+---
+
+### The Devil in the Demographics
+
+Fraudulent loan applications often reveal subtle clues in how they handle demographic information. Legitimate applicants tend to provide varied responses, while fraudsters may leave fields blank or use generic placeholders. Our system checks for this pattern with precision:
+
+```python
+demo_fields = ['Race', 'Gender', 'Ethnicity']
+missing_all_demo = chunk[demo_fields].apply(lambda x: x.str.lower().isin(self.UNANSWERED_SET)).all(axis=1) & lender_has_flags
+risk_scores.loc[missing_all_demo, 'RiskScore'] += 10
+risk_scores.loc[missing_all_demo, 'RiskFlags'] = risk_scores.loc[missing_all_demo, 'RiskFlags'].apply(
+    lambda x: x + ['Missing all demographics']
+)
+```
+
+Here, `self.UNANSWERED_SET` includes terms like `'unanswered'` and `'unknown'`. The code doesn’t just flag missing demographics—it requires other suspicious indicators (`lender_has_flags`) to be present. This ensures we’re not penalizing incomplete data alone but spotting it as part of a broader fraud pattern.
+
+**For non-programmers:** Imagine reviewing a stack of forms where some applicants skip a question or two, but others leave every personal detail as “N/A” *and* show other red flags—like dubious addresses or lenders. Those are the ones we scrutinize.
+
+---
+
+### Risk Score Aggregation: Putting It All Together
+
+Our fraud detection hinges on a weighted scoring system that balances the importance and reliability of different indicators. Here’s how we define the weights:
 
 ```python
 self.RISK_WEIGHTS = {
@@ -602,128 +761,27 @@ self.RISK_WEIGHTS = {
     'naics': 0.10,
     'lender': 0.10,
     'demographics': 0.05,
-    'name_pattern': 0.05
+    'name_pattern': 0.05,
+    'geospatial_cluster': 0.05,
+    'sba_office_cluster': 0.05 
+}
+```
+These weights guide the `calculate_risk_scores` method, though scores are applied dynamically based on conditions, not directly multiplied by these weights. For instance, `'jobs'` gets a high weight (0.20) because job counts are harder to fake convincingly, while `'demographics'` (0.05) is less decisive alone. The system also uses interaction rules to amplify scores when multiple red flags align, like:
+
+```python
+INTERACTION_RULES = {
+    ("Missing all demographics", "High-risk business type"): 1.05,
+    # ... other rules ...
 }
 ```
 
-These weights reflect both the reliability of each indicator and its importance. For example, the number of jobs reported gets a higher weight (0.20) because it's a concrete number that's harder to fake convincingly, while demographic information gets a lower weight (0.05) because missing demographics alone aren't strong evidence of fraud.
+**For non-programmers:** Think of this as a chef blending ingredients—some (like jobs) add a strong flavor, others (like demographics) are subtle unless paired with something suspicious. The interaction rules are like tasting a dish and realizing two odd flavors together signal trouble.
 
-For non-programmers: Think of this like a judge considering different types of evidence in a trial. DNA evidence might get more weight than circumstantial evidence, just like job numbers get more weight than missing demographics.
+---
 
-#### Risk Score Calibration: Preventing False Alarms
+### The Business Type Legitimacy Scale
 
-While our scoring system is designed to catch fraud, we're equally focused on preventing false positives. One of our most important safeguards is a sophisticated score calibration system that prevents loans from being flagged as high-risk unless they exhibit multiple strong indicators of fraud:
-
-```python
-def score_loan(loan: pd.Series) -> pd.Series:
-    # ... risk scoring logic ...
-    
-    final_score = score
-    if "Exact maximum loan amount detected" not in flags and len(flags) < 2:
-        final_score = min(49, final_score)
-```
-
-This code is doing something clever: unless a loan hits the exact maximum allowed amount (a strong fraud indicator), we require at least two independent risk flags before allowing the score to enter the high-risk range (50 or above). This means that no single suspicious pattern, no matter how strong, can trigger a high-risk designation on its own.
-
-For non-programmers: Think of this like a legal system's "beyond reasonable doubt" standard. Just as we wouldn't convict someone based on a single piece of circumstantial evidence, we won't flag a loan as high-risk based on a single suspicious pattern. We need multiple pieces of evidence working together to cross that threshold.
-
-This calibration system helps ensure that:
-1. We don't overwhelm investigators with false positives
-2. Legitimate but unusual businesses don't get incorrectly flagged
-3. Our risk scores remain meaningful and actionable
-
-The only exception to this rule is when a loan requests the exact maximum amount allowed under PPP rules ($20,832 or $20,833). This specific amount is such a strong indicator of potential fraud that it can push a loan into high-risk territory even without other supporting evidence.
-
-
-#### The Multiplier Effect: When Red Flags Work Together
-
-But here's where it gets really interesting. We don't just add up weighted risk factors – we look for combinations that make each other more suspicious:
-
-```python
-def calculate_risk_scores(self, chunk: pd.DataFrame) -> pd.DataFrame:
-    def score_loan(loan: pd.Series) -> pd.Series:
-        score = 0
-        flags = []
-        
-        # Basic risk factors
-        has_duplicates, duplicate_flags = self.check_multiple_applications(loan)
-        if has_duplicates:
-            score += 30
-            flags.extend(duplicate_flags)
-            
-        # Check per-employee amount
-        if loan['JobsReported'] > 0:
-            amount = float(loan['InitialApprovalAmount'])
-            per_employee = amount / loan['JobsReported']
-            if per_employee > 12000:
-                score += 15
-                flags.append(f'High amount per employee: ${per_employee:,.2f}')
-                if per_employee > 14000:
-                    score += 15
-                    flags.append('Extremely high amount per employee')
-```
-
-Notice how we handle the per-employee amount: finding a high amount adds 15 to the score, but finding an extremely high amount adds another 15. This is because extremes are even more suspicious than merely unusual values.
-
-But the real magic happens when we combine different types of flags:
-
-```python
-        # Apply network analysis
-        network_score, network_flags = self.analyze_networks(loan)
-        score += network_score
-        flags.extend(network_flags)
-        
-        # If we found sequential loan numbers AND other flags,
-        # the whole thing becomes much more suspicious
-        if any("Sequential loan numbers" in flag for flag in flags) and len(flags) > 1:
-            score = score * 1.5
-```
-
-For non-programmers: This is like solving a mystery where finding one clue makes other clues more significant. Finding muddy footprints might be suspicious, and finding a broken window might be suspicious, but finding both together is way more than twice as suspicious.
-
-#### The False Positive Prevention System
-
-One of the trickiest parts of fraud detection is avoiding false positives. It's not enough to just find suspicious patterns – we need to be confident that we're not flagging legitimate businesses. Our false positive prevention system is multi-layered and surprisingly sophisticated:
-
-```python
-def validate_high_risk_loans(self, loans: pd.DataFrame) -> pd.DataFrame:
-    def validate_loan(loan: pd.Series) -> bool:
-        if loan['BorrowerName'] in self.known_businesses:
-            return False
-            
-        validation_score = 0
-        flags = str(loan['RiskFlags']).split(';')
-        
-        # Require multiple independent risk factors
-        if len(flags) < 2:
-            return False
-```
-
-First, we require multiple independent risk factors. A single red flag, no matter how suspicious, isn't enough to trigger a high-risk designation. This helps prevent false positives from quirky but legitimate businesses.
-
-But here's where it gets interesting – we also look for positive indicators that can counteract suspicious patterns:
-
-```python
-        # Check for positive indicators
-        if loan['JobsReported'] > 0:
-            amount = float(loan['InitialApprovalAmount'])
-            per_employee = amount / loan['JobsReported']
-            if per_employee < 8000:
-                validation_score -= 20
-                
-        if (loan['BusinessType'] in self.LEGITIMATE_BUSINESS_TYPES and 
-            str(loan['NAICSCode']) not in self.GENERIC_NAICS):
-            validation_score -= 15
-            
-        if loan['LoanStatus'] == 'Paid in Full':
-            validation_score -= 15
-```
-
-For non-programmers: Think of this like a legal system's presumption of innocence. We're not just looking for evidence of guilt – we're also actively looking for evidence of innocence. A business might have some suspicious indicators, but if they've paid back their loan in full and have reasonable per-employee costs, maybe they're actually legitimate.
-
-#### The Business Type Legitimacy Scale
-
-We maintain a detailed understanding of which business types are more or less likely to be vehicles for fraud:
+We categorize business types by their fraud risk, based on extensive data analysis:
 
 ```python
 self.LEGITIMATE_BUSINESS_TYPES = {
@@ -741,92 +799,30 @@ self.HIGH_RISK_BUSINESS_TYPES = {
 }
 ```
 
-But here's the clever part – we don't just use these categorizations blindly. Instead, we look at how they interact with other factors:
+The scoring logic ties these to other factors:
 
 ```python
-business_type = str(loan['BusinessType'])
-if business_type in self.HIGH_RISK_BUSINESS_TYPES:
-    if len(flags) > 1:  # Only count if there are other red flags
-        score += 15 * self.HIGH_RISK_BUSINESS_TYPES[business_type]
-        flags.append('High-risk business type')
+high_risk_bt_mask = chunk['BusinessType'].isin(self.HIGH_RISK_BUSINESS_TYPES) & lender_has_flags
+bt_risk_scores = chunk['BusinessType'].map(lambda x: 15 * self.HIGH_RISK_BUSINESS_TYPES.get(x, 0)).astype(float).fillna(0.0)
+risk_scores.loc[high_risk_bt_mask, 'RiskScore'] += bt_risk_scores[high_risk_bt_mask]
+risk_scores.loc[high_risk_bt_mask, 'RiskFlags'] = risk_scores.loc[high_risk_bt_mask, 'RiskFlags'].apply(
+    lambda x: x + ['High-risk business type']
+)
 ```
 
-For non-programmers: This is like how a convenience store being open late isn't suspicious, and a person wearing a mask during COVID isn't suspicious, but a masked person in a convenience store at 3 AM might warrant a second look. Context matters.
+A “Sole Proprietorship” only triggers a score (e.g., 15 * 0.85 = 12.75) if other flags are present, reflecting context-driven suspicion.
 
-#### The NAICS Code Validation System
+**For non-programmers:** It’s like judging a stranger’s story. Saying “I work alone” isn’t odd, but paired with a questionable address or loan amount, it raises eyebrows.
 
-One of our more sophisticated checks involves validating NAICS (North American Industry Classification System) codes. Fraudsters often choose generic or mismatched industry codes that can reveal their applications as suspicious. Here's how we catch them:
+---
 
-```python
-self.GENERIC_NAICS = {
-    '541990': 0.7,  # Other Professional Services
-    '541618': 0.7,  # Other Management Consulting
-    '541611': 0.6,  # Administrative Management Consulting
-    '453998': 0.8,  # All Other Miscellaneous Store Retailers
-    '454390': 0.8,  # Other Direct Selling Establishments
-    '541213': 0.8,  # Tax Preparation Services
-    '812111': 0.8,  # Barber Shops
-    '812113': 0.8,  # Nail Salons
-}
-```
+### Secondary Analysis System: Statistical Pattern Detection
 
-Each code has a risk weight based on how often we've seen it used in fraudulent applications. But here's where it gets interesting – we don't just look at the codes in isolation. We cross-reference them with the business name and other attributes:
+The secondary analysis system, implemented in `analyze_patterns_in_suspicious_loans.py`, is designed to identify statistical patterns within Paycheck Protection Program (PPP) loan data that may indicate fraudulent activity. Unlike a primary analysis focused on individual loan assessments, this system examines aggregate trends across datasets, leveraging advanced data processing and machine learning techniques to enhance detection capabilities.
 
-```python
-def analyze_naics_consistency(self, loan: pd.Series) -> tuple[float, List[str]]:
-    naics = str(loan['NAICSCode'])
-    business_name = loan['BorrowerName'].lower()
-    risk_score = 0
-    flags = []
-    
-    # Check for generic high-risk codes
-    if naics in self.GENERIC_NAICS:
-        # Look for mismatches with business name
-        if 'consulting' in business_name and naics != '541611':
-            risk_score += 25
-            flags.append('Business claims to be consulting but uses different NAICS')
-        elif 'salon' in business_name and naics != '812113':
-            risk_score += 25
-            flags.append('Business claims to be salon but uses different NAICS')
-```
+#### Data Loading and Preparation
 
-For non-programmers: Think of NAICS codes like genre categories for businesses. If someone claimed their business was a bookstore but categorized it as a car dealership, that would be suspicious. We're doing the same thing, but with much more nuance and at scale.
-
-#### Statistical Pattern Analysis of NAICS Codes
-
-But individual NAICS validation isn't enough. We also look for suspicious patterns in how codes are used across multiple applications:
-
-```python
-def analyze_naics_patterns(self, chunk: pd.DataFrame) -> None:
-    naics_groups = chunk.groupby('NAICSCode')
-    
-    for naics, group in naics_groups:
-        # Calculate average loan amount for this NAICS
-        avg_amount = group['InitialApprovalAmount'].mean()
-        std_amount = group['InitialApprovalAmount'].std()
-        
-        # Look for suspiciously uniform loan amounts
-        if len(group) >= 5 and std_amount < avg_amount * 0.05:
-            for _, loan in group.iterrows():
-                self.add_risk_flag(
-                    loan['LoanNumber'],
-                    f"Part of suspicious NAICS cluster with uniform amounts",
-                    25
-                )
-```
-
-This code is doing something subtle but powerful:
-1. It groups all loans by their NAICS code
-2. For each NAICS code with 5+ applications, it calculates the average loan amount and standard deviation
-3. If the amounts are suspiciously similar (standard deviation < 5% of mean), it flags all loans in that group
-
-Why? Because legitimate businesses in the same industry still tend to need different loan amounts based on their specific situations. When we see multiple businesses in the same industry asking for nearly identical amounts, that's a red flag.
-
-#### The Secondary Analysis System: Statistical Pattern Mining
-
-The secondary analysis system in `analyze_patterns_in_suspicious_loans.py` takes our fraud detection to another level. While the primary system is great at catching individual suspicious loans, the secondary system looks for broader patterns that might not be visible when looking at loans one at a time.
-
-Here's how we start:
+The analysis begins with efficient data ingestion:
 
 ```python
 class SuspiciousLoanAnalyzer:
@@ -835,111 +831,96 @@ class SuspiciousLoanAnalyzer:
         self.full_data_file = full_data_file
         self.sus_data = None
         self.full_data = None
+        self.naics_lookup = self._load_naics_codes()
 
     def load_data(self) -> Tuple[pd.DataFrame, pd.DataFrame]:
         print("Loading suspicious loans data...")
-        try:
-            sus = pd.read_csv(self.suspicious_file, low_memory=False)
-            print("Loading full loan dataset...")
-            cols = [
-                "LoanNumber", "BorrowerName", "BorrowerCity", 
-                "BorrowerState", "OriginatingLender", 
-                "InitialApprovalAmount", "BusinessType",
-                "Race", "Gender", "Ethnicity", "NAICSCode", 
-                "JobsReported"
-            ]
-            full = pd.read_csv(
-                self.full_data_file,
-                usecols=cols,
-                dtype={"LoanNumber": str, "NAICSCode": str},
-                low_memory=False
-            )
+        sus_cols = [
+            "LoanNumber", "BorrowerName", "RiskScore", "RiskFlags", "BorrowerAddress", 
+            "BorrowerCity", "BorrowerState", "BorrowerZip", "Latitude", "Longitude", 
+            "Census Tract Code", "OriginatingLender", "InitialApprovalAmount", 
+            "BusinessType", "Race", "Gender", "Ethnicity", "NAICSCode", 
+            "JobsReported", "HubzoneIndicator", "LMIIndicator", "NonProfit"
+        ]
+        sus_dtypes = {
+            "LoanNumber": str,
+            "BorrowerName": str,
+            "RiskScore": "float32",
+            "InitialApprovalAmount": "float32",
+            "JobsReported": "Int32",
+            # Additional type specifications omitted for brevity
+        }
+        sus = pd.read_csv(
+            self.suspicious_file,
+            engine='pyarrow',
+            dtype=sus_dtypes,
+            usecols=sus_cols
+        )
+        print("Loading full loan dataset with Dask...")
+        full_dd = dd.read_csv(
+            self.full_data_file,
+            usecols=full_cols,
+            dtype=full_dtypes,
+            blocksize="64MB"
+        )
+        full_dd = full_dd[
+            (full_dd["InitialApprovalAmount"] >= 5000) &
+            (full_dd["InitialApprovalAmount"] < 22000)
+        ]
+        full = full_dd.compute(scheduler='processes', num_workers=32)
 ```
 
-Notice we're only loading specific columns from the full dataset. This isn't just for efficiency – it's because these are the fields that our statistical analysis has shown to be most relevant for pattern detection.
+The system employs `pyarrow` to load the suspicious loans dataset, optimizing memory usage with specific data types (e.g., `float32` for numerical columns). For the full dataset, Dask facilitates parallel processing of large files, filtering loans to the $5,000–$22,000 range—a segment identified as prone to irregularities. Selected columns, such as `BorrowerAddress` and `NAICSCode`, are prioritized based on their statistical relevance to pattern detection.
 
-#### Address Analysis: A Weighted Approach to Location Red Flags
+#### Address-Based Feature Engineering
 
-One of the most sophisticated parts of our fraud detection system is how it analyzes business addresses. Rather than using simple binary flags for residential versus commercial addresses, we implement a nuanced scoring system that weighs different address indicators:
+Address analysis is a critical component of the system, utilizing binary indicators to classify locations:
 
 ```python
-self.RESIDENTIAL_INDICATORS = {
-    'apt': 0.8,      # Strong indicator of residential use
-    'unit': 0.7,     # Common in both residential and commercial
-    '#': 0.7,        # Often indicates apartment/unit number
-    'suite': 0.4,    # Used in both residential and commercial
-    'floor': 0.3,    # Minimal weight due to common commercial use
-    'po box': 0.9,   # Very suspicious for a PPP loan
-    'p.o.': 0.9,     # Alternative PO Box format
-    'box': 0.8,      # Another PO Box variant
-    'residence': 0.9, # Explicit residential indicator
-    'house': 0.8,    # Clear residential indicator
-    'condo': 0.8,    # Usually residential
-    'room': 0.9      # Highly suspicious for a business
-}
-
-self.COMMERCIAL_INDICATORS = {
-    'plaza': -0.7,      # Strong commercial indicator
-    'building': -0.5,   # Common commercial term
-    'tower': -0.6,      # Usually indicates office building
-    'office': -0.7,     # Clear commercial use
-    'complex': -0.5,    # Often commercial
-    'center': -0.5,     # Shopping or business center
-    'mall': -0.8,       # Definitely commercial
-    'commercial': -0.8,  # Explicit commercial indicator
-    'industrial': -0.8  # Clear business/industrial use
-}
+residential_indicators = {'apt', 'unit', 'suite', '#', 'po box', 'residence', 'residential', 'apartment', 'room', 'floor'}
+commercial_indicators = {'plaza', 'building', 'tower', 'office', 'complex', 'center', 'mall', 'commercial', 'industrial', 'park'}
+address_str = df['BorrowerAddress'].astype(str).str.lower()
+df['HasResidentialIndicator'] = address_str.apply(lambda x: any(ind in x for ind in residential_indicators)).astype('uint8')
+df['HasCommercialIndicator'] = address_str.apply(lambda x: any(ind in x for ind in commercial_indicators)).astype('uint8')
 ```
 
-This weighted system allows for much more nuanced analysis than a simple residential/commercial binary check. Here's how it works:
+This method scans each address for predefined residential or commercial keywords, assigning a binary value (1 or 0) to `HasResidentialIndicator` and `HasCommercialIndicator`. While a residential indicator alone may not signify fraud—given many legitimate businesses operate from homes—it becomes significant when combined with other factors, such as multiple businesses registered at a single address.
 
-1. Each address gets scored based on all matching indicators
-2. Commercial indicators subtract from the residential score
-3. Multiple indicators can stack (e.g., "apt #" would trigger both 'apt' and '#' weights)
-4. The final score determines how suspicious the address is
+#### Statistical Validation with Chi-Square Testing
 
-For example, an address like "Apt 4B, 123 Main St" would get a high residential score (triggering both 'apt' and '#' indicators), while "Suite 400, Commerce Plaza" would get a low or negative score due to mixed residential ('suite') and strong commercial ('plaza') indicators.
-
-For non-programmers: Think of this like a real estate agent evaluating a property. Just as they don't just say "it's residential" or "it's commercial" but rather look at multiple features to determine the true nature of the property, our system uses multiple clues to build a complete picture of each address.
-
-This sophisticated scoring becomes especially powerful when combined with other risk factors. A high residential score alone might not be suspicious – plenty of legitimate small businesses operated from homes during the pandemic. But a high residential score combined with multiple businesses at the same address? That's when our alarm bells start ringing.
-
-#### Statistical Validation: The Chi-Square Test
-
-One of our most powerful tools is the chi-square test for categorical variables. Here's how we use it to validate our findings:
+To assess the significance of categorical variables (e.g., lenders or geographic locations), the system employs the chi-square test:
 
 ```python
 def analyze_categorical_patterns(
-        self,
-        sus: pd.DataFrame,
-        full: pd.DataFrame,
-        column: str,
-        title: str,
-        min_occurrences: int = 5,
-    ) -> None:
-        # Handle missing values consistently
-        sus[column] = sus[column].fillna('Unknown')
-        full[column] = full[column].fillna('Unknown')
-        
-        # Calculate value counts
-        s_counts = sus[column].value_counts()
-        f_counts = full[column].value_counts()
-        
-        # Create contingency table
-        categories = sorted(set(s_counts.index) | set(f_counts.index))
-        cont_table = np.zeros((2, len(categories)))
-        
-        # Fill in suspicious vs non-suspicious counts
-        for i, cat in enumerate(categories):
-            cont_table[0, i] = s_counts.get(cat, 0)  # Suspicious
-            cont_table[1, i] = f_counts.get(cat, 0) - s_counts.get(cat, 0)  # Non-suspicious
-```
+    self,
+    sus: pd.DataFrame,
+    full: pd.DataFrame,
+    column: str,
+    title: str,
+    min_occurrences: int = 5,
+    high_threshold_occurrences: int = 25,
+) -> None:
+    sus[column] = sus[column].fillna('Unknown')
+    full[column] = full[column].fillna('Unknown')
+    s_counts = sus[column].value_counts()
+    f_counts = full[column].value_counts()
+    contingency = []
+    for category in sorted(set(s_counts.index) | set(f_counts.index)):
+        suspicious = s_counts.get(category, 0)
+        total = f_counts.get(category, 0)
+        non_suspicious = max(0, total - suspicious)
+        if suspicious > 0 or non_suspicious > 0:
+            contingency.append([suspicious, non_suspicious])
+    cont_table = np.array(contingency)
+    if cont_table.size > 0 and cont_table.shape[0] > 1:
+        _, p_chi2, _, _ = stats.chi2_contingency(cont_table)
+```        
 
-For non-programmers: Imagine you're trying to prove that a casino's dice are loaded. You'd roll them many times and compare the distribution of numbers you get against what you'd expect from fair dice. The chi-square test is doing something similar – it's helping us prove that the patterns we're seeing in suspicious loans aren't just random chance.
+This function constructs a contingency table comparing the frequency of categories in suspicious versus non-suspicious loans, then applies the chi-square test. A low p-value indicates a statistically significant deviation from expected distributions. The analysis runs with dual thresholds (5 and 25 occurrences) to capture both emerging and prominent patterns.
 
-#### Representation Ratio Analysis: Finding the Needles in the Haystack
+#### Representation Ratio Analysis
 
-The representation ratio analysis is where we really start to understand what makes fraudulent loans different from legitimate ones. Here's the core of how we calculate these ratios:
+The representation ratio quantifies overrepresentation of features in suspicious loans:
 
 ```python
 def calculate_representation_ratio(
@@ -948,45 +929,29 @@ def calculate_representation_ratio(
     full_counts: pd.Series,
     min_occurrences: int = 5,
 ) -> pd.DataFrame:
-    try:
-        # Ensure counts are positive
-        suspicious_counts = suspicious_counts.clip(lower=0)
-        full_counts = full_counts.clip(lower=0)
-        
-        # Calculate suspicious percentage using total suspicious loans
-        sus_total = suspicious_counts.sum()
-        sus_pct = suspicious_counts / sus_total if sus_total > 0 else 0
-        
-        # Calculate full percentage using total loans
-        full_total = full_counts.sum()
-        full_pct = full_counts / full_total if full_total > 0 else 0
-        
-        # Calculate ratios with safe division
-        ratios = pd.Series(
-            {idx: self.safe_divide(
-                sus_pct.get(idx, 0),
-                full_pct.get(idx, 0),
-                default=0.0
-            ) for idx in set(suspicious_counts.index) | set(full_counts.index)}
-        )
+    suspicious_counts = suspicious_counts.clip(lower=0)
+    full_counts = full_counts.clip(lower=0)
+    sus_total = suspicious_counts.sum()
+    sus_pct = suspicious_counts / sus_total if sus_total > 0 else 0
+    full_total = full_counts.sum()
+    full_pct = full_counts / full_total if full_total > 0 else 0
+    ratios = pd.Series(
+        {idx: self.safe_divide(
+            sus_pct.get(idx, 0),
+            full_pct.get(idx, 0),
+            default=0.0
+        ) for idx in set(suspicious_counts.index) | set(full_counts.index)}
+    )
 ```
 
-This code is doing something subtle but powerful. Instead of just comparing raw counts, it's comparing the percentage of suspicious loans with a particular characteristic to the percentage of all loans with that characteristic. 
+This method computes the proportion of a category (e.g., a specific NAICS code) within suspicious loans relative to its proportion in the full dataset. A ratio significantly greater than 1 highlights potential areas of concern, with results filtered to ensure a minimum of five occurrences for reliability.
 
-For non-programmers: Imagine you're trying to figure out if a particular neighborhood has an unusually high number of fraudulent loans. Just knowing there are 10 fraudulent loans there isn't enough information. You need to know:
-1. What percentage of all fraudulent loans are in this neighborhood?
-2. What percentage of all loans are in this neighborhood?
-3. How does the first percentage compare to the second?
+#### Numerical Stability with Safe Division
 
-If 5% of all loans are in the neighborhood but 25% of fraudulent loans are there, that's a representation ratio of 5 – a huge red flag.
-
-#### Safe Division and Error Handling
-
-Notice the `safe_divide` function we're using:
+To maintain computational integrity, a `safe_divide` function handles edge cases:
 
 ```python
 def safe_divide(self, a: float, b: float, default: float = 0.0) -> float:
-    """Safely divide two numbers, handling division by zero."""
     try:
         if b == 0:
             return default
@@ -996,42 +961,13 @@ def safe_divide(self, a: float, b: float, default: float = 0.0) -> float:
         return result
     except Exception:
         return default
-```
+```        
 
-This might seem like overkill, but it's crucial. When dealing with millions of loans and hundreds of characteristics, you'll inevitably run into edge cases:
-- Division by zero when there are no loans of a particular type
-- Floating point overflow when ratios get extremely large
-- NaN values from missing or corrupted data
+This ensures robustness against division by zero, infinite values, or NaN results—common issues when processing large, heterogeneous datasets.
 
-For non-programmers: Think of this like having a backup plan for every possible way your calculations could go wrong. It's like a chef who not only knows how to make a perfect soufflé but also knows exactly what to do if it falls, burns, or doesn't rise.
+#### Additional Statistical Tests for Numerical Features
 
-#### Statistical Significance Testing: Separating Signal from Noise
-
-Finding unusual patterns is just the first step. We need to be confident that these patterns aren't just random chance. This is where our battery of statistical tests comes in:
-
-```python
-def analyze_patterns(self, sus: pd.DataFrame, full: pd.DataFrame) -> None:
-    # Calculate chi-square test if possible
-    if cont_table.shape[1] >= 2 and (cont_table > 0).all():
-        try:
-            # Returns chi2 statistic, p-value, degrees of freedom, expected frequencies
-            _, p_chi2, _, _ = stats.chi2_contingency(cont_table)
-            
-            # If p-value is very small, pattern is significant
-            if p_chi2 < 0.001:
-                print(f"Pattern is HIGHLY significant (p={p_chi2:.2e})")
-            elif p_chi2 < 0.05:
-                print(f"Pattern is significant (p={p_chi2:.3f})")
-            else:
-                print(f"Pattern is not significant (p={p_chi2:.3f})")
-                
-        except Exception as e:
-            print(f"Chi-square test calculation failed: {str(e)}")
-```
-
-For non-programmers: Think of this like a courtroom where we're trying to prove beyond reasonable doubt that what we're seeing isn't coincidence. The p-value is like our "beyond reasonable doubt" threshold - the smaller it is, the more confident we are that the pattern is real.
-
-But we don't just rely on one test. Different types of data require different statistical approaches:
+For numerical variables such as loan amounts or name lengths, the system employs multiple statistical tests:
 
 ```python
 name_length_tests = [
@@ -1039,216 +975,42 @@ name_length_tests = [
     ("KS test", stats.ks_2samp),
     ("Mann-Whitney U", lambda x, y: stats.mannwhitneyu(x, y, alternative="two-sided"))
 ]
+results = Parallel(n_jobs=3)(
+    delayed(run_stat_test)(test_name, test_func, sus["NameLength"].dropna(), full["NameLength"].dropna())
+    for test_name, test_func in name_length_tests
+)
+```
+These tests—the t-test for comparing means, the Kolmogorov-Smirnov test for distribution differences, and the Mann-Whitney U test for non-parametric comparisons—are executed in parallel to assess significance efficiently across datasets.
 
-for test_name, test_func in name_length_tests:
-    try:
-        _, p_val = test_func(
-            sus["NameLength"].dropna(),
-            full["NameLength"].dropna()
+#### Machine Learning with XGBoost
+
+The system integrates an XGBoost-based analysis for advanced pattern recognition:
+
+```python
+class XGBoostAnalyzer:
+    def analyze_with_xgboost(self, sus: pd.DataFrame, full: pd.DataFrame, n_iter: int = 10, min_instances: int = 250):
+        full_prepared = self.prepare_enhanced_features(full.copy(), min_instances=min_instances)
+        full_prepared["Flagged"] = full_prepared["LoanNumber"].isin(sus["LoanNumber"].astype(str)).astype('uint8')
+        X = full_prepared[[col for col in full_prepared.columns if col not in ["Flagged", "LoanNumber"]]]
+        y = full_prepared["Flagged"]
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42, stratify=y)
+        xgb_clf = xgb.XGBClassifier(
+            objective='binary:logistic',
+            eval_metric='aucpr',
+            random_state=42,
+            tree_method='hist',
+            n_jobs=12
         )
-        print(f"{test_name} p-value: {p_val}")
-    except Exception as e:
-        print(f"{test_name} failed: {str(e)}")
+        random_search = RandomizedSearchCV(xgb_clf, param_distributions=param_grid, n_iter=n_iter, scoring='average_precision')
+        random_search.fit(X_train, y_train)
+        self.model = xgb.XGBClassifier(**random_search.best_params_)
+        self.model.fit(X_train, y_train)
+        y_pred_proba = self.model.predict_proba(X_test)[:, 1]
+        print(f"ROC-AUC Score: {roc_auc_score(y_test, y_pred_proba):.3f}")
 ```
 
-Each test has its own strengths:
-- T-tests are great for comparing averages when the data is normally distributed
-- Kolmogorov-Smirnov tests look at the entire distribution shape
-- Mann-Whitney U tests are robust against outliers and don't assume normal distribution
+This component preprocesses features (e.g., address indicators, demographic data) and trains an XGBoost classifier to predict loan suspiciousness. Hyperparameters are optimized via `RandomizedSearchCV`, and performance is evaluated using metrics like ROC-AUC and average precision. SHAP values further elucidate feature contributions, enhancing interpretability.
 
-#### Multiple Hypothesis Testing: The Multiple Comparisons Problem
+#### Conclusion
 
-When you're running hundreds or thousands of statistical tests, you run into a thorny problem: even if there's no real pattern, some tests will come up significant just by chance. Here's why: if you use a p-value threshold of 0.05, that means each test has a 5% chance of showing a false positive. Run 100 tests, and you'd expect about 5 false positives just by random chance!
-
-Here's how we handle this:
-
-```python
-def adjust_pvalues(self, pvalues: List[float], method: str = 'fdr_bh') -> np.ndarray:
-    """
-    Adjust p-values for multiple comparisons using various methods.
-    
-    Args:
-        pvalues: List of p-values to adjust
-        method: Correction method ('bonferroni', 'fdr_bh', or 'holm')
-    """
-    if method == 'bonferroni':
-        # Bonferroni correction: multiply each p-value by number of tests
-        return np.minimum(np.array(pvalues) * len(pvalues), 1.0)
-        
-    elif method == 'fdr_bh':
-        # Benjamini-Hochberg procedure
-        pvalues = np.array(pvalues)
-        n = len(pvalues)
-        
-        # Sort p-values and get their original indices
-        sorted_indices = np.argsort(pvalues)
-        sorted_pvalues = pvalues[sorted_indices]
-        
-        # Calculate adjusted values
-        adjusted = np.zeros(n)
-        for i, p in enumerate(sorted_pvalues):
-            adjusted[i] = p * n / (i + 1)
-            
-        # Ensure monotonicity
-        for i in range(n-2, -1, -1):
-            adjusted[i] = min(adjusted[i], adjusted[i+1])
-            
-        # Return to original order
-        final = np.zeros(n)
-        final[sorted_indices] = adjusted
-        return final
-        
-    elif method == 'holm':
-        # Holm-Bonferroni method
-        pvalues = np.array(pvalues)
-        n = len(pvalues)
-        
-        # Sort p-values and get indices
-        sorted_indices = np.argsort(pvalues)
-        sorted_pvalues = pvalues[sorted_indices]
-        
-        # Calculate adjusted values
-        adjusted = np.zeros(n)
-        for i, p in enumerate(sorted_pvalues):
-            adjusted[i] = p * (n - i)
-            
-        # Ensure monotonicity
-        for i in range(n-2, -1, -1):
-            adjusted[i] = max(adjusted[i], adjusted[i+1])
-            
-        # Return to original order
-        final = np.zeros(n)
-        final[sorted_indices] = adjusted
-        return final
-```
-
-For non-programmers: Imagine you're a judge looking at evidence from 100 different cases. If you use the same standard of proof for each case independently, you're likely to convict some innocent people just by chance. These correction methods are like adjusting your standard of proof based on how many cases you're judging at once.
-
-Each method has its strengths:
-- Bonferroni correction is the most conservative, essentially dividing your significance threshold by the number of tests
-- Benjamini-Hochberg controls the false discovery rate, giving you more statistical power while still limiting false positives
-- Holm-Bonferroni is a middle ground, less conservative than Bonferroni but stricter than Benjamini-Hochberg
-
-Here's how we apply these corrections in practice:
-
-```python
-def analyze_categorical_patterns_corrected(
-    self,
-    sus: pd.DataFrame,
-    full: pd.DataFrame,
-    columns: List[str]
-) -> None:
-    # Store all p-values
-    pvalues = []
-    test_descriptions = []
-    
-    for column in columns:
-        # Perform chi-square test
-        cont_table = self.create_contingency_table(sus[column], full[column])
-        try:
-            _, p_val, _, _ = stats.chi2_contingency(cont_table)
-            pvalues.append(p_val)
-            test_descriptions.append(f"Chi-square test for {column}")
-        except Exception:
-            continue
-            
-    # Adjust p-values using Benjamini-Hochberg
-    adjusted_pvalues = self.adjust_pvalues(pvalues, method='fdr_bh')
-    
-    # Report significant findings
-    for i, (desc, p_orig, p_adj) in enumerate(zip(
-        test_descriptions, pvalues, adjusted_pvalues
-    )):
-        if p_adj < 0.05:  # Still significant after correction
-            print(f"{desc}:")
-            print(f"  Original p-value: {p_orig:.2e}")
-            print(f"  Adjusted p-value: {p_adj:.2e}")
-```
-
-#### Handling Rare Events: The Low Count Problem
-
-When dealing with fraud detection, many of the most interesting patterns involve rare events. This creates a statistical challenge: how do you determine if something is significant when it only happens a few times? Here's how we handle it:
-
-```python
-def analyze_rare_patterns(
-    self,
-    sus: pd.DataFrame,
-    full: pd.DataFrame,
-    column: str,
-    min_occurrences: int = 5
-) -> None:
-    # Get value counts
-    sus_counts = sus[column].value_counts()
-    full_counts = full[column].value_counts()
-    
-    # For rare categories, use Fisher's exact test instead of chi-square
-    rare_categories = set(sus_counts[sus_counts < min_occurrences].index)
-    
-    for category in rare_categories:
-        # Create 2x2 contingency table for this category
-        contingency = np.array([
-            # Suspicious loans: [this category, other categories]
-            [sus_counts.get(category, 0),
-             len(sus) - sus_counts.get(category, 0)],
-            # Non-suspicious loans: [this category, other categories]
-            [full_counts.get(category, 0) - sus_counts.get(category, 0),
-             len(full) - len(sus) - (full_counts.get(category, 0) - sus_counts.get(category, 0))]
-        ])
-        
-        # Use Fisher's exact test
-        _, p_value = stats.fisher_exact(contingency)
-        
-        if p_value < 0.05:
-            # Calculate odds ratio for effect size
-            odds_ratio = (contingency[0,0] * contingency[1,1]) / \
-                        (contingency[0,1] * contingency[1,0])
-            
-            print(f"Rare category '{category}' is significant:")
-            print(f"  P-value: {p_value:.2e}")
-            print(f"  Odds ratio: {odds_ratio:.2f}x more likely in suspicious loans")
-```
-
-For non-programmers: Imagine you're investigating a series of bank robberies. If you notice that three of the ten robberies happened on a full moon, that might seem suspicious. But is it really significant? If there are full moons 7% of the time, seeing 30% of robberies on full moons could be meaningful even with small numbers. This code helps us make that determination mathematically.
-
-#### Bootstrap Resampling for Rare Events
-
-But Fisher's exact test isn't always enough. Sometimes we need to understand the uncertainty in our estimates for rare events. That's where bootstrap resampling comes in:
-
-```python
-def bootstrap_rare_event_analysis(
-    self,
-    sus: pd.DataFrame,
-    full: pd.DataFrame,
-    column: str,
-    category: str,
-    n_bootstrap: int = 10000
-) -> None:
-    # Original observation
-    orig_ratio = self.calculate_representation_ratio(
-        sus[column] == category,
-        full[column] == category
-    )
-    
-    # Bootstrap resampling
-    bootstrap_ratios = []
-    for _ in range(n_bootstrap):
-        # Resample with replacement
-        sus_resample = sus.sample(n=len(sus), replace=True)
-        full_resample = full.sample(n=len(full), replace=True)
-        
-        ratio = self.calculate_representation_ratio(
-            sus_resample[column] == category,
-            full_resample[column] == category
-        )
-        bootstrap_ratios.append(ratio)
-        
-    # Calculate confidence intervals
-    ci_lower = np.percentile(bootstrap_ratios, 2.5)
-    ci_upper = np.percentile(bootstrap_ratios, 97.5)
-    
-    print(f"Bootstrap analysis for category '{category}':")
-    print(f"  Original ratio: {orig_ratio:.2f}x")
-    print(f"  95% CI: [{ci_lower:.2f}x, {ci_upper:.2f}x]")
-```
-
-For non-programmers: This is like running thousands of simulations where we randomly resample our data to understand how much our results might vary by chance. If we see 3 out of 10 robberies on full moons, this helps us understand how likely that pattern is to hold up if we had slightly different data.
+The secondary analysis system combines efficient data handling, statistical testing, and machine learning to detect patterns indicative of fraud in PPP loan data. From chi-square tests identifying categorical anomalies to XGBoost uncovering complex interactions, it provides a comprehensive framework for analysis, grounded in robust computational techniques.
