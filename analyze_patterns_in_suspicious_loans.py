@@ -13,6 +13,7 @@ from sklearn.model_selection import train_test_split, RandomizedSearchCV
 from sklearn.utils import resample
 import xgboost as xgb
 import shap
+import joblib
 from joblib import Parallel, delayed, parallel_backend
 from functools import lru_cache
 from multiprocessing import Pool
@@ -322,6 +323,29 @@ class XGBoostAnalyzer:
                 y_train,
                 eval_set=[(X_test, y_test)],
             )
+
+            # Save the model and feature names
+            joblib.dump({
+                'model': self.model,
+                'feature_names': self.feature_names
+            }, 'xgboost_model_with_features.joblib')
+            print("Model and feature names saved to xgboost_model_with_features.joblib")            
+
+            if 0: # To use the saved model and feature names later:
+                # Load the saved model and feature names
+                loaded = joblib.load('xgboost_model_with_features.joblib')
+                model = loaded['model']
+                feature_names = loaded['feature_names']
+
+                # Prepare new data (assuming new_loans is a DataFrame)
+                new_loans = pd.read_csv('data/more_new_loans(hypothetical).csv')
+                analyzer = XGBoostAnalyzer()
+                new_data = analyzer.prepare_enhanced_features(new_loans)
+                new_data = new_data[feature_names]  # Align columns with training features
+
+                # Predict probabilities (e.g., likelihood of being suspicious)
+                predictions = model.predict_proba(new_data)[:, 1]                
+                print(predictions)
             
             y_pred = self.model.predict(X_test)
             y_pred_proba = self.model.predict_proba(X_test)[:, 1]
@@ -396,19 +420,21 @@ class XGBoostAnalyzer:
             print("\nAnalyzing feature interactions with SHAP values...")
             explainer = shap.TreeExplainer(self.model)
             
-            # Ensure X_test has the same columns as used in training
-            expected_features = self.model.feature_names if self.model.feature_names else feature_cols
-            X_test_aligned = X_test[expected_features]  # Select only the expected features
+            # Get feature names from the booster
+            booster = self.model.get_booster()
+            expected_features = booster.feature_names if booster.feature_names is not None else feature_cols
             
-            # Subsample X_test (e.g., 10,000 rows)
-            sample_size = min(10000, len(X_test_aligned))  # Use 10k or total size if smaller
+            # Align X_test to the expected feature names
+            X_test_aligned = X_test[expected_features]
+            
+            # Subsample X_test for SHAP analysis (e.g., 10,000 rows)
+            sample_size = min(10000, len(X_test_aligned))
             X_test_sample = X_test_aligned.sample(n=sample_size, random_state=42)
             print(f"Using a subsample of {sample_size:,} rows for SHAP analysis (original size: {len(X_test):,})")
             
-            # Debugging output to verify dimensions
-            print(f"Expected features from model: {len(expected_features)}")
+            # Optional: Debugging output
+            print(f"Expected features: {expected_features}")
             print(f"X_test_sample shape: {X_test_sample.shape}")
-            print(f"X_test_sample columns: {X_test_sample.columns.tolist()}")
 
             # Compute SHAP interaction values
             interaction_values = explainer.shap_interaction_values(X_test_sample)
@@ -419,7 +445,7 @@ class XGBoostAnalyzer:
             
             # Create DataFrame of interaction strengths
             top_interactions = pd.DataFrame({
-                'Feature': expected_features,  # Use the aligned feature names
+                'Feature': expected_features,
                 'Interaction_Strength': interaction_sum
             }).sort_values('Interaction_Strength', ascending=False)
             
@@ -454,7 +480,7 @@ class XGBoostAnalyzer:
                     
         except Exception as e:
             print(f"Error analyzing SHAP values: {str(e)}")
-            raise  # Re-raise the exception for further debugging if needed
+            raise
 
     def _analyze_high_probability_patterns(self, df: pd.DataFrame) -> None:
         try:
@@ -1738,8 +1764,6 @@ f"{pname}: {sus_match:.3%} in suspicious vs {full_match:.3%} overall ({ratio:.2f
                 if len(features_to_check) == 1:
                     print(f"Only one feature remains in targeted set: {features_to_check[0]}. No VIF calculation needed.")
 
-                print(f"Feature matrix after multicollinearity check: {X.shape}, Columns: {X.columns.tolist()}")
-
                 # Proceed with scaling and modeling
                 if X.shape[1] == 0:
                     print("Error: No valid features remain after multicollinearity check.")
@@ -1767,40 +1791,74 @@ f"{pname}: {sus_match:.3%} in suspicious vs {full_match:.3%} overall ({ratio:.2f
                     X_train, X_test, y_train, y_test = train_test_split(
                         X_scaled, y_balanced, test_size=0.3, random_state=42, stratify=y_balanced
                     )
-                    
-                    # Scikit-learn model with adjusted parameters
-                    model_sk = LogisticRegression(
-                        max_iter=2000, class_weight="balanced", random_state=42,
-                        penalty='l2', C=0.1, solver='lbfgs'
-                    )
-                    print("Fitting Scikit-learn logistic regression (to be used as a backup in case Statsmodels fails)...")
-                    model_sk.fit(X_train, y_train)
-                    
-                    # Statsmodels with L2 regularization and increased iterations
-                    X_train_sm = sm.add_constant(X_train.astype(float))
-                    print("Fitting Statsmodels logistic regression...")
-                    try:
-                        model_sm = sm.Logit(y_train, X_train_sm).fit(
-                            method='bfgs',        # Limited-memory BFGS, good for large datasets
-                            maxiter=1000,          # Increase iterations for better convergence
-                            pgtol=1e-8,            # Gradient tolerance for convergence
-                            factr=1e6,             # Factor for function value tolerance
-                            disp=0,                # Suppress convergence messages
-                            cov_type='opg'         # Use OPG for covariance estimation
-                        )
-                        # Check convergence explicitly
-                        if model_sm.mle_retvals.get('converged', False) and not model_sm.mle_retvals.get('warnflag', 1) == 0:
-                            print("Statsmodels logistic regression converged successfully.")
+
+                    def print_progress(xk):
+                        """Callback to monitor optimization progress for statsmodels"""
+                        if hasattr(print_progress, 'iteration'):
+                            print_progress.iteration += 1
                         else:
-                            raise ValueError("Convergence questionable based on mle_retvals.")
+                            print_progress.iteration = 1
+                        
+                        if hasattr(print_progress, 'model'):
+                            grad_norm = np.linalg.norm(print_progress.model.score(xk))
+                            print(f"Iteration {print_progress.iteration}: Gradient norm = {grad_norm:.6f}")
+
+                    # Scikit-learn model with adjusted parameters (keeping as backup)
+                    model_sk = LogisticRegression(
+                        max_iter=2000, 
+                        class_weight="balanced", 
+                        random_state=42,
+                        penalty='l2', 
+                        C=0.1, 
+                        solver='lbfgs'
+                    )
+                    print("Fitting Scikit-learn logistic regression (backup model)...")
+                    model_sk.fit(X_train, y_train)
+
+                    # Statsmodels with Newton method and pseudoinverse for Hessian
+                    X_train_sm = sm.add_constant(X_train.astype(float))
+                    print("\nFitting Statsmodels logistic regression using Newton method...")
+                    try:
+                        # Store model reference for callback
+                        logit_model = sm.Logit(y_train, X_train_sm)
+                        print_progress.model = logit_model
+                        
+                        model_sm = logit_model.fit(
+                            method='newton',
+                            maxiter=50,
+                            disp=True,
+                            callback=print_progress,
+                            tol=1e-6
+                        )
+                        
+                        # Detailed convergence information
+                        retvals = model_sm.mle_retvals
+                        print("\nOptimization Results:")
+                        print(f"Converged: {retvals.get('converged', False)}")
+                        print(f"Number of iterations: {retvals.get('iterations', 'N/A')}")
+                        print(f"Warning flag: {retvals.get('warnflag', 'N/A')}")
+                        
+                        # Check if we got valid standard errors
+                        if np.all(np.isfinite(model_sm.bse)):
+                            print("\nModel fitted successfully with valid standard errors.")
+                        else:
+                            raise ValueError("Invalid standard errors in model results.")
+                            
                     except Exception as e:
-                        print(f"Statsmodels failed or convergence unreliable: {str(e)}. Falling back to sklearn model.")
+                        print(f"\nStatsmodels fitting failed: {str(e)}")
+                        print("Falling back to sklearn model.")
                         model_sm = None
-                    
-                    print("Predicting on test set...")
-                    y_pred = model_sk.predict(X_test)
-                    y_pred_proba = model_sk.predict_proba(X_test)[:, 1]
-                    
+
+                    print("\nPredicting on test set...")
+                    # Use statsmodels if available, otherwise fallback to sklearn
+                    if model_sm is not None:
+                        X_test_sm = sm.add_constant(X_test.astype(float))
+                        y_pred = (model_sm.predict(X_test_sm) > 0.5).astype(int)
+                        y_pred_proba = model_sm.predict(X_test_sm)
+                    else:
+                        y_pred = model_sk.predict(X_test)
+                        y_pred_proba = model_sk.predict_proba(X_test)[:, 1]
+
                     print("\nClassification Report:")
                     print(classification_report(y_test, y_pred, digits=3))
                     
@@ -1870,20 +1928,20 @@ f"{pname}: {sus_match:.3%} in suspicious vs {full_match:.3%} overall ({ratio:.2f
             xgb_analyzer = XGBoostAnalyzer()
 
             analysis_steps = [
-                # ("Geographic Clusters", self.analyze_geographic_clusters),
-                # ("Lender Patterns", self.analyze_lender_patterns),
-                # ("Business Patterns", self.analyze_business_patterns),
-                # ("Name Patterns", self.analyze_name_patterns),
-                # ("Business Name Patterns", self.analyze_business_name_patterns),
-                # ("Demographic Patterns", self.analyze_demographic_patterns),
-                # ("Risk Flags Analysis", lambda s, f: self.analyze_risk_flags(s)),
-                # ("Loan Amount Distribution", self.analyze_loan_amount_distribution),
-                # ("Jobs Reported Patterns", self.analyze_jobs_reported_patterns),
-                # ("Risk Score Distribution", lambda s, f: self.analyze_risk_score_distribution(s)),
-                # ("Risk Flags Count Distribution", lambda s, f: self.analyze_flag_count_distribution(s)),
-                # ("Correlations", lambda s, f: self.analyze_correlations(f)),
-                ("Multivariate Analysis", self.analyze_multivariate),
+                ("Geographic Clusters", self.analyze_geographic_clusters),
+                ("Lender Patterns", self.analyze_lender_patterns),
+                ("Business Patterns", self.analyze_business_patterns),
+                ("Name Patterns", self.analyze_name_patterns),
+                ("Business Name Patterns", self.analyze_business_name_patterns),
+                ("Demographic Patterns", self.analyze_demographic_patterns),
+                ("Risk Flags Analysis", lambda s, f: self.analyze_risk_flags(s)),
+                ("Loan Amount Distribution", self.analyze_loan_amount_distribution),
+                ("Jobs Reported Patterns", self.analyze_jobs_reported_patterns),
+                ("Risk Score Distribution", lambda s, f: self.analyze_risk_score_distribution(s)),
+                ("Risk Flags Count Distribution", lambda s, f: self.analyze_flag_count_distribution(s)),
+                ("Correlations", lambda s, f: self.analyze_correlations(f)),
                 ("Feature Discrimination (AUPRC)", self.analyze_feature_discrimination),
+                ("Multivariate Analysis", self.analyze_multivariate),
                 ("XGBoost Analysis", lambda s, f: xgb_analyzer.analyze_with_xgboost(s, f, n_iter=15)),
             ]
             
@@ -1893,7 +1951,8 @@ f"{pname}: {sus_match:.3%} in suspicious vs {full_match:.3%} overall ({ratio:.2f
                     func(sus, full)
                 except Exception as e:
                     print(f"Error in {title} analysis: {str(e)}")
-            
+                print("\n" + "_" * 120 + "\n")  # Add separator after each analysis
+
             flag_rate = (len(sus) / len(full)) * 100
             print(
                 f"\nOverall flagging rate: {flag_rate:.3f}% of loans in the "
