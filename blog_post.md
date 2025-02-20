@@ -17,10 +17,11 @@ PPP fraud wasn't just a matter of people gaming the system– it was stealing fo
 
 ## The Upshot
 
-If you just want to see the final results of running the initial fraud risk scoring system and then processing that with the analysis system, you can find the final results [here](https://github.com/Dicklesworthstone/ppp_loan_fraud_analysis/blob/main/suspicious_loans_sorted.csv). You can also easily run the code yourself since everything is publicly available, both the data and the code. It's fairly easy to set up and run, and if you leave it running overnight on a decently fast machine, it will process the entire 8.4GB dataset and give you the final results so you can verify everything yourself from first principles. You can also modify any parameters you want to try out different analyses, or remove aspects of the fraud risk scoring system to see how it performs without them, or change the threshold for what is considered "suspicious" and what is not, and then see how that impacts the results of the analysis step.
+If you just want to see the final results of running the initial fraud risk scoring system and then processing that with the analysis system, you can find the final results [here](https://raw.githubusercontent.com/Dicklesworthstone/ppp_loan_fraud_analysis/refs/heads/main/final_output_of_analysis_step_in_ppp_loan_fraud_analysis.txt). 
+
+You can also easily run the code yourself since everything is publicly available, both the data and the code. It's fairly easy to set up and run, and if you leave it running overnight on a decently fast machine, it will process the entire 8.4GB dataset and give you the final results so you can verify everything yourself from first principles. You can also modify any parameters you want to try out different analyses, or remove aspects of the fraud risk scoring system to see how it performs without them, or change the threshold for what is considered "suspicious" and what is not, and then see how that impacts the results of the analysis step.
 
 If you work for the government, you can also use the trained XGBoost model to score any loan based on the same features used in the analysis, and flag any loans that score above a certain threshold as potentially fraudulent.
-
 
 ## The Art of Finding Fraud: When Criminals Tell on Themselves
 

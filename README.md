@@ -12,7 +12,7 @@ This project is a sophisticated Python-based data analysis tool designed to dete
 
 The system is optimized for large-scale data processing and leverages modern data science techniques to provide actionable insights.
 
-Because the system takes a long time to process and score loans, I have saved the final output of the analysis step and included it in the repository. You can find it [here](https://github.com/Dicklesworthstone/ppp_loan_fraud_analysis/blob/main/suspicious_loans_sorted.csv).
+Because the system takes a long time to process and score loans, I have saved the final output of the analysis step and included it in the repository. You can find it [here](https://raw.githubusercontent.com/Dicklesworthstone/ppp_loan_fraud_analysis/refs/heads/main/final_output_of_analysis_step_in_ppp_loan_fraud_analysis.txt).
 
 ## Project Structure
 
