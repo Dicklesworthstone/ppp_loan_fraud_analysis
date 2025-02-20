@@ -72,13 +72,13 @@ To run the full fraud analysis pipeline, execute the scripts in order. Ensure th
 
 ### Primary Fraud Detection System: Generating Risk Scores
 
-The primary fraud detection system, encapsulated in `simple_loan_fraud_score.py`, serves as the frontline engine of the PPP Loan Fraud Detection System. It processes an expansive 8.4GB dataset (`ppp-full.csv`) to assign risk scores to individual loans, flagging those exceeding a configurable threshold (default: 100) as potentially fraudulent. This system employs a rich tapestry of heuristic strategies, pattern recognition techniques, and network analyses, designed to detect fraud efficiently at scale while balancing precision and practicality. Below, we explore its core strategies, their theoretical underpinnings, practical implementations, and performance optimizations, offering a deep dive into how it transforms raw data into actionable fraud insights.
+The primary fraud detection system, encapsulated in `simple_loan_fraud_score.py`, serves as the frontline engine of the PPP Loan Fraud Detection System. It processes an expansive 8.4GB dataset (`ppp-full.csv`) to assign risk scores to individual loans, flagging those exceeding a configurable threshold (default: 100) as potentially fraudulent. This system employs a rich set of heuristic strategies, pattern recognition techniques, and network analyses, designed to detect fraud efficiently at scale while balancing precision and practicality. Below, we explore its core strategies, their theoretical underpinnings, practical implementations, and performance optimizations, offering a deep dive into how it transforms raw data into actionable fraud insights.
 
 ---
 
 ### Core Strategies and Techniques
 
-The primary fraud detection system in `simple_loan_fraud_score.py` orchestrates a suite of detection strategies, each meticulously crafted to pinpoint distinct fraud indicators within the vast 8.4GB PPP loan dataset. These strategies are rooted in real-world fraud patterns, informed by historical cases, and engineered for high-performance processing across millions of records. Below, we dissect each approach—its purpose, theoretical foundation, operational mechanics, and implementation details—paying special attention to the intricate workings of network and temporal analysis.
+The primary fraud detection system in `simple_loan_fraud_score.py` orchestrates a suite of detection strategies, each designed to pinpoint distinct fraud indicators within the vast 8.4GB PPP loan dataset. These strategies are rooted in real-world fraud patterns, informed by historical cases, and engineered for high-performance processing across millions of records. Below, we dissect each approach— its purpose, theoretical foundation, operational mechanics, and implementation details— paying special attention to the intricate workings of network and temporal analysis.
 
 1. **Business Name Analysis**
    - **What It Does:** Scrutinizes borrower names for telltale signs of fraud, such as luxury brand references (“Gucci”, “Bentley”), pop culture nods (“Wakanda”, “YOLO”), or get-rich-quick phrases (“Fast Cash”, “Money Magnet”).
