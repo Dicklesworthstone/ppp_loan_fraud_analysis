@@ -1,0 +1,2176 @@
+❯ python analyze_patterns_in_suspicious_loans.py
+Loading suspicious loans data...
+Loading full loan dataset with Dask...
+Suspicious dataset shape: (1190352, 22)
+Full dataset shape after filtering: (6267512, 20)
+Suspicious LoanNumbers unique: 1190352
+Full LoanNumbers unique: 6267512
+Loaded 1,190,352 suspicious loans and 6,267,512 total loans in range.
+
+Starting analysis of 1,190,352 suspicious loans out of 6,267,512 loans in the $5k-$22k range
+
+Starting Geographic Clusters analysis...
+
+Analyzing Geographic Location Patterns...
+================================================================================
+Geographic Location Patterns Analysis
+Chi-square test p-value: 0.000000
+
+Top over-represented categories (min 3 occurrences, top 100):
+Barnard, SD: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+el centro, CA: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+S San Francisco, CA: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+Boilingbrook, IL: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+douglas, GA: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+riverdale, IL: 5.27x more common in suspicious loans (6 occurrences, 0.001% vs 0.000%)
+LAKES WORTH, FL: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+chicago heights, IL: 5.27x more common in suspicious loans (6 occurrences, 0.001% vs 0.000%)
+ruskin, FL: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+LAUDERDALE LAKE, FL: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+unadilla, GA: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+Sauk village, IL: 5.27x more common in suspicious loans (8 occurrences, 0.001% vs 0.000%)
+Call, TX: 5.27x more common in suspicious loans (5 occurrences, 0.000% vs 0.000%)
+stpetersburg, FL: 5.27x more common in suspicious loans (5 occurrences, 0.000% vs 0.000%)
+Bevil Oaks, TX: 5.27x more common in suspicious loans (4 occurrences, 0.000% vs 0.000%)
+mcrae, GA: 5.27x more common in suspicious loans (4 occurrences, 0.000% vs 0.000%)
+manvel, TX: 5.27x more common in suspicious loans (4 occurrences, 0.000% vs 0.000%)
+Calumet, IL: 4.74x more common in suspicious loans (9 occurrences, 0.001% vs 0.000%)
+Showell, MD: 4.61x more common in suspicious loans (7 occurrences, 0.001% vs 0.000%)
+dublin, GA: 4.61x more common in suspicious loans (7 occurrences, 0.001% vs 0.000%)
+country club hills, IL: 4.56x more common in suspicious loans (13 occurrences, 0.001% vs 0.000%)
+markham, IL: 4.51x more common in suspicious loans (6 occurrences, 0.001% vs 0.000%)
+Park forest, IL: 4.51x more common in suspicious loans (6 occurrences, 0.001% vs 0.000%)
+Thicket, TX: 4.51x more common in suspicious loans (6 occurrences, 0.001% vs 0.000%)
+calumet park, IL: 4.51x more common in suspicious loans (6 occurrences, 0.001% vs 0.000%)
+East Hazel Crest, IL: 4.42x more common in suspicious loans (99 occurrences, 0.008% vs 0.002%)
+park forest, IL: 4.39x more common in suspicious loans (5 occurrences, 0.000% vs 0.000%)
+temple hills, MD: 4.39x more common in suspicious loans (5 occurrences, 0.000% vs 0.000%)
+lancaster, TX: 4.39x more common in suspicious loans (10 occurrences, 0.001% vs 0.000%)
+Dixmoor, IL: 4.34x more common in suspicious loans (202 occurrences, 0.017% vs 0.004%)
+Riverdale, IL: 4.33x more common in suspicious loans (1,554 occurrences, 0.131% vs 0.030%)
+Sauk Village, IL: 4.29x more common in suspicious loans (999 occurrences, 0.084% vs 0.020%)
+Harvey, IL: 4.28x more common in suspicious loans (1,933 occurrences, 0.162% vs 0.038%)
+Bellwood, IL: 4.25x more common in suspicious loans (1,869 occurrences, 0.157% vs 0.037%)
+Phoenix, IL: 4.23x more common in suspicious loans (200 occurrences, 0.017% vs 0.004%)
+Ford Heights, IL: 4.22x more common in suspicious loans (214 occurrences, 0.018% vs 0.004%)
+Park Forest, IL: 4.22x more common in suspicious loans (1,839 occurrences, 0.154% vs 0.037%)
+Calumet City, IL: 4.21x more common in suspicious loans (3,756 occurrences, 0.316% vs 0.075%)
+Briones, CA: 4.21x more common in suspicious loans (4 occurrences, 0.000% vs 0.000%)
+Ulmer, SC: 4.21x more common in suspicious loans (4 occurrences, 0.000% vs 0.000%)
+Maywood, IL: 4.21x more common in suspicious loans (2,160 occurrences, 0.181% vs 0.043%)
+Grand Prarie, TX: 4.21x more common in suspicious loans (4 occurrences, 0.000% vs 0.000%)
+Crompond, NY: 4.21x more common in suspicious loans (4 occurrences, 0.000% vs 0.000%)
+Opa-Locka, FL: 4.21x more common in suspicious loans (4 occurrences, 0.000% vs 0.000%)
+Rosewood, CA: 4.21x more common in suspicious loans (4 occurrences, 0.000% vs 0.000%)
+manassas Park, VA: 4.21x more common in suspicious loans (4 occurrences, 0.000% vs 0.000%)
+Dekalb, GA: 4.21x more common in suspicious loans (4 occurrences, 0.000% vs 0.000%)
+dekalb, IL: 4.21x more common in suspicious loans (4 occurrences, 0.000% vs 0.000%)
+Dolton, IL: 4.20x more common in suspicious loans (2,838 occurrences, 0.238% vs 0.057%)
+Chicago Heights, IL: 4.19x more common in suspicious loans (1,536 occurrences, 0.129% vs 0.031%)
+Country Club Hills, IL: 4.17x more common in suspicious loans (1,792 occurrences, 0.151% vs 0.036%)
+Lynwood, IL: 4.15x more common in suspicious loans (924 occurrences, 0.078% vs 0.019%)
+University Pk, IL: 4.14x more common in suspicious loans (11 occurrences, 0.001% vs 0.000%)
+Calumet Park, IL: 4.13x more common in suspicious loans (829 occurrences, 0.070% vs 0.017%)
+Markham, IL: 4.11x more common in suspicious loans (1,244 occurrences, 0.105% vs 0.025%)
+Lansing, IL: 4.07x more common in suspicious loans (1,867 occurrences, 0.157% vs 0.039%)
+Hazel Crest, IL: 4.06x more common in suspicious loans (1,479 occurrences, 0.124% vs 0.031%)
+Richton Park, IL: 4.06x more common in suspicious loans (1,277 occurrences, 0.107% vs 0.026%)
+peoria, IL: 4.05x more common in suspicious loans (10 occurrences, 0.001% vs 0.000%)
+Mc Rae, GA: 4.04x more common in suspicious loans (92 occurrences, 0.008% vs 0.002%)
+Griffin, GA: 4.03x more common in suspicious loans (3,511 occurrences, 0.295% vs 0.073%)
+South Holland, IL: 4.02x more common in suspicious loans (2,119 occurrences, 0.178% vs 0.044%)
+fairburn, GA: 4.01x more common in suspicious loans (16 occurrences, 0.001% vs 0.000%)
+Blue Island, IL: 4.01x more common in suspicious loans (1,020 occurrences, 0.086% vs 0.021%)
+Fort Hood, TX: 3.98x more common in suspicious loans (62 occurrences, 0.005% vs 0.001%)
+University Park, IL: 3.96x more common in suspicious loans (704 occurrences, 0.059% vs 0.015%)
+Glenwood, IL: 3.96x more common in suspicious loans (722 occurrences, 0.061% vs 0.015%)
+Warrensville heights, OH: 3.95x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+stonecrest, GA: 3.95x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+west palm, FL: 3.95x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+blue island, IL: 3.95x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+Pledger, TX: 3.95x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+La Grange, TN: 3.95x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+Porter ranch, CA: 3.95x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+broadview, IL: 3.95x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+atl, GA: 3.95x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+balch springs, TX: 3.95x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+bellflower, CA: 3.95x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+hartington, NE: 3.95x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+sauk village, IL: 3.95x more common in suspicious loans (6 occurrences, 0.001% vs 0.000%)
+bryan, TX: 3.95x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+cicero, IL: 3.95x more common in suspicious loans (6 occurrences, 0.001% vs 0.000%)
+Boothville, LA: 3.95x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+BOYNTON, FL: 3.95x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+clinton, MD: 3.95x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+gibsonton, FL: 3.95x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+tupelo, MS: 3.95x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+Chicago IL, IL: 3.95x more common in suspicious loans (6 occurrences, 0.001% vs 0.000%)
+Saint Georges, DE: 3.95x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+Blue island, IL: 3.95x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+Chicago heights, IL: 3.95x more common in suspicious loans (6 occurrences, 0.001% vs 0.000%)
+Matteson, IL: 3.95x more common in suspicious loans (1,711 occurrences, 0.144% vs 0.036%)
+Robbins, IL: 3.93x more common in suspicious loans (469 occurrences, 0.039% vs 0.010%)
+Thomaston, GA: 3.90x more common in suspicious loans (1,080 occurrences, 0.091% vs 0.023%)
+union city, GA: 3.89x more common in suspicious loans (17 occurrences, 0.001% vs 0.000%)
+Broadview, IL: 3.89x more common in suspicious loans (683 occurrences, 0.057% vs 0.015%)
+hampton, GA: 3.86x more common in suspicious loans (11 occurrences, 0.001% vs 0.000%)
+Chicago, IL: 3.78x more common in suspicious loans (98,244 occurrences, 8.253% vs 2.184%)
+DeKalb, IL: 3.77x more common in suspicious loans (852 occurrences, 0.072% vs 0.019%)
+garfield heights, OH: 3.76x more common in suspicious loans (5 occurrences, 0.000% vs 0.000%)
+
+Top over-represented categories (min 25 occurrences, top 100):
+East Hazel Crest, IL: 4.42x more common in suspicious loans (99 occurrences, 0.008% vs 0.002%)
+Dixmoor, IL: 4.34x more common in suspicious loans (202 occurrences, 0.017% vs 0.004%)
+Riverdale, IL: 4.33x more common in suspicious loans (1,554 occurrences, 0.131% vs 0.030%)
+Sauk Village, IL: 4.29x more common in suspicious loans (999 occurrences, 0.084% vs 0.020%)
+Harvey, IL: 4.28x more common in suspicious loans (1,933 occurrences, 0.162% vs 0.038%)
+Bellwood, IL: 4.25x more common in suspicious loans (1,869 occurrences, 0.157% vs 0.037%)
+Phoenix, IL: 4.23x more common in suspicious loans (200 occurrences, 0.017% vs 0.004%)
+Ford Heights, IL: 4.22x more common in suspicious loans (214 occurrences, 0.018% vs 0.004%)
+Park Forest, IL: 4.22x more common in suspicious loans (1,839 occurrences, 0.154% vs 0.037%)
+Calumet City, IL: 4.21x more common in suspicious loans (3,756 occurrences, 0.316% vs 0.075%)
+Maywood, IL: 4.21x more common in suspicious loans (2,160 occurrences, 0.181% vs 0.043%)
+Dolton, IL: 4.20x more common in suspicious loans (2,838 occurrences, 0.238% vs 0.057%)
+Chicago Heights, IL: 4.19x more common in suspicious loans (1,536 occurrences, 0.129% vs 0.031%)
+Country Club Hills, IL: 4.17x more common in suspicious loans (1,792 occurrences, 0.151% vs 0.036%)
+Lynwood, IL: 4.15x more common in suspicious loans (924 occurrences, 0.078% vs 0.019%)
+Calumet Park, IL: 4.13x more common in suspicious loans (829 occurrences, 0.070% vs 0.017%)
+Markham, IL: 4.11x more common in suspicious loans (1,244 occurrences, 0.105% vs 0.025%)
+Lansing, IL: 4.07x more common in suspicious loans (1,867 occurrences, 0.157% vs 0.039%)
+Hazel Crest, IL: 4.06x more common in suspicious loans (1,479 occurrences, 0.124% vs 0.031%)
+Richton Park, IL: 4.06x more common in suspicious loans (1,277 occurrences, 0.107% vs 0.026%)
+Mc Rae, GA: 4.04x more common in suspicious loans (92 occurrences, 0.008% vs 0.002%)
+Griffin, GA: 4.03x more common in suspicious loans (3,511 occurrences, 0.295% vs 0.073%)
+South Holland, IL: 4.02x more common in suspicious loans (2,119 occurrences, 0.178% vs 0.044%)
+Blue Island, IL: 4.01x more common in suspicious loans (1,020 occurrences, 0.086% vs 0.021%)
+Fort Hood, TX: 3.98x more common in suspicious loans (62 occurrences, 0.005% vs 0.001%)
+University Park, IL: 3.96x more common in suspicious loans (704 occurrences, 0.059% vs 0.015%)
+Glenwood, IL: 3.96x more common in suspicious loans (722 occurrences, 0.061% vs 0.015%)
+Matteson, IL: 3.95x more common in suspicious loans (1,711 occurrences, 0.144% vs 0.036%)
+Robbins, IL: 3.93x more common in suspicious loans (469 occurrences, 0.039% vs 0.010%)
+Thomaston, GA: 3.90x more common in suspicious loans (1,080 occurrences, 0.091% vs 0.023%)
+Broadview, IL: 3.89x more common in suspicious loans (683 occurrences, 0.057% vs 0.015%)
+Chicago, IL: 3.78x more common in suspicious loans (98,244 occurrences, 8.253% vs 2.184%)
+DeKalb, IL: 3.77x more common in suspicious loans (852 occurrences, 0.072% vs 0.019%)
+Riverdale, GA: 3.73x more common in suspicious loans (4,150 occurrences, 0.349% vs 0.093%)
+Camilla, GA: 3.72x more common in suspicious loans (457 occurrences, 0.038% vs 0.010%)
+Union City, GA: 3.71x more common in suspicious loans (1,744 occurrences, 0.147% vs 0.040%)
+Lithonia, GA: 3.70x more common in suspicious loans (6,452 occurrences, 0.542% vs 0.147%)
+South Chicago Heights, IL: 3.68x more common in suspicious loans (93 occurrences, 0.008% vs 0.002%)
+Freeport, TX: 3.66x more common in suspicious loans (139 occurrences, 0.012% vs 0.003%)
+Forest Hill, TX: 3.65x more common in suspicious loans (288 occurrences, 0.024% vs 0.007%)
+Forest Park, GA: 3.63x more common in suspicious loans (1,126 occurrences, 0.095% vs 0.026%)
+Hampton, GA: 3.57x more common in suspicious loans (2,304 occurrences, 0.194% vs 0.054%)
+Wilmer, TX: 3.56x more common in suspicious loans (75 occurrences, 0.006% vs 0.002%)
+Midlothian, IL: 3.55x more common in suspicious loans (326 occurrences, 0.027% vs 0.008%)
+Bon Wier, TX: 3.55x more common in suspicious loans (29 occurrences, 0.002% vs 0.001%)
+Hillside, IL: 3.55x more common in suspicious loans (397 occurrences, 0.033% vs 0.009%)
+Covington, GA: 3.54x more common in suspicious loans (3,528 occurrences, 0.296% vs 0.084%)
+Jonesboro, GA: 3.54x more common in suspicious loans (4,569 occurrences, 0.384% vs 0.108%)
+Fairburn, GA: 3.54x more common in suspicious loans (2,565 occurrences, 0.215% vs 0.061%)
+Burnham, IL: 3.53x more common in suspicious loans (194 occurrences, 0.016% vs 0.005%)
+North Chicago, IL: 3.53x more common in suspicious loans (325 occurrences, 0.027% vs 0.008%)
+Zion, IL: 3.53x more common in suspicious loans (457 occurrences, 0.038% vs 0.011%)
+Ellenwood, GA: 3.52x more common in suspicious loans (2,521 occurrences, 0.212% vs 0.060%)
+Lagrange, GA: 3.51x more common in suspicious loans (2,027 occurrences, 0.170% vs 0.049%)
+Rex, GA: 3.51x more common in suspicious loans (999 occurrences, 0.084% vs 0.024%)
+Jackson, GA: 3.49x more common in suspicious loans (554 occurrences, 0.047% vs 0.013%)
+Steger, IL: 3.49x more common in suspicious loans (313 occurrences, 0.026% vs 0.008%)
+Fresno, TX: 3.48x more common in suspicious loans (704 occurrences, 0.059% vs 0.017%)
+Compton, CA: 3.48x more common in suspicious loans (2,461 occurrences, 0.207% vs 0.059%)
+Homewood, IL: 3.46x more common in suspicious loans (787 occurrences, 0.066% vs 0.019%)
+Cicero, IL: 3.45x more common in suspicious loans (735 occurrences, 0.062% vs 0.018%)
+Forsyth, GA: 3.43x more common in suspicious loans (381 occurrences, 0.032% vs 0.009%)
+Fort Valley, GA: 3.43x more common in suspicious loans (401 occurrences, 0.034% vs 0.010%)
+Bolingbrook, IL: 3.43x more common in suspicious loans (1,609 occurrences, 0.135% vs 0.039%)
+Albany, GA: 3.42x more common in suspicious loans (3,359 occurrences, 0.282% vs 0.082%)
+Belle Glade, FL: 3.42x more common in suspicious loans (429 occurrences, 0.036% vs 0.011%)
+Austell, GA: 3.41x more common in suspicious loans (2,025 occurrences, 0.170% vs 0.050%)
+Joliet, IL: 3.40x more common in suspicious loans (2,461 occurrences, 0.207% vs 0.061%)
+Stone Mountain, GA: 3.40x more common in suspicious loans (5,244 occurrences, 0.441% vs 0.129%)
+Stockbridge, GA: 3.40x more common in suspicious loans (2,702 occurrences, 0.227% vs 0.067%)
+Alsip, IL: 3.38x more common in suspicious loans (534 occurrences, 0.045% vs 0.013%)
+Morrow, GA: 3.37x more common in suspicious loans (1,208 occurrences, 0.101% vs 0.030%)
+Barnesville, GA: 3.37x more common in suspicious loans (348 occurrences, 0.029% vs 0.009%)
+Conley, GA: 3.36x more common in suspicious loans (486 occurrences, 0.041% vs 0.012%)
+Decatur, GA: 3.35x more common in suspicious loans (7,234 occurrences, 0.608% vs 0.181%)
+Desoto, TX: 3.34x more common in suspicious loans (1,491 occurrences, 0.125% vs 0.037%)
+Crete, IL: 3.34x more common in suspicious loans (485 occurrences, 0.041% vs 0.012%)
+Lancaster, TX: 3.34x more common in suspicious loans (1,222 occurrences, 0.103% vs 0.031%)
+Justice, IL: 3.33x more common in suspicious loans (429 occurrences, 0.036% vs 0.011%)
+Macon, GA: 3.31x more common in suspicious loans (4,648 occurrences, 0.390% vs 0.118%)
+West Peoria, IL: 3.31x more common in suspicious loans (49 occurrences, 0.004% vs 0.001%)
+Atlanta, GA: 3.29x more common in suspicious loans (34,417 occurrences, 2.891% vs 0.878%)
+Merrionette Park, IL: 3.29x more common in suspicious loans (35 occurrences, 0.003% vs 0.001%)
+Lauderdale Lakes, FL: 3.29x more common in suspicious loans (1,592 occurrences, 0.134% vs 0.041%)
+View Park, CA: 3.28x more common in suspicious loans (121 occurrences, 0.010% vs 0.003%)
+Glenn Heights, TX: 3.26x more common in suspicious loans (364 occurrences, 0.031% vs 0.009%)
+Heartland, TX: 3.25x more common in suspicious loans (79 occurrences, 0.007% vs 0.002%)
+Mangonia Park, FL: 3.25x more common in suspicious loans (74 occurrences, 0.006% vs 0.002%)
+Lancaster, CA: 3.24x more common in suspicious loans (2,788 occurrences, 0.234% vs 0.072%)
+McDonough, GA: 3.24x more common in suspicious loans (3,488 occurrences, 0.293% vs 0.090%)
+Evergreen Park, IL: 3.24x more common in suspicious loans (412 occurrences, 0.035% vs 0.011%)
+Jenkinsburg, GA: 3.23x more common in suspicious loans (70 occurrences, 0.006% vs 0.002%)
+Berwyn, IL: 3.22x more common in suspicious loans (913 occurrences, 0.077% vs 0.024%)
+Lauderhill, FL: 3.22x more common in suspicious loans (2,840 occurrences, 0.239% vs 0.074%)
+Hawthorne, CA: 3.22x more common in suspicious loans (1,619 occurrences, 0.136% vs 0.042%)
+Kankakee, IL: 3.21x more common in suspicious loans (581 occurrences, 0.049% vs 0.015%)
+Humble, TX: 3.21x more common in suspicious loans (2,807 occurrences, 0.236% vs 0.073%)
+Conyers, GA: 3.21x more common in suspicious loans (3,311 occurrences, 0.278% vs 0.087%)
+Columbus, GA: 3.20x more common in suspicious loans (4,117 occurrences, 0.346% vs 0.108%)
+Romeoville, IL: 3.20x more common in suspicious loans (550 occurrences, 0.046% vs 0.014%)
+
+________________________________________________________________________________________________________________________
+
+
+Starting Lender Patterns analysis...
+
+Analyzing Lender Patterns...
+================================================================================
+Lender Patterns Analysis
+Chi-square test p-value: 0.000000
+
+Top over-represented categories (min 5 occurrences, top 100):
+Harvest Small Business Finance, LLC: 2.81x more common in suspicious loans (189,868 occurrences, 15.951% vs 5.686%)
+BSD Capital, LLC dba Lendistry: 2.79x more common in suspicious loans (125,326 occurrences, 10.528% vs 3.769%)
+Capital Plus Financial, LLC: 2.46x more common in suspicious loans (189,269 occurrences, 15.900% vs 6.460%)
+Fountainhead SBF LLC: 2.40x more common in suspicious loans (99,212 occurrences, 8.335% vs 3.466%)
+Prestamos CDFI, LLC: 2.26x more common in suspicious loans (188,020 occurrences, 15.795% vs 6.981%)
+Benworth Capital: 2.22x more common in suspicious loans (104,807 occurrences, 8.805% vs 3.970%)
+Philo Exchange Bank: 2.13x more common in suspicious loans (38 occurrences, 0.003% vs 0.001%)
+Cross River Bank: 1.99x more common in suspicious loans (128,919 occurrences, 10.830% vs 5.430%)
+The Hershey State Bank: 1.88x more common in suspicious loans (60 occurrences, 0.005% vs 0.003%)
+Armstrong Bank: 1.50x more common in suspicious loans (731 occurrences, 0.061% vs 0.041%)
+Customers Bank: 1.48x more common in suspicious loans (51,437 occurrences, 4.321% vs 2.915%)
+Valley State Bank: 1.46x more common in suspicious loans (26 occurrences, 0.002% vs 0.001%)
+Kabbage, Inc.: 1.33x more common in suspicious loans (27,854 occurrences, 2.340% vs 1.757%)
+All In FCU: 1.16x more common in suspicious loans (72 occurrences, 0.006% vs 0.005%)
+The Enterprise Center Capital Corporation: 1.06x more common in suspicious loans (3,530 occurrences, 0.297% vs 0.279%)
+Itria Ventures LLC: 0.99x more common in suspicious loans (26,406 occurrences, 2.218% vs 2.231%)
+Sunshine State Economic Development Corporation: 0.98x more common in suspicious loans (358 occurrences, 0.030% vs 0.031%)
+The Bank of Milan: 0.97x more common in suspicious loans (16 occurrences, 0.001% vs 0.001%)
+Flanagan State Bank: 0.95x more common in suspicious loans (42 occurrences, 0.004% vs 0.004%)
+Texas National Bank: 0.88x more common in suspicious loans (2,403 occurrences, 0.202% vs 0.229%)
+The Farmers State Bank of Turton: 0.85x more common in suspicious loans (19 occurrences, 0.002% vs 0.002%)
+Leader Bank, National Association: 0.84x more common in suspicious loans (6,833 occurrences, 0.574% vs 0.680%)
+MBE Capital Partners: 0.80x more common in suspicious loans (4,221 occurrences, 0.355% vs 0.443%)
+Guaranty Bank & Trust Company: 0.75x more common in suspicious loans (170 occurrences, 0.014% vs 0.019%)
+Bank of Western Oklahoma: 0.73x more common in suspicious loans (86 occurrences, 0.007% vs 0.010%)
+First Century Bank, National Association: 0.68x more common in suspicious loans (12 occurrences, 0.001% vs 0.001%)
+Great Plains National Bank: 0.63x more common in suspicious loans (324 occurrences, 0.027% vs 0.043%)
+Peoples Bank of Altenburg: 0.62x more common in suspicious loans (15 occurrences, 0.001% vs 0.002%)
+The First National Bank & Trust: 0.61x more common in suspicious loans (37 occurrences, 0.003% vs 0.005%)
+Bank of Wolcott: 0.61x more common in suspicious loans (26 occurrences, 0.002% vs 0.004%)
+Veridian CU: 0.59x more common in suspicious loans (75 occurrences, 0.006% vs 0.011%)
+The First Bank of Okarche: 0.59x more common in suspicious loans (11 occurrences, 0.001% vs 0.002%)
+Sunrise Bank Dakota: 0.58x more common in suspicious loans (9 occurrences, 0.001% vs 0.001%)
+WCF Financial Bank: 0.57x more common in suspicious loans (10 occurrences, 0.001% vs 0.001%)
+Sanborn Savings Bank: 0.55x more common in suspicious loans (14 occurrences, 0.001% vs 0.002%)
+Dakota Prairie Bank: 0.55x more common in suspicious loans (29 occurrences, 0.002% vs 0.004%)
+State Bank of Jeffers: 0.55x more common in suspicious loans (12 occurrences, 0.001% vs 0.002%)
+Celtic Bank Corporation: 0.55x more common in suspicious loans (8,763 occurrences, 0.736% vs 1.346%)
+Freedom Northwest CU: 0.54x more common in suspicious loans (21 occurrences, 0.002% vs 0.003%)
+Presidential Bank, FSB: 0.51x more common in suspicious loans (18 occurrences, 0.002% vs 0.003%)
+The Northumberland National Bank: 0.50x more common in suspicious loans (9 occurrences, 0.001% vs 0.001%)
+First National Bank and Trust Company of Weatherford: 0.50x more common in suspicious loans (37 occurrences, 0.003% vs 0.006%)
+Dacotah Bank: 0.49x more common in suspicious loans (302 occurrences, 0.025% vs 0.051%)
+First Farmers & Merchants State Bank of Grand Meadow: 0.49x more common in suspicious loans (11 occurrences, 0.001% vs 0.002%)
+Rock Canyon Bank: 0.48x more common in suspicious loans (18 occurrences, 0.002% vs 0.003%)
+Commercial Bank and Trust Company: 0.47x more common in suspicious loans (60 occurrences, 0.005% vs 0.011%)
+Bank of Moundville: 0.47x more common in suspicious loans (6 occurrences, 0.001% vs 0.001%)
+Bank of Prague: 0.46x more common in suspicious loans (11 occurrences, 0.001% vs 0.002%)
+PeopleFund: 0.45x more common in suspicious loans (100 occurrences, 0.008% vs 0.019%)
+State Bank of Texas: 0.45x more common in suspicious loans (219 occurrences, 0.018% vs 0.041%)
+Stockmans Bank: 0.43x more common in suspicious loans (43 occurrences, 0.004% vs 0.008%)
+West Alabama Bank & Trust: 0.43x more common in suspicious loans (21 occurrences, 0.002% vs 0.004%)
+Economic and Community Development Institute: 0.42x more common in suspicious loans (124 occurrences, 0.010% vs 0.025%)
+DreamSpring: 0.42x more common in suspicious loans (1,066 occurrences, 0.090% vs 0.212%)
+Ozark Bank: 0.42x more common in suspicious loans (22 occurrences, 0.002% vs 0.004%)
+Amur Equipment Finance, Inc.: 0.41x more common in suspicious loans (1,820 occurrences, 0.153% vs 0.370%)
+Readycap Lending, LLC: 0.41x more common in suspicious loans (4,747 occurrences, 0.399% vs 0.984%)
+The Bank of Advance: 0.40x more common in suspicious loans (39 occurrences, 0.003% vs 0.008%)
+Co-op CU of Montevideo: 0.40x more common in suspicious loans (45 occurrences, 0.004% vs 0.009%)
+Great Plains Bank: 0.40x more common in suspicious loans (65 occurrences, 0.005% vs 0.014%)
+Farm Credit Services of Mandan: 0.39x more common in suspicious loans (71 occurrences, 0.006% vs 0.015%)
+BankWest, Inc: 0.39x more common in suspicious loans (115 occurrences, 0.010% vs 0.025%)
+The FNB Community Bank: 0.39x more common in suspicious loans (33 occurrences, 0.003% vs 0.007%)
+Access to Capital for Entrepreneurs: 0.39x more common in suspicious loans (36 occurrences, 0.003% vs 0.008%)
+First Missouri State Bank of Cape County: 0.38x more common in suspicious loans (5 occurrences, 0.000% vs 0.001%)
+The Stock Exchange Bank: 0.38x more common in suspicious loans (35 occurrences, 0.003% vs 0.008%)
+Genoa Community Bank: 0.38x more common in suspicious loans (8 occurrences, 0.001% vs 0.002%)
+ACB Bank: 0.37x more common in suspicious loans (17 occurrences, 0.001% vs 0.004%)
+Bank of Commerce: 0.37x more common in suspicious loans (114 occurrences, 0.010% vs 0.026%)
+State Bank & Trust Company: 0.36x more common in suspicious loans (18 occurrences, 0.002% vs 0.004%)
+NVE Bank: 0.35x more common in suspicious loans (8 occurrences, 0.001% vs 0.002%)
+Dysart State Bank: 0.35x more common in suspicious loans (6 occurrences, 0.001% vs 0.001%)
+Bank Iowa: 0.35x more common in suspicious loans (140 occurrences, 0.012% vs 0.034%)
+Farm Credit Illinois, ACA: 0.34x more common in suspicious loans (148 occurrences, 0.012% vs 0.036%)
+The Farmers and Merchants State Bank: 0.34x more common in suspicious loans (7 occurrences, 0.001% vs 0.002%)
+Studio Bank: 0.34x more common in suspicious loans (18 occurrences, 0.002% vs 0.004%)
+Campbell County Bank: 0.34x more common in suspicious loans (21 occurrences, 0.002% vs 0.005%)
+The National Bank of Texas at Fort Worth: 0.34x more common in suspicious loans (5 occurrences, 0.000% vs 0.001%)
+First State Bank Minnesota: 0.34x more common in suspicious loans (15 occurrences, 0.001% vs 0.004%)
+Blue Ridge Bank, National Association: 0.34x more common in suspicious loans (1,009 occurrences, 0.085% vs 0.252%)
+Ipswich State Bank: 0.33x more common in suspicious loans (6 occurrences, 0.001% vs 0.002%)
+National Cooperative Bank, National Association: 0.33x more common in suspicious loans (5 occurrences, 0.000% vs 0.001%)
+The Hill-Dodge Banking Company: 0.32x more common in suspicious loans (5 occurrences, 0.000% vs 0.001%)
+Bank of Dawson: 0.32x more common in suspicious loans (9 occurrences, 0.001% vs 0.002%)
+State Bank of Toulon: 0.32x more common in suspicious loans (20 occurrences, 0.002% vs 0.005%)
+Farmers Trust & Savings Bank: 0.32x more common in suspicious loans (69 occurrences, 0.006% vs 0.018%)
+Bank of Hartington: 0.32x more common in suspicious loans (20 occurrences, 0.002% vs 0.005%)
+Brunswick State Bank: 0.31x more common in suspicious loans (12 occurrences, 0.001% vs 0.003%)
+Dawson Co-op CU: 0.31x more common in suspicious loans (21 occurrences, 0.002% vs 0.006%)
+First Trust and Savings Bank: 0.31x more common in suspicious loans (26 occurrences, 0.002% vs 0.007%)
+First Dakota National Bank: 0.31x more common in suspicious loans (139 occurrences, 0.012% vs 0.038%)
+Shelby Savings Bank, SSB: 0.31x more common in suspicious loans (17 occurrences, 0.001% vs 0.005%)
+Bank of Clarks: 0.31x more common in suspicious loans (8 occurrences, 0.001% vs 0.002%)
+Liberty SBF Holdings LLC: 0.31x more common in suspicious loans (617 occurrences, 0.052% vs 0.170%)
+State Bank of Wheaton: 0.30x more common in suspicious loans (7 occurrences, 0.001% vs 0.002%)
+People Trust: 0.30x more common in suspicious loans (106 occurrences, 0.009% vs 0.030%)
+Western Dakota Bank: 0.29x more common in suspicious loans (12 occurrences, 0.001% vs 0.003%)
+Security Bank: 0.29x more common in suspicious loans (57 occurrences, 0.005% vs 0.016%)
+MVB Bank, Inc.: 0.29x more common in suspicious loans (158 occurrences, 0.013% vs 0.046%)
+Merchants State Bank: 0.28x more common in suspicious loans (20 occurrences, 0.002% vs 0.006%)
+
+Top over-represented categories (min 25 occurrences, top 100):
+Harvest Small Business Finance, LLC: 2.81x more common in suspicious loans (189,868 occurrences, 15.951% vs 5.686%)
+BSD Capital, LLC dba Lendistry: 2.79x more common in suspicious loans (125,326 occurrences, 10.528% vs 3.769%)
+Capital Plus Financial, LLC: 2.46x more common in suspicious loans (189,269 occurrences, 15.900% vs 6.460%)
+Fountainhead SBF LLC: 2.40x more common in suspicious loans (99,212 occurrences, 8.335% vs 3.466%)
+Prestamos CDFI, LLC: 2.26x more common in suspicious loans (188,020 occurrences, 15.795% vs 6.981%)
+Benworth Capital: 2.22x more common in suspicious loans (104,807 occurrences, 8.805% vs 3.970%)
+Philo Exchange Bank: 2.13x more common in suspicious loans (38 occurrences, 0.003% vs 0.001%)
+Cross River Bank: 1.99x more common in suspicious loans (128,919 occurrences, 10.830% vs 5.430%)
+The Hershey State Bank: 1.88x more common in suspicious loans (60 occurrences, 0.005% vs 0.003%)
+Armstrong Bank: 1.50x more common in suspicious loans (731 occurrences, 0.061% vs 0.041%)
+Customers Bank: 1.48x more common in suspicious loans (51,437 occurrences, 4.321% vs 2.915%)
+Valley State Bank: 1.46x more common in suspicious loans (26 occurrences, 0.002% vs 0.001%)
+Kabbage, Inc.: 1.33x more common in suspicious loans (27,854 occurrences, 2.340% vs 1.757%)
+All In FCU: 1.16x more common in suspicious loans (72 occurrences, 0.006% vs 0.005%)
+The Enterprise Center Capital Corporation: 1.06x more common in suspicious loans (3,530 occurrences, 0.297% vs 0.279%)
+Itria Ventures LLC: 0.99x more common in suspicious loans (26,406 occurrences, 2.218% vs 2.231%)
+Sunshine State Economic Development Corporation: 0.98x more common in suspicious loans (358 occurrences, 0.030% vs 0.031%)
+Flanagan State Bank: 0.95x more common in suspicious loans (42 occurrences, 0.004% vs 0.004%)
+Texas National Bank: 0.88x more common in suspicious loans (2,403 occurrences, 0.202% vs 0.229%)
+Leader Bank, National Association: 0.84x more common in suspicious loans (6,833 occurrences, 0.574% vs 0.680%)
+MBE Capital Partners: 0.80x more common in suspicious loans (4,221 occurrences, 0.355% vs 0.443%)
+Guaranty Bank & Trust Company: 0.75x more common in suspicious loans (170 occurrences, 0.014% vs 0.019%)
+Bank of Western Oklahoma: 0.73x more common in suspicious loans (86 occurrences, 0.007% vs 0.010%)
+Great Plains National Bank: 0.63x more common in suspicious loans (324 occurrences, 0.027% vs 0.043%)
+The First National Bank & Trust: 0.61x more common in suspicious loans (37 occurrences, 0.003% vs 0.005%)
+Bank of Wolcott: 0.61x more common in suspicious loans (26 occurrences, 0.002% vs 0.004%)
+Veridian CU: 0.59x more common in suspicious loans (75 occurrences, 0.006% vs 0.011%)
+Dakota Prairie Bank: 0.55x more common in suspicious loans (29 occurrences, 0.002% vs 0.004%)
+Celtic Bank Corporation: 0.55x more common in suspicious loans (8,763 occurrences, 0.736% vs 1.346%)
+First National Bank and Trust Company of Weatherford: 0.50x more common in suspicious loans (37 occurrences, 0.003% vs 0.006%)
+Dacotah Bank: 0.49x more common in suspicious loans (302 occurrences, 0.025% vs 0.051%)
+Commercial Bank and Trust Company: 0.47x more common in suspicious loans (60 occurrences, 0.005% vs 0.011%)
+PeopleFund: 0.45x more common in suspicious loans (100 occurrences, 0.008% vs 0.019%)
+State Bank of Texas: 0.45x more common in suspicious loans (219 occurrences, 0.018% vs 0.041%)
+Stockmans Bank: 0.43x more common in suspicious loans (43 occurrences, 0.004% vs 0.008%)
+Economic and Community Development Institute: 0.42x more common in suspicious loans (124 occurrences, 0.010% vs 0.025%)
+DreamSpring: 0.42x more common in suspicious loans (1,066 occurrences, 0.090% vs 0.212%)
+Amur Equipment Finance, Inc.: 0.41x more common in suspicious loans (1,820 occurrences, 0.153% vs 0.370%)
+Readycap Lending, LLC: 0.41x more common in suspicious loans (4,747 occurrences, 0.399% vs 0.984%)
+The Bank of Advance: 0.40x more common in suspicious loans (39 occurrences, 0.003% vs 0.008%)
+Co-op CU of Montevideo: 0.40x more common in suspicious loans (45 occurrences, 0.004% vs 0.009%)
+Great Plains Bank: 0.40x more common in suspicious loans (65 occurrences, 0.005% vs 0.014%)
+Farm Credit Services of Mandan: 0.39x more common in suspicious loans (71 occurrences, 0.006% vs 0.015%)
+BankWest, Inc: 0.39x more common in suspicious loans (115 occurrences, 0.010% vs 0.025%)
+The FNB Community Bank: 0.39x more common in suspicious loans (33 occurrences, 0.003% vs 0.007%)
+Access to Capital for Entrepreneurs: 0.39x more common in suspicious loans (36 occurrences, 0.003% vs 0.008%)
+The Stock Exchange Bank: 0.38x more common in suspicious loans (35 occurrences, 0.003% vs 0.008%)
+Bank of Commerce: 0.37x more common in suspicious loans (114 occurrences, 0.010% vs 0.026%)
+Bank Iowa: 0.35x more common in suspicious loans (140 occurrences, 0.012% vs 0.034%)
+Farm Credit Illinois, ACA: 0.34x more common in suspicious loans (148 occurrences, 0.012% vs 0.036%)
+Blue Ridge Bank, National Association: 0.34x more common in suspicious loans (1,009 occurrences, 0.085% vs 0.252%)
+Farmers Trust & Savings Bank: 0.32x more common in suspicious loans (69 occurrences, 0.006% vs 0.018%)
+First Trust and Savings Bank: 0.31x more common in suspicious loans (26 occurrences, 0.002% vs 0.007%)
+First Dakota National Bank: 0.31x more common in suspicious loans (139 occurrences, 0.012% vs 0.038%)
+Liberty SBF Holdings LLC: 0.31x more common in suspicious loans (617 occurrences, 0.052% vs 0.170%)
+People Trust: 0.30x more common in suspicious loans (106 occurrences, 0.009% vs 0.030%)
+Security Bank: 0.29x more common in suspicious loans (57 occurrences, 0.005% vs 0.016%)
+MVB Bank, Inc.: 0.29x more common in suspicious loans (158 occurrences, 0.013% vs 0.046%)
+American Lending Center: 0.28x more common in suspicious loans (923 occurrences, 0.078% vs 0.277%)
+Homestead Bank: 0.28x more common in suspicious loans (29 occurrences, 0.002% vs 0.009%)
+United Bank & Trust: 0.28x more common in suspicious loans (66 occurrences, 0.006% vs 0.020%)
+Jones Bank: 0.26x more common in suspicious loans (25 occurrences, 0.002% vs 0.008%)
+Florida A&M University FCU: 0.26x more common in suspicious loans (29 occurrences, 0.002% vs 0.009%)
+Madison County Bank: 0.25x more common in suspicious loans (28 occurrences, 0.002% vs 0.009%)
+Citizens Trust Bank: 0.25x more common in suspicious loans (29 occurrences, 0.002% vs 0.010%)
+Chickasaw Community Bank: 0.24x more common in suspicious loans (25 occurrences, 0.002% vs 0.009%)
+Kingston National Bank: 0.24x more common in suspicious loans (32 occurrences, 0.003% vs 0.011%)
+Columbia State Bank: 0.24x more common in suspicious loans (83 occurrences, 0.007% vs 0.030%)
+Citizens Bank Minnesota: 0.23x more common in suspicious loans (33 occurrences, 0.003% vs 0.012%)
+Iowa State Bank: 0.23x more common in suspicious loans (103 occurrences, 0.009% vs 0.037%)
+Legacy Bank: 0.23x more common in suspicious loans (449 occurrences, 0.038% vs 0.163%)
+Quaint Oak Bank: 0.23x more common in suspicious loans (31 occurrences, 0.003% vs 0.011%)
+Green Belt Bank & Trust: 0.23x more common in suspicious loans (29 occurrences, 0.002% vs 0.011%)
+City National Bank: 0.22x more common in suspicious loans (252 occurrences, 0.021% vs 0.094%)
+Morton Community Bank: 0.22x more common in suspicious loans (86 occurrences, 0.007% vs 0.033%)
+A10Capital, LLC: 0.22x more common in suspicious loans (532 occurrences, 0.045% vs 0.204%)
+Elkhorn Valley Bank & Trust: 0.22x more common in suspicious loans (43 occurrences, 0.004% vs 0.017%)
+BancFirst: 0.22x more common in suspicious loans (276 occurrences, 0.023% vs 0.107%)
+Farm Credit Services of North Dakota, ACA: 0.22x more common in suspicious loans (31 occurrences, 0.003% vs 0.012%)
+Farmers National Bank: 0.21x more common in suspicious loans (39 occurrences, 0.003% vs 0.016%)
+1st Choice CU: 0.20x more common in suspicious loans (36 occurrences, 0.003% vs 0.015%)
+DNB National Bank: 0.20x more common in suspicious loans (26 occurrences, 0.002% vs 0.011%)
+Security State Bank: 0.19x more common in suspicious loans (135 occurrences, 0.011% vs 0.060%)
+County Bank: 0.18x more common in suspicious loans (31 occurrences, 0.003% vs 0.015%)
+First Independent Bank: 0.18x more common in suspicious loans (43 occurrences, 0.004% vs 0.020%)
+American Federal Bank: 0.18x more common in suspicious loans (33 occurrences, 0.003% vs 0.016%)
+Exchange State Bank: 0.18x more common in suspicious loans (26 occurrences, 0.002% vs 0.012%)
+Fidelity Bank & Trust: 0.17x more common in suspicious loans (75 occurrences, 0.006% vs 0.037%)
+First Security Bank & Trust Company: 0.17x more common in suspicious loans (30 occurrences, 0.003% vs 0.015%)
+American Bank & Trust: 0.16x more common in suspicious loans (53 occurrences, 0.004% vs 0.028%)
+First Southern State Bank: 0.16x more common in suspicious loans (51 occurrences, 0.004% vs 0.027%)
+F & M Bank: 0.15x more common in suspicious loans (32 occurrences, 0.003% vs 0.018%)
+First Citizens Bank: 0.15x more common in suspicious loans (43 occurrences, 0.004% vs 0.024%)
+First Fidelity Bank: 0.15x more common in suspicious loans (72 occurrences, 0.006% vs 0.041%)
+High Plains Bank: 0.15x more common in suspicious loans (26 occurrences, 0.002% vs 0.015%)
+Hope Enterprise Corporation: 0.14x more common in suspicious loans (97 occurrences, 0.008% vs 0.057%)
+InterBank: 0.14x more common in suspicious loans (47 occurrences, 0.004% vs 0.028%)
+Farm Credit Services of America, ACA: 0.13x more common in suspicious loans (143 occurrences, 0.012% vs 0.089%)
+Transportation Alliance Bank, Inc. d/b/a TAB Bank, Inc.: 0.13x more common in suspicious loans (155 occurrences, 0.013% vs 0.098%)
+Ponce Bank: 0.13x more common in suspicious loans (94 occurrences, 0.008% vs 0.060%)
+
+________________________________________________________________________________________________________________________
+
+
+Starting Business Patterns analysis...
+
+Analyzing Business Type Patterns...
+================================================================================
+Business Type Patterns Analysis
+Chi-square test p-value: 0.000000
+
+Top over-represented categories (min 5 occurrences, top 100):
+Self-Employed Individuals: 1.54x more common in suspicious loans (196,718 occurrences, 16.526% vs 10.752%)
+Sole Proprietorship: 1.51x more common in suspicious loans (789,419 occurrences, 66.318% vs 44.027%)
+Independent Contractors: 1.38x more common in suspicious loans (172,630 occurrences, 14.502% vs 10.547%)
+Single Member LLC: 0.57x more common in suspicious loans (6,390 occurrences, 0.537% vs 0.945%)
+Housing Co-op: 0.28x more common in suspicious loans (5 occurrences, 0.000% vs 0.002%)
+Joint Venture: 0.27x more common in suspicious loans (45 occurrences, 0.004% vs 0.014%)
+Qualified Joint-Venture (spouses): 0.26x more common in suspicious loans (42 occurrences, 0.004% vs 0.013%)
+Trust: 0.16x more common in suspicious loans (36 occurrences, 0.003% vs 0.018%)
+Limited  Liability Company(LLC): 0.13x more common in suspicious loans (24,160 occurrences, 2.030% vs 15.759%)
+Limited Liability Partnership: 0.06x more common in suspicious loans (186 occurrences, 0.016% vs 0.268%)
+Professional Association: 0.04x more common in suspicious loans (96 occurrences, 0.008% vs 0.191%)
+501(c)3 – Non Profit: 0.02x more common in suspicious loans (21 occurrences, 0.002% vs 0.080%)
+Cooperative: 0.02x more common in suspicious loans (8 occurrences, 0.001% vs 0.034%)
+Subchapter S Corporation: 0.00x more common in suspicious loans (241 occurrences, 0.020% vs 5.236%)
+Corporation: 0.00x more common in suspicious loans (322 occurrences, 0.027% vs 10.335%)
+Partnership: 0.00x more common in suspicious loans (18 occurrences, 0.002% vs 0.633%)
+
+Top over-represented categories (min 25 occurrences, top 100):
+Self-Employed Individuals: 1.54x more common in suspicious loans (196,718 occurrences, 16.526% vs 10.752%)
+Sole Proprietorship: 1.51x more common in suspicious loans (789,419 occurrences, 66.318% vs 44.027%)
+Independent Contractors: 1.38x more common in suspicious loans (172,630 occurrences, 14.502% vs 10.547%)
+Single Member LLC: 0.57x more common in suspicious loans (6,390 occurrences, 0.537% vs 0.945%)
+Joint Venture: 0.27x more common in suspicious loans (45 occurrences, 0.004% vs 0.014%)
+Qualified Joint-Venture (spouses): 0.26x more common in suspicious loans (42 occurrences, 0.004% vs 0.013%)
+Trust: 0.16x more common in suspicious loans (36 occurrences, 0.003% vs 0.018%)
+Limited  Liability Company(LLC): 0.13x more common in suspicious loans (24,160 occurrences, 2.030% vs 15.759%)
+Limited Liability Partnership: 0.06x more common in suspicious loans (186 occurrences, 0.016% vs 0.268%)
+Professional Association: 0.04x more common in suspicious loans (96 occurrences, 0.008% vs 0.191%)
+Subchapter S Corporation: 0.00x more common in suspicious loans (241 occurrences, 0.020% vs 5.236%)
+Corporation: 0.00x more common in suspicious loans (322 occurrences, 0.027% vs 10.335%)
+
+Analyzing Industry Sector Patterns...
+================================================================================
+Industry Sector Patterns Analysis
+Chi-square test p-value: 0.000000
+
+Top over-represented categories (min 5 occurrences, top 100):
+81 - Other Services (except Public Administration): 1.55x more common in suspicious loans (305,407 occurrences, 25.657% vs 16.593%)
+49 - Transportation and Warehousing - Postal Service, Couriers, Messengers, and Storage: 1.44x more common in suspicious loans (25,102 occurrences, 2.109% vs 1.462%)
+48 - Transportation and Warehousing - Air, Rail, Water, Truck, Transit, Pipeline, and Scenic/Sightseeing: 1.38x more common in suspicious loans (152,260 occurrences, 12.791% vs 9.255%)
+56 - Administrative and Support and Waste Management and Remediation Services: 1.32x more common in suspicious loans (90,639 occurrences, 7.614% vs 5.750%)
+92 - Public Administration: 1.25x more common in suspicious loans (4,031 occurrences, 0.339% vs 0.270%)
+42 - Wholesale Trade: 1.21x more common in suspicious loans (38,548 occurrences, 3.238% vs 2.681%)
+71 - Arts, Entertainment, and Recreation: 1.13x more common in suspicious loans (43,226 occurrences, 3.631% vs 3.218%)
+31 - Manufacturing - Food, Textile, and Leather: 1.12x more common in suspicious loans (9,614 occurrences, 0.808% vs 0.719%)
+45 - Retail Trade - Sporting Goods, Books, Music, General Merchandise, and Non-store: 1.12x more common in suspicious loans (42,536 occurrences, 3.573% vs 3.194%)
+72 - Accommodation and Food Services: 1.04x more common in suspicious loans (57,693 occurrences, 4.847% vs 4.651%)
+33 - Manufacturing - Metal, Machinery, Electronics, and Transportation Equipment: 1.03x more common in suspicious loans (17,406 occurrences, 1.462% vs 1.416%)
+55 - Management of Companies and Enterprises: 0.97x more common in suspicious loans (1,332 occurrences, 0.112% vs 0.115%)
+52 - Finance and Insurance: 0.96x more common in suspicious loans (31,438 occurrences, 2.641% vs 2.762%)
+44 - Retail Trade - Motor Vehicle, Furniture, Electronics, Building Materials, Food, Health, and Gasoline: 0.95x more common in suspicious loans (53,093 occurrences, 4.460% vs 4.716%)
+61 - Educational Services: 0.92x more common in suspicious loans (16,009 occurrences, 1.345% vs 1.456%)
+22 - Utilities: 0.85x more common in suspicious loans (904 occurrences, 0.076% vs 0.090%)
+23 - Construction: 0.78x more common in suspicious loans (73,946 occurrences, 6.212% vs 7.922%)
+62 - Health Care and Social Assistance: 0.77x more common in suspicious loans (58,588 occurrences, 4.922% vs 6.405%)
+51 - Information: 0.76x more common in suspicious loans (10,588 occurrences, 0.889% vs 1.170%)
+54 - Professional, Scientific, and Technical Services: 0.74x more common in suspicious loans (97,538 occurrences, 8.194% vs 11.147%)
+53 - Real Estate and Rental and Leasing: 0.63x more common in suspicious loans (39,007 occurrences, 3.277% vs 5.243%)
+32 - Manufacturing - Wood, Paper, Chemical, and Plastics: 0.57x more common in suspicious loans (3,343 occurrences, 0.281% vs 0.497%)
+21 - Mining, Quarrying, and Oil and Gas Extraction: 0.51x more common in suspicious loans (1,906 occurrences, 0.160% vs 0.314%)
+11 - Agriculture, Forestry, Fishing and Hunting: 0.17x more common in suspicious loans (15,180 occurrences, 1.275% vs 7.318%)
+99 - Unclassified Establishments: 0.02x more common in suspicious loans (178 occurrences, 0.015% vs 0.639%)
+
+Analyzing Non-Profit Status Patterns...
+================================================================================
+Non-Profit Status Patterns Analysis
+Chi-square test p-value: 0.000000
+
+Top over-represented categories (min 5 occurrences, top 100):
+Y: 0.00x more common in suspicious loans (29 occurrences, 0.002% vs 1.207%)
+
+________________________________________________________________________________________________________________________
+
+
+Starting Name Patterns analysis...
+
+Analyzing First Name Patterns...
+================================================================================
+First Name Patterns Analysis
+Chi-square test p-value: 0.000000
+
+Top over-represented categories (min 3 occurrences, top 100):
+DEMARKEUS: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+DEMARIYE: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+DEMARQUO: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+LENEAL: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+LENAIL: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+LEKENYA: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+DEMETIRUS: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+SHAWNTREL: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+DELVONNA: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+DELVECHIO: 5.27x more common in suspicious loans (6 occurrences, 0.001% vs 0.000%)
+DEMETREY: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+DEMETREAL: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+DEMETRITUS: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+DEMIEL: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+SHAWAYNE: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+DELONDON: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+SHAYLIA: 5.27x more common in suspicious loans (6 occurrences, 0.001% vs 0.000%)
+DELFONICK: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+AAYANNA: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+LENTOI: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+ZIRON: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+DELISSIA: 5.27x more common in suspicious loans (6 occurrences, 0.001% vs 0.000%)
+SHAZARD: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+SHAYQUANDA: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+DENER: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+DENEY: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+SHAVASIA: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+SHEELOVE: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+DELANOS: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+SHEDRON: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+DENOTE: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+DEJONNA: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+DELANDIS: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+SHEKEILA: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+SHEKEDRA: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+SHAUNTREL: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+DEOMONTAY: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+ZHAMEL: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+LEETHANEL: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+LEEDORA: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+AAPRI: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+AAMON: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+DEONSHAE: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+DEKEYA: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+DEPRICE: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+DEOTRAY: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+DEJION: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+DEJIAH: 5.27x more common in suspicious loans (6 occurrences, 0.001% vs 0.000%)
+SHEKIRA: 5.27x more common in suspicious loans (6 occurrences, 0.001% vs 0.000%)
+ZENQUAVION: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+LEDERIUS: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+LEDAY: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+SHEKENA: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+DEJANEKE: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+DERALL: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+DERALE: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+DEQWINN: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+DERIALE: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+DERAND: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+DEIONTRAY: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+DEIONE: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+DERICE: 5.27x more common in suspicious loans (6 occurrences, 0.001% vs 0.000%)
+DEIARA: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+DEHINDE: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+SHELETHIA: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+LECURTIS: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+LECHIA: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+DECOREA: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+SHELLAY: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+DERRNISHA: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+DERRINISHA: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+DESEANA: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+SHELVON: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+SHELUNDA: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+SHATERRICKA: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+SHEMETRICIA: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+DECHEL: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+DEBRESHIA: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+DESHAUNTAE: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+DEAVONTE: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+SHEMYRA: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+SHEMIRA: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+SHATELA: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+SHATAYIA: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+DESHAYE: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+DESHAYA: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+LEATHIA: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+LEATHE: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+ZEMETRIA: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+ZELWORTH: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+DEAVIONNE: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+DEAUSHAUN: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+DEAUNTRE: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+DESHUNTE: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+DESIREY: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+DEANTEZ: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+DEATRIA: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+DEARTHUR: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+DEARRON: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+ZAREYAH: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+
+Top over-represented categories (min 25 occurrences, top 100):
+JAQUAVIOUS: 4.32x more common in suspicious loans (32 occurrences, 0.003% vs 0.001%)
+SHALITA: 4.07x more common in suspicious loans (34 occurrences, 0.003% vs 0.001%)
+YOLONDA: 4.03x more common in suspicious loans (91 occurrences, 0.008% vs 0.002%)
+QUINTAVIUS: 3.98x more common in suspicious loans (28 occurrences, 0.002% vs 0.001%)
+SHANTERRIA: 3.92x more common in suspicious loans (29 occurrences, 0.002% vs 0.001%)
+DETRIC: 3.91x more common in suspicious loans (26 occurrences, 0.002% vs 0.001%)
+DANTRELL: 3.89x more common in suspicious loans (48 occurrences, 0.004% vs 0.001%)
+DAQUON: 3.84x more common in suspicious loans (27 occurrences, 0.002% vs 0.001%)
+CARLITA: 3.82x more common in suspicious loans (29 occurrences, 0.002% vs 0.001%)
+JAWON: 3.77x more common in suspicious loans (43 occurrences, 0.004% vs 0.001%)
+SABRIA: 3.76x more common in suspicious loans (25 occurrences, 0.002% vs 0.001%)
+SHANTRICE: 3.74x more common in suspicious loans (32 occurrences, 0.003% vs 0.001%)
+TATEVIK: 3.72x more common in suspicious loans (29 occurrences, 0.002% vs 0.001%)
+TIERRE: 3.72x more common in suspicious loans (29 occurrences, 0.002% vs 0.001%)
+MARSHAWN: 3.72x more common in suspicious loans (94 occurrences, 0.008% vs 0.002%)
+DEAUNDRE: 3.68x more common in suspicious loans (37 occurrences, 0.003% vs 0.001%)
+TASHAY: 3.66x more common in suspicious loans (48 occurrences, 0.004% vs 0.001%)
+MAKIYA: 3.66x more common in suspicious loans (41 occurrences, 0.003% vs 0.001%)
+RODRICUS: 3.66x more common in suspicious loans (25 occurrences, 0.002% vs 0.001%)
+NAFIS: 3.66x more common in suspicious loans (25 occurrences, 0.002% vs 0.001%)
+TITIANA: 3.66x more common in suspicious loans (25 occurrences, 0.002% vs 0.001%)
+TAVARIUS: 3.66x more common in suspicious loans (25 occurrences, 0.002% vs 0.001%)
+TALITHA: 3.65x more common in suspicious loans (36 occurrences, 0.003% vs 0.001%)
+JACORY: 3.63x more common in suspicious loans (40 occurrences, 0.003% vs 0.001%)
+QUINTAVIOUS: 3.62x more common in suspicious loans (53 occurrences, 0.004% vs 0.001%)
+LILIT: 3.62x more common in suspicious loans (57 occurrences, 0.005% vs 0.001%)
+SHAKINA: 3.61x more common in suspicious loans (35 occurrences, 0.003% vs 0.001%)
+SHENEQUA: 3.60x more common in suspicious loans (26 occurrences, 0.002% vs 0.001%)
+JAKOBE: 3.60x more common in suspicious loans (26 occurrences, 0.002% vs 0.001%)
+OSHAY: 3.60x more common in suspicious loans (28 occurrences, 0.002% vs 0.001%)
+YULANDA: 3.59x more common in suspicious loans (30 occurrences, 0.003% vs 0.001%)
+DEONTRE: 3.59x more common in suspicious loans (30 occurrences, 0.003% vs 0.001%)
+DEVION: 3.57x more common in suspicious loans (63 occurrences, 0.005% vs 0.001%)
+ANTAVIOUS: 3.55x more common in suspicious loans (27 occurrences, 0.002% vs 0.001%)
+TREVEON: 3.53x more common in suspicious loans (49 occurrences, 0.004% vs 0.001%)
+ZAKIYAH: 3.51x more common in suspicious loans (28 occurrences, 0.002% vs 0.001%)
+SANTONIO: 3.51x more common in suspicious loans (28 occurrences, 0.002% vs 0.001%)
+GAYANE: 3.51x more common in suspicious loans (46 occurrences, 0.004% vs 0.001%)
+LOLITA: 3.51x more common in suspicious loans (146 occurrences, 0.012% vs 0.003%)
+SHAMON: 3.51x more common in suspicious loans (26 occurrences, 0.002% vs 0.001%)
+CARMELITA: 3.49x more common in suspicious loans (63 occurrences, 0.005% vs 0.002%)
+DARIOUS: 3.49x more common in suspicious loans (57 occurrences, 0.005% vs 0.001%)
+LAVONTE: 3.49x more common in suspicious loans (49 occurrences, 0.004% vs 0.001%)
+TYASIA: 3.48x more common in suspicious loans (37 occurrences, 0.003% vs 0.001%)
+TOSHIBA: 3.48x more common in suspicious loans (35 occurrences, 0.003% vs 0.001%)
+DAIJAH: 3.48x more common in suspicious loans (70 occurrences, 0.006% vs 0.002%)
+JAMIAH: 3.47x more common in suspicious loans (27 occurrences, 0.002% vs 0.001%)
+TALESHA: 3.47x more common in suspicious loans (27 occurrences, 0.002% vs 0.001%)
+KAMESHIA: 3.46x more common in suspicious loans (25 occurrences, 0.002% vs 0.001%)
+ALGERNON: 3.46x more common in suspicious loans (25 occurrences, 0.002% vs 0.001%)
+KEIRRA: 3.46x more common in suspicious loans (48 occurrences, 0.004% vs 0.001%)
+TKEYAH: 3.46x more common in suspicious loans (42 occurrences, 0.004% vs 0.001%)
+ROSHANDA: 3.45x more common in suspicious loans (57 occurrences, 0.005% vs 0.001%)
+DANYALE: 3.45x more common in suspicious loans (38 occurrences, 0.003% vs 0.001%)
+TREMAIN: 3.44x more common in suspicious loans (34 occurrences, 0.003% vs 0.001%)
+SHANTAVIA: 3.44x more common in suspicious loans (51 occurrences, 0.004% vs 0.001%)
+LANESHA: 3.44x more common in suspicious loans (51 occurrences, 0.004% vs 0.001%)
+TATIYANA: 3.44x more common in suspicious loans (49 occurrences, 0.004% vs 0.001%)
+ANGELITA: 3.43x more common in suspicious loans (86 occurrences, 0.007% vs 0.002%)
+MARTAVIUS: 3.42x more common in suspicious loans (39 occurrences, 0.003% vs 0.001%)
+CHANTALE: 3.42x more common in suspicious loans (26 occurrences, 0.002% vs 0.001%)
+TYTIANA: 3.41x more common in suspicious loans (46 occurrences, 0.004% vs 0.001%)
+LASHON: 3.40x more common in suspicious loans (97 occurrences, 0.008% vs 0.002%)
+JAYLAN: 3.40x more common in suspicious loans (84 occurrences, 0.007% vs 0.002%)
+RANESHA: 3.40x more common in suspicious loans (42 occurrences, 0.004% vs 0.001%)
+KADESHA: 3.40x more common in suspicious loans (31 occurrences, 0.003% vs 0.001%)
+SHAQUILLA: 3.40x more common in suspicious loans (40 occurrences, 0.003% vs 0.001%)
+FUNMILAYO: 3.39x more common in suspicious loans (29 occurrences, 0.002% vs 0.001%)
+NATASIA: 3.38x more common in suspicious loans (27 occurrences, 0.002% vs 0.001%)
+SHEKITA: 3.38x more common in suspicious loans (27 occurrences, 0.002% vs 0.001%)
+TAMIYA: 3.38x more common in suspicious loans (34 occurrences, 0.003% vs 0.001%)
+JACARI: 3.38x more common in suspicious loans (25 occurrences, 0.002% vs 0.001%)
+SIARA: 3.38x more common in suspicious loans (25 occurrences, 0.002% vs 0.001%)
+RASHARD: 3.37x more common in suspicious loans (98 occurrences, 0.008% vs 0.002%)
+KALIYAH: 3.37x more common in suspicious loans (48 occurrences, 0.004% vs 0.001%)
+SHELITA: 3.37x more common in suspicious loans (32 occurrences, 0.003% vs 0.001%)
+JABRIA: 3.37x more common in suspicious loans (32 occurrences, 0.003% vs 0.001%)
+LANISE: 3.35x more common in suspicious loans (28 occurrences, 0.002% vs 0.001%)
+DAMARI: 3.35x more common in suspicious loans (28 occurrences, 0.002% vs 0.001%)
+TYREESE: 3.35x more common in suspicious loans (63 occurrences, 0.005% vs 0.002%)
+ARTAVIA: 3.35x more common in suspicious loans (28 occurrences, 0.002% vs 0.001%)
+TREMELL: 3.34x more common in suspicious loans (33 occurrences, 0.003% vs 0.001%)
+TAQUAN: 3.34x more common in suspicious loans (26 occurrences, 0.002% vs 0.001%)
+BRIEANNA: 3.34x more common in suspicious loans (26 occurrences, 0.002% vs 0.001%)
+TASHAUNA: 3.33x more common in suspicious loans (31 occurrences, 0.003% vs 0.001%)
+MARSHAY: 3.33x more common in suspicious loans (48 occurrences, 0.004% vs 0.001%)
+DEMITRIUS: 3.32x more common in suspicious loans (41 occurrences, 0.003% vs 0.001%)
+SHEQUITA: 3.32x more common in suspicious loans (41 occurrences, 0.003% vs 0.001%)
+MONTREL: 3.32x more common in suspicious loans (29 occurrences, 0.002% vs 0.001%)
+MARQUAVIOUS: 3.32x more common in suspicious loans (34 occurrences, 0.003% vs 0.001%)
+DAMARIUS: 3.31x more common in suspicious loans (39 occurrences, 0.003% vs 0.001%)
+LUSINE: 3.31x more common in suspicious loans (49 occurrences, 0.004% vs 0.001%)
+JAZZMINE: 3.31x more common in suspicious loans (76 occurrences, 0.006% vs 0.002%)
+TREVAUGHN: 3.31x more common in suspicious loans (27 occurrences, 0.002% vs 0.001%)
+AMIYAH: 3.31x more common in suspicious loans (27 occurrences, 0.002% vs 0.001%)
+TACARA: 3.30x more common in suspicious loans (32 occurrences, 0.003% vs 0.001%)
+TEARA: 3.30x more common in suspicious loans (47 occurrences, 0.004% vs 0.001%)
+TEDRICK: 3.29x more common in suspicious loans (25 occurrences, 0.002% vs 0.001%)
+IKENNA: 3.29x more common in suspicious loans (25 occurrences, 0.002% vs 0.001%)
+CHERESE: 3.29x more common in suspicious loans (25 occurrences, 0.002% vs 0.001%)
+
+Analyzing Last Name Patterns...
+================================================================================
+Last Name Patterns Analysis
+Chi-square test p-value: 0.000000
+
+Top over-represented categories (min 3 occurrences, top 100):
+MAHABAL: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+SHOMUYIWA: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+ZOUAK: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+ZOUAIN: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+ARZOOMANIAN: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+ASBERT: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+ARUCA: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+ZOKA: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+ZULALYAN: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+ZUBBER: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+AASGAARD: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+ZUZI: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+MAESHACK: 5.27x more common in suspicious loans (7 occurrences, 0.001% vs 0.000%)
+AYMUT: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+YAMAH: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+LUGARO: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+MAKHSOUS: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+MALBRO: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+LUDGOOD: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+LUDGER: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+MALAKHYAN: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+LOZIN: 5.27x more common in suspicious loans (7 occurrences, 0.001% vs 0.000%)
+LOWE-CHIN: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+ROBINSION: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+ATIBA: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+ATLEE: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+MALVOUX: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+LOSIASTE: 5.27x more common in suspicious loans (6 occurrences, 0.001% vs 0.000%)
+SIHIRI: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+SIHA: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+LORIN: 5.27x more common in suspicious loans (6 occurrences, 0.001% vs 0.000%)
+MAMYRASULOV: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+ABDULMAJID: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+ABDELSHAHED: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+LONG-WIRT: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+LONTSI: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+LOMBRAGE: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+LUNNINGHAM: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+LUISERON: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+SHIEF: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+SHIBAIE: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+SILVAIN: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+SIMAGAN: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+LIZCA: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+LIVIE: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+LOVANICE: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+MALYAN: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+AVEGNON: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+ROSTRAN: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+ROSTOM: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+RAMBAL: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+ARTOPEE: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+ARTHURLEE: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+ATUCHI: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+AUDESTIN: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+BAKHSHIYAN: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+BAIYINA: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+BAISIE: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+LIPIN: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+LINKONE: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+SINEL: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+LIBERICE: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+LIAVAA: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+LIASU: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+LEYANNA: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+SIRIANI: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+RIOU: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+SIOW: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+SILLION: 5.27x more common in suspicious loans (6 occurrences, 0.001% vs 0.000%)
+SILENZI: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+MANARD: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+SITOLE: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+SISSAC: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+MARANON: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+ZIMERO: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+ABOA: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+ABDUS-SABOOR: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+LESAIN: 5.27x more common in suspicious loans (7 occurrences, 0.001% vs 0.000%)
+MANIGLIA: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+QUINSEY: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+WYNTON: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+YAAMEEN: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+BABICHEVA: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+BAAREE: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+AZUONWU: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+RAGHUNATHAN: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+AZADI: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+RAEZ: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+AYETIGBO: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+AYEGBUSI: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+BANTOU: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+BANCES: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+SIVELL: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+SIUS: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+LEMONIOUS: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+SKILLOM: 5.27x more common in suspicious loans (6 occurrences, 0.001% vs 0.000%)
+LEGENTUS: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+MARILLO: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+MARICHALES: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+SLIPAK: 5.27x more common in suspicious loans (3 occurrences, 0.000% vs 0.000%)
+
+Top over-represented categories (min 25 occurrences, top 100):
+ROCQUEMORE: 4.68x more common in suspicious loans (32 occurrences, 0.003% vs 0.001%)
+SARDIN: 4.28x more common in suspicious loans (26 occurrences, 0.002% vs 0.001%)
+LORISTON: 4.21x more common in suspicious loans (28 occurrences, 0.002% vs 0.001%)
+BRITTIAN: 4.18x more common in suspicious loans (27 occurrences, 0.002% vs 0.001%)
+SAGO: 4.08x more common in suspicious loans (31 occurrences, 0.003% vs 0.001%)
+TINCH: 4.07x more common in suspicious loans (34 occurrences, 0.003% vs 0.001%)
+STODGHILL: 3.92x more common in suspicious loans (29 occurrences, 0.002% vs 0.001%)
+WORDLAW: 3.85x more common in suspicious loans (41 occurrences, 0.003% vs 0.001%)
+HYPPOLITE: 3.81x more common in suspicious loans (68 occurrences, 0.006% vs 0.001%)
+BATIE: 3.78x more common in suspicious loans (28 occurrences, 0.002% vs 0.001%)
+LASENBY: 3.76x more common in suspicious loans (30 occurrences, 0.003% vs 0.001%)
+POLITE: 3.76x more common in suspicious loans (92 occurrences, 0.008% vs 0.002%)
+SINKFIELD: 3.75x more common in suspicious loans (37 occurrences, 0.003% vs 0.001%)
+LITTLES: 3.71x more common in suspicious loans (62 occurrences, 0.005% vs 0.001%)
+BOOKMAN: 3.71x more common in suspicious loans (38 occurrences, 0.003% vs 0.001%)
+MOLETTE: 3.70x more common in suspicious loans (26 occurrences, 0.002% vs 0.001%)
+BETTON: 3.66x more common in suspicious loans (25 occurrences, 0.002% vs 0.001%)
+BAGHDASARYAN: 3.66x more common in suspicious loans (25 occurrences, 0.002% vs 0.001%)
+PEDROSO: 3.64x more common in suspicious loans (38 occurrences, 0.003% vs 0.001%)
+JUNIOUS: 3.63x more common in suspicious loans (31 occurrences, 0.003% vs 0.001%)
+GIVAN: 3.63x more common in suspicious loans (31 occurrences, 0.003% vs 0.001%)
+PRESENDIEU: 3.62x more common in suspicious loans (33 occurrences, 0.003% vs 0.001%)
+TOWNSEL: 3.61x more common in suspicious loans (59 occurrences, 0.005% vs 0.001%)
+LANDFAIR: 3.58x more common in suspicious loans (34 occurrences, 0.003% vs 0.001%)
+ORELUS: 3.55x more common in suspicious loans (29 occurrences, 0.002% vs 0.001%)
+MADLOCK: 3.55x more common in suspicious loans (29 occurrences, 0.002% vs 0.001%)
+GAYLES: 3.55x more common in suspicious loans (62 occurrences, 0.005% vs 0.001%)
+HOVSEPYAN: 3.55x more common in suspicious loans (31 occurrences, 0.003% vs 0.001%)
+SEMIEN: 3.55x more common in suspicious loans (33 occurrences, 0.003% vs 0.001%)
+CHATMON: 3.51x more common in suspicious loans (58 occurrences, 0.005% vs 0.001%)
+ZAKARYAN: 3.51x more common in suspicious loans (32 occurrences, 0.003% vs 0.001%)
+COAXUM: 3.51x more common in suspicious loans (32 occurrences, 0.003% vs 0.001%)
+HYMON: 3.51x more common in suspicious loans (40 occurrences, 0.003% vs 0.001%)
+ALCIME: 3.51x more common in suspicious loans (34 occurrences, 0.003% vs 0.001%)
+PENNAMON: 3.51x more common in suspicious loans (26 occurrences, 0.002% vs 0.001%)
+KEARSE: 3.51x more common in suspicious loans (48 occurrences, 0.004% vs 0.001%)
+EUSTACHE: 3.47x more common in suspicious loans (29 occurrences, 0.002% vs 0.001%)
+TOLEFREE: 3.46x more common in suspicious loans (25 occurrences, 0.002% vs 0.001%)
+METAYER: 3.46x more common in suspicious loans (69 occurrences, 0.006% vs 0.002%)
+HOSLEY: 3.43x more common in suspicious loans (28 occurrences, 0.002% vs 0.001%)
+PRIOLEAU: 3.42x more common in suspicious loans (39 occurrences, 0.003% vs 0.001%)
+FENELUS: 3.42x more common in suspicious loans (26 occurrences, 0.002% vs 0.001%)
+FAVORS: 3.42x more common in suspicious loans (165 occurrences, 0.014% vs 0.004%)
+TEAMER: 3.42x more common in suspicious loans (37 occurrences, 0.003% vs 0.001%)
+DAVTYAN: 3.39x more common in suspicious loans (49 occurrences, 0.004% vs 0.001%)
+RESPRESS: 3.39x more common in suspicious loans (29 occurrences, 0.002% vs 0.001%)
+DESTINE: 3.39x more common in suspicious loans (38 occurrences, 0.003% vs 0.001%)
+POUGH: 3.38x more common in suspicious loans (36 occurrences, 0.003% vs 0.001%)
+WEATHERALL: 3.38x more common in suspicious loans (25 occurrences, 0.002% vs 0.001%)
+GUIDER: 3.36x more common in suspicious loans (30 occurrences, 0.003% vs 0.001%)
+SHY: 3.36x more common in suspicious loans (30 occurrences, 0.003% vs 0.001%)
+MESIDOR: 3.35x more common in suspicious loans (42 occurrences, 0.004% vs 0.001%)
+SENATUS: 3.35x more common in suspicious loans (49 occurrences, 0.004% vs 0.001%)
+YISRAEL: 3.35x more common in suspicious loans (42 occurrences, 0.004% vs 0.001%)
+ST FLEUR: 3.34x more common in suspicious loans (54 occurrences, 0.005% vs 0.001%)
+PRIMM: 3.34x more common in suspicious loans (40 occurrences, 0.003% vs 0.001%)
+TEZENO: 3.34x more common in suspicious loans (26 occurrences, 0.002% vs 0.001%)
+CRUMBLEY: 3.33x more common in suspicious loans (36 occurrences, 0.003% vs 0.001%)
+MINNIEFIELD: 3.33x more common in suspicious loans (36 occurrences, 0.003% vs 0.001%)
+GOGGINS: 3.33x more common in suspicious loans (48 occurrences, 0.004% vs 0.001%)
+LESURE: 3.32x more common in suspicious loans (53 occurrences, 0.004% vs 0.001%)
+AVRIL: 3.32x more common in suspicious loans (29 occurrences, 0.002% vs 0.001%)
+BUFFORD: 3.32x more common in suspicious loans (51 occurrences, 0.004% vs 0.001%)
+GRANT: 3.31x more common in suspicious loans (2,005 occurrences, 0.168% vs 0.051%)
+KILLINGS: 3.31x more common in suspicious loans (27 occurrences, 0.002% vs 0.001%)
+ESTIME: 3.30x more common in suspicious loans (59 occurrences, 0.005% vs 0.001%)
+MINASYAN: 3.30x more common in suspicious loans (42 occurrences, 0.004% vs 0.001%)
+EALEY: 3.30x more common in suspicious loans (47 occurrences, 0.004% vs 0.001%)
+CARRAZANA: 3.29x more common in suspicious loans (30 occurrences, 0.003% vs 0.001%)
+STAGGERS: 3.29x more common in suspicious loans (25 occurrences, 0.002% vs 0.001%)
+CHERENFANT: 3.29x more common in suspicious loans (25 occurrences, 0.002% vs 0.001%)
+SYLVESTRE: 3.28x more common in suspicious loans (58 occurrences, 0.005% vs 0.001%)
+SALLIS: 3.28x more common in suspicious loans (33 occurrences, 0.003% vs 0.001%)
+NAZARYAN: 3.26x more common in suspicious loans (31 occurrences, 0.003% vs 0.001%)
+MCCONICO: 3.26x more common in suspicious loans (26 occurrences, 0.002% vs 0.001%)
+STANCIEL: 3.26x more common in suspicious loans (26 occurrences, 0.002% vs 0.001%)
+MCGAHEE: 3.26x more common in suspicious loans (26 occurrences, 0.002% vs 0.001%)
+WALTHOUR: 3.26x more common in suspicious loans (26 occurrences, 0.002% vs 0.001%)
+VICKS: 3.25x more common in suspicious loans (34 occurrences, 0.003% vs 0.001%)
+HOLSEY: 3.25x more common in suspicious loans (42 occurrences, 0.004% vs 0.001%)
+STROZIER: 3.25x more common in suspicious loans (74 occurrences, 0.006% vs 0.002%)
+OLLIE: 3.25x more common in suspicious loans (45 occurrences, 0.004% vs 0.001%)
+DIEUJUSTE: 3.23x more common in suspicious loans (78 occurrences, 0.007% vs 0.002%)
+PHILISTIN: 3.23x more common in suspicious loans (35 occurrences, 0.003% vs 0.001%)
+TILLMON: 3.23x more common in suspicious loans (27 occurrences, 0.002% vs 0.001%)
+MCCASTER: 3.23x more common in suspicious loans (27 occurrences, 0.002% vs 0.001%)
+FARQUHARSON: 3.23x more common in suspicious loans (27 occurrences, 0.002% vs 0.001%)
+TIGNER: 3.22x more common in suspicious loans (49 occurrences, 0.004% vs 0.001%)
+IVERY: 3.22x more common in suspicious loans (79 occurrences, 0.007% vs 0.002%)
+SINEGAL: 3.22x more common in suspicious loans (30 occurrences, 0.003% vs 0.001%)
+ZACHERY: 3.22x more common in suspicious loans (71 occurrences, 0.006% vs 0.002%)
+TIGGS: 3.21x more common in suspicious loans (36 occurrences, 0.003% vs 0.001%)
+KIMANI: 3.21x more common in suspicious loans (25 occurrences, 0.002% vs 0.001%)
+STENNIS: 3.21x more common in suspicious loans (39 occurrences, 0.003% vs 0.001%)
+DORVIL: 3.21x more common in suspicious loans (67 occurrences, 0.006% vs 0.002%)
+SERAPHIN: 3.20x more common in suspicious loans (31 occurrences, 0.003% vs 0.001%)
+GEFFRARD: 3.20x more common in suspicious loans (48 occurrences, 0.004% vs 0.001%)
+POGHOSYAN: 3.19x more common in suspicious loans (43 occurrences, 0.004% vs 0.001%)
+FLEITES: 3.18x more common in suspicious loans (26 occurrences, 0.002% vs 0.001%)
+BINION: 3.18x more common in suspicious loans (110 occurrences, 0.009% vs 0.003%)
+================================================================================
+Name Length Analysis
+Suspicious avg: 14.4 chars; Overall avg: 17.5 chars
+t-test p-value: 0.000000
+KS test p-value: 0.000000
+Mann-Whitney U p-value: 0.000000
+
+Word Count Analysis
+Suspicious avg: 2.1 words; Overall avg: 2.7 words
+t-test p-value: 0.000000
+KS test p-value: 0.000000
+Mann-Whitney U p-value: 0.000000
+
+________________________________________________________________________________________________________________________
+
+
+Starting Business Name Patterns analysis...
+================================================================================
+Business Name Pattern Analysis
+Contains Numbers: 0.146% in suspicious vs 1.410% overall (0.10x)
+ALL CAPS: 99.998% in suspicious vs 99.995% overall (1.00x)
+Multiple Spaces: 0.180% in suspicious vs 0.324% overall (0.55x)
+Special Characters: 1.496% in suspicious vs 15.506% overall (0.10x)
+Starts with The: 0.069% in suspicious vs 0.816% overall (0.08x)
+Ends with LLC: 1.805% in suspicious vs 15.631% overall (0.12x)
+Contains DBA: 0.042% in suspicious vs 0.786% overall (0.05x)
+Contains Trading: 0.004% in suspicious vs 0.066% overall (0.06x)
+Contains Consulting: 0.106% in suspicious vs 0.743% overall (0.14x)
+Contains Services: 0.169% in suspicious vs 1.456% overall (0.12x)
+Contains Solutions: 0.085% in suspicious vs 0.548% overall (0.16x)
+
+________________________________________________________________________________________________________________________
+
+
+Starting Demographic Patterns analysis...
+
+Analyzing Race Distribution Analysis...
+================================================================================
+Race Distribution Analysis Analysis
+Chi-square test p-value: 0.000000
+
+Top over-represented categories (min 5 occurrences, top 100):
+Black or African American: 2.28x more common in suspicious loans (329,850 occurrences, 27.710% vs 12.134%)
+Native Hawaiian or Other Pacific Islander: 1.13x more common in suspicious loans (1,411 occurrences, 0.119% vs 0.105%)
+Unanswered: 0.92x more common in suspicious loans (798,157 occurrences, 67.052% vs 73.045%)
+American Indian or Alaska Native: 0.37x more common in suspicious loans (2,933 occurrences, 0.246% vs 0.670%)
+White: 0.35x more common in suspicious loans (50,470 occurrences, 4.240% vs 11.978%)
+Asian: 0.31x more common in suspicious loans (7,518 occurrences, 0.632% vs 2.063%)
+Puerto Rican: 0.15x more common in suspicious loans (10 occurrences, 0.001% vs 0.006%)
+
+Top over-represented categories (min 25 occurrences, top 100):
+Black or African American: 2.28x more common in suspicious loans (329,850 occurrences, 27.710% vs 12.134%)
+Native Hawaiian or Other Pacific Islander: 1.13x more common in suspicious loans (1,411 occurrences, 0.119% vs 0.105%)
+Unanswered: 0.92x more common in suspicious loans (798,157 occurrences, 67.052% vs 73.045%)
+American Indian or Alaska Native: 0.37x more common in suspicious loans (2,933 occurrences, 0.246% vs 0.670%)
+White: 0.35x more common in suspicious loans (50,470 occurrences, 4.240% vs 11.978%)
+Asian: 0.31x more common in suspicious loans (7,518 occurrences, 0.632% vs 2.063%)
+
+Analyzing Gender Distribution Analysis...
+================================================================================
+Gender Distribution Analysis Analysis
+Chi-square test p-value: 0.000000
+
+Top over-represented categories (min 5 occurrences, top 100):
+Female Owned: 1.50x more common in suspicious loans (280,486 occurrences, 23.563% vs 15.744%)
+Male Owned: 0.98x more common in suspicious loans (277,855 occurrences, 23.342% vs 23.922%)
+Unanswered: 0.88x more common in suspicious loans (632,011 occurrences, 53.094% vs 60.334%)
+
+Analyzing Ethnicity Distribution Analysis...
+================================================================================
+Ethnicity Distribution Analysis Analysis
+Chi-square test p-value: 0.000000
+
+Top over-represented categories (min 5 occurrences, top 100):
+Not Hispanic or Latino: 1.14x more common in suspicious loans (357,291 occurrences, 30.016% vs 26.258%)
+Hispanic or Latino: 1.01x more common in suspicious loans (39,849 occurrences, 3.348% vs 3.317%)
+Unknown/NotStated: 0.95x more common in suspicious loans (793,212 occurrences, 66.637% vs 70.426%)
+
+________________________________________________________________________________________________________________________
+
+
+Starting Risk Flags Analysis analysis...
+
+Top risk flags in suspicious loans:
+Fewer than three employees reported: Increased fraud risk: 1,190,351 occurrences (100.000% of loans)
+Only one employee reported: Very high fraud risk: 1,190,099 occurrences (99.979% of loans)
+High-risk business type: 1,158,766 occurrences (97.346% of loans)
+Extremely high amount per employee: 1,116,551 occurrences (93.800% of loans)
+Exact maximum loan amount detected: 685,602 occurrences (57.597% of loans)
+High amount per employee: $20,833.00: 430,703 occurrences (36.183% of loans)
+High amount per employee: $20,832.00: 254,872 occurrences (21.411% of loans)
+High-risk lender: 216,973 occurrences (18.228% of loans)
+Duplicate exact loan detected: 211,360 occurrences (17.756% of loans)
+Residential address: 178,998 occurrences (15.037% of loans)
+Shared address with 1 other businesses: 174,221 occurrences (14.636% of loans)
+Interaction: High amount per employee + Residential address (x1.05): 173,143 occurrences (14.546% of loans)
+Interaction: Exact maximum loan amount detected + High-risk lender (x1.05): 130,090 occurrences (10.929% of loans)
+Multiple loans (2) for same borrower: 77,232 occurrences (6.488% of loans)
+Connected to 2 other businesses: 56,014 occurrences (4.706% of loans)
+Shared address with 2 other businesses: 54,415 occurrences (4.571% of loans)
+Address used 3 times: 52,569 occurrences (4.416% of loans)
+High amount per employee: $20,000.00: 29,614 occurrences (2.488% of loans)
+Connected to 3 other businesses: 23,853 occurrences (2.004% of loans)
+Multiple businesses with suspiciously similar name lengths: 22,146 occurrences (1.860% of loans)
+Shared address with 3 other businesses: 19,885 occurrences (1.671% of loans)
+Address used 4 times: 18,720 occurrences (1.573% of loans)
+Multiple businesses at residential address (2): 16,443 occurrences (1.381% of loans)
+Connected to 4 other businesses: 12,847 occurrences (1.079% of loans)
+Sequential loan numbers from Cross River Bank: 11,022 occurrences (0.926% of loans)
+Address used 5 times: 10,181 occurrences (0.855% of loans)
+Shared address with 4 other businesses: 9,698 occurrences (0.815% of loans)
+Interaction: SBA office cluster + Sequential loan numbers (x1.05): 9,663 occurrences (0.812% of loans)
+Sequential loan numbers from Prestamos CDFI, LLC: 9,118 occurrences (0.766% of loans)
+Connected to 5 other businesses: 8,252 occurrences (0.693% of loans)
+High amount per employee: $20,415.00: 7,292 occurrences (0.613% of loans)
+Multiple loans (3) for same borrower: 6,129 occurrences (0.515% of loans)
+High amount per employee: $18,750.00: 6,017 occurrences (0.505% of loans)
+Connected to 6 other businesses: 5,973 occurrences (0.502% of loans)
+Shared address with 5 other businesses: 5,955 occurrences (0.500% of loans)
+Sequential loan numbers from Capital Plus Financial, LLC: 5,660 occurrences (0.475% of loans)
+Address used 6 times: 5,505 occurrences (0.462% of loans)
+High amount per employee: $20,625.00: 5,323 occurrences (0.447% of loans)
+Unusual lender cluster intensity: 65,565 loans vs 343.5 avg on 05/22/2021: 5,226 occurrences (0.439% of loans)
+High amount per employee: $15,625.00: 5,218 occurrences (0.438% of loans)
+High amount per employee: $20,207.00: 4,904 occurrences (0.412% of loans)
+Unusual lender cluster intensity: 28,340 loans vs 151.2 avg on 05/22/2021: 4,588 occurrences (0.385% of loans)
+Unusual lender cluster intensity: 53,104 loans vs 280.1 avg on 05/22/2021: 4,560 occurrences (0.383% of loans)
+Suspicious pattern in name: lit: 4,480 occurrences (0.376% of loans)
+Connected to 7 other businesses: 4,472 occurrences (0.376% of loans)
+High amount per employee: $20,800.00: 4,396 occurrences (0.369% of loans)
+High amount per employee: $20,416.00: 4,219 occurrences (0.354% of loans)
+High amount per employee: $19,790.00: 4,110 occurrences (0.345% of loans)
+Shared address with 6 other businesses: 4,061 occurrences (0.341% of loans)
+Address used 7 times: 4,009 occurrences (0.337% of loans)
+Unusual lender cluster intensity: 40,599 loans vs 228.1 avg on 04/22/2021: 3,977 occurrences (0.334% of loans)
+Unusual lender cluster intensity: 45,577 loans vs 216.8 avg on 05/29/2021: 3,716 occurrences (0.312% of loans)
+Connected to 8 other businesses: 3,634 occurrences (0.305% of loans)
+High amount per employee: $16,665.00: 3,482 occurrences (0.293% of loans)
+Unusual lender cluster intensity: 40,423 loans vs 215.5 avg on 05/22/2021: 3,479 occurrences (0.292% of loans)
+Unusual lender cluster intensity: 10,936 loans vs 56.8 avg on 05/22/2021: 3,366 occurrences (0.283% of loans)
+Unusual lender cluster intensity: 16,275 loans vs 172.3 avg on 03/31/2021: 3,129 occurrences (0.263% of loans)
+High amount per employee: $15,000.00: 2,986 occurrences (0.251% of loans)
+Shared address with 7 other businesses: 2,981 occurrences (0.250% of loans)
+High amount per employee: $20,750.00: 2,918 occurrences (0.245% of loans)
+Connected to 9 other businesses: 2,908 occurrences (0.244% of loans)
+High amount per employee: $19,791.00: 2,895 occurrences (0.243% of loans)
+High amount per employee: $19,165.00: 2,892 occurrences (0.243% of loans)
+Unusual lender cluster intensity: 23,655 loans vs 114.0 avg on 05/29/2021: 2,830 occurrences (0.238% of loans)
+Unusual lender cluster intensity: 10,114 loans vs 64.8 avg on 05/12/2021: 2,822 occurrences (0.237% of loans)
+Unusual lender cluster intensity: 37,218 loans vs 177.9 avg on 05/29/2021: 2,792 occurrences (0.235% of loans)
+Address used 8 times: 2,787 occurrences (0.234% of loans)
+High amount per employee: $12,500.00: 2,769 occurrences (0.233% of loans)
+High amount per employee: $14,582.00: 2,646 occurrences (0.222% of loans)
+High amount per employee: $17,707.00: 2,618 occurrences (0.220% of loans)
+Unusual lender cluster intensity: 10,682 loans vs 214.7 avg on 03/23/2021: 2,598 occurrences (0.218% of loans)
+Unusual lender cluster intensity: 52,000 loans vs 287.5 avg on 04/22/2021: 2,575 occurrences (0.216% of loans)
+High amount per employee: $20,208.00: 2,547 occurrences (0.214% of loans)
+Unusual lender cluster intensity: 33,045 loans vs 183.4 avg on 04/22/2021: 2,519 occurrences (0.212% of loans)
+Unusual lender cluster intensity: 38,448 loans vs 246.1 avg on 05/12/2021: 2,513 occurrences (0.211% of loans)
+High amount per employee: $18,125.00: 2,510 occurrences (0.211% of loans)
+Unusual lender cluster intensity: 9,773 loans vs 47.2 avg on 05/29/2021: 2,508 occurrences (0.211% of loans)
+Unusual lender cluster intensity: 24,933 loans vs 136.5 avg on 04/22/2021: 2,401 occurrences (0.202% of loans)
+Suspicious pattern in name: grant: 2,385 occurrences (0.200% of loans)
+Connected to 10 other businesses: 2,337 occurrences (0.196% of loans)
+Unusual lender cluster intensity: 91,725 loans vs 482.0 avg on 05/22/2021: 2,328 occurrences (0.196% of loans)
+Shared address with 8 other businesses: 2,272 occurrences (0.191% of loans)
+High amount per employee: $20,052.00: 2,263 occurrences (0.190% of loans)
+High amount per employee: $20,520.00: 2,231 occurrences (0.187% of loans)
+Unusual lender cluster intensity: 23,605 loans vs 148.8 avg on 05/12/2021: 2,228 occurrences (0.187% of loans)
+Unusual lender cluster intensity: 7,559 loans vs 48.0 avg on 05/20/2021: 2,211 occurrences (0.186% of loans)
+High amount per employee: $19,375.00: 2,144 occurrences (0.180% of loans)
+Unusual lender cluster intensity: 32,269 loans vs 203.1 avg on 05/12/2021: 2,141 occurrences (0.180% of loans)
+Address used 9 times: 2,131 occurrences (0.179% of loans)
+Unusual lender cluster intensity: 22,603 loans vs 156.7 avg on 04/27/2021: 2,123 occurrences (0.178% of loans)
+High amount per employee: $20,830.00: 2,090 occurrences (0.176% of loans)
+Connected to 11 other businesses: 2,076 occurrences (0.174% of loans)
+Unusual lender cluster intensity: 21,679 loans vs 231.3 avg on 04/26/2021: 2,064 occurrences (0.173% of loans)
+High amount per employee: $19,166.00: 2,043 occurrences (0.172% of loans)
+Unusual lender cluster intensity: 18,063 loans vs 152.0 avg on 04/08/2021: 1,994 occurrences (0.168% of loans)
+Unusual lender cluster intensity: 30,437 loans vs 251.7 avg on 05/20/2021: 1,967 occurrences (0.165% of loans)
+Unusual lender cluster intensity: 8,096 loans vs 36.9 avg on 05/13/2021: 1,939 occurrences (0.163% of loans)
+Unusual lender cluster intensity: 12,438 loans vs 145.5 avg on 04/02/2021: 1,923 occurrences (0.162% of loans)
+Unusual lender cluster intensity: 42,510 loans vs 237.0 avg on 04/22/2021: 1,907 occurrences (0.160% of loans)
+Multiple businesses at residential address (3): 1,844 occurrences (0.155% of loans)
+
+________________________________________________________________________________________________________________________
+
+
+Starting Loan Amount Distribution analysis...
+
+Loan Amount Distribution
+
+Suspicious:
+  Mean: $19,480.303
+  Median: $20,832.000
+  Std: $2,715.182
+  Min: $5,285.000
+  Max: $20,980.000
+  IQR: $1,000.000
+  Skewness: -2.405
+  Kurtosis: 5.238
+
+Overall:
+  Mean: $15,040.431
+  Median: $16,188.000
+  Std: $5,570.500
+  Min: $5,000.000
+  Max: $21,999.980
+  IQR: $10,963.000
+  Skewness: -0.367
+  Kurtosis: -1.401
+
+Statistical Tests:
+T-test p-value: 0.000000
+KS test p-value: 0.000000
+Mann-Whitney U p-value: 0.000000
+
+________________________________________________________________________________________________________________________
+
+
+Starting Jobs Reported Patterns analysis...
+
+Jobs Reported Analysis
+
+Suspicious:
+  Mean: 1.000
+  Median: 1.000
+  Std: 0.015
+  Min: 0.000
+  Max: 2.000
+  Zero jobs: 0.000%
+  Single job: 99.979
+  Multiple jobs: 0.021%
+
+Overall:
+  Mean: 1.675
+  Median: 1.000
+  Std: 3.908
+  Min: 0.000
+  Max: 500.000
+  Zero jobs: 0.002%
+  Single job: 78.205
+  Multiple jobs: 21.793%
+
+Statistical Tests:
+T-test p-value: 0.000000
+Mann-Whitney U p-value: 0.000000
+KS test p-value: 0.000000
+
+________________________________________________________________________________________________________________________
+
+
+Starting Risk Score Distribution analysis...
+
+Risk Score Distribution in Suspicious Loans
+Mean: 171.015
+Median: 156.339
+Std: 57.263
+Min: 140.000
+Max: 3906.788
+25th percentile: 147.750
+75th percentile: 176.566
+Skewness: 15.740
+Kurtosis: 472.684
+
+Risk Level Distribution:
+Low Risk: 0 loans (0.000%)
+Medium Risk: 0 loans (0.000%)
+High Risk: 0 loans (0.000%)
+Very High Risk: 0 loans (0.000%)
+
+________________________________________________________________________________________________________________________
+
+
+Starting Risk Flags Count Distribution analysis...
+
+Risk Flags Count Distribution in Suspicious Loans
+Mean: 8.743
+Median: 9.000
+Std: 1.290
+Min: 3.000
+Max: 21.000
+25th percentile: 8.000
+75th percentile: 9.000
+
+Flag Count Distribution:
+3 flags: 3 loans (0.000%)
+4 flags: 88 loans (0.007%)
+5 flags: 1,922 loans (0.161%)
+6 flags: 15,861 loans (1.332%)
+7 flags: 130,688 loans (10.979%)
+8 flags: 432,391 loans (36.325%)
+9 flags: 328,821 loans (27.624%)
+10 flags: 169,696 loans (14.256%)
+11 flags: 74,979 loans (6.299%)
+12 flags: 25,011 loans (2.101%)
+13 flags: 7,137 loans (0.600%)
+14 flags: 2,413 loans (0.203%)
+15 flags: 888 loans (0.075%)
+16 flags: 296 loans (0.025%)
+17 flags: 102 loans (0.009%)
+18 flags: 34 loans (0.003%)
+19 flags: 11 loans (0.001%)
+20 flags: 10 loans (0.001%)
+21 flags: 1 loans (0.000%)
+
+One-sample t-test p-value (against 0): 0.000000
+
+________________________________________________________________________________________________________________________
+
+
+Starting Correlations analysis...
+
+Correlation Analysis among Numerical Features
+                       InitialApprovalAmount  JobsReported  NameLength  WordCount
+InitialApprovalAmount               1.000000     -0.020758   -0.136288  -0.168043
+JobsReported                       -0.020758      1.000000    0.119791   0.143507
+NameLength                         -0.136288      0.119791    1.000000   0.858849
+WordCount                          -0.168043      0.143507    0.858849   1.000000
+
+________________________________________________________________________________________________________________________
+
+
+Starting Feature Discrimination (AUPRC) analysis...
+
+Feature Discrimination Analysis using AUPRC
+Starting prepare_enhanced_features - Initial shape: (6267512, 22)
+Full prepared shape after feature prep: (6267512, 34)
+After deduplication and index reset - Shape: (6267512, 34)
+Flagged loans: 1190352, Total: 6267512
+
+Detailed Feature Analysis:
+Note: Patterns reflect data distribution and statistical significance, not targeted focus on any group.
+AmountPerEmployee: AUPRC = 0.4348 (p < 0.05, significant)
+InitialApprovalAmount: AUPRC = 0.3927 (p < 0.05, significant)
+IsExactMaxAmount: AUPRC = 0.3497 (p < 0.05, significant)
+WordCount: AUPRC = 0.2825 (p < 0.05, significant)
+Race_Black_or_African_American: AUPRC = 0.2575 (p >= 0.05, not significant)
+  All categories for Race:
+  Note: Racial patterns reflect data distribution, not targeted focus.
+    **Race_Black_or_African_American: AUPRC = 0.2575**
+      Race_White: AUPRC = 0.2059
+      Race_Unanswered: AUPRC = 0.2038
+      Race_Asian: AUPRC = 0.1927
+      Race_American_Indian_or_Alaska_Native: AUPRC = 0.1907
+      Race_Puerto_Rican: AUPRC = 0.1899
+      Race_Multi_Group: AUPRC = 0.1899
+      Race_Eskimo_&_Aleut: AUPRC = 0.1899
+      Race_Native_Hawaiian_or_Other_Pacific_Islander: AUPRC = 0.1899
+BusinessType_Sole_Proprietorship: AUPRC = 0.2537 (p >= 0.05, not significant)
+  All categories for BusinessType:
+    **BusinessType_Sole_Proprietorship: AUPRC = 0.2537**
+      BusinessType_Limited__Liability_Company(LLC): AUPRC = 0.2202
+      BusinessType_Corporation: AUPRC = 0.2118
+      BusinessType_Self-Employed_Individuals: AUPRC = 0.2068
+      BusinessType_Subchapter_S_Corporation: AUPRC = 0.2004
+      BusinessType_Independent_Contractors: AUPRC = 0.2003
+      BusinessType_Non-Profit_Organization: AUPRC = 0.1920
+      BusinessType_Partnership: AUPRC = 0.1911
+      BusinessType_Single_Member_LLC: AUPRC = 0.1907
+      BusinessType_Limited_Liability_Partnership: AUPRC = 0.1904
+      BusinessType_Professional_Association: AUPRC = 0.1903
+      BusinessType_501(c)3_–_Non_Profit: AUPRC = 0.1901
+      BusinessType_Cooperative: AUPRC = 0.1900
+      BusinessType_501(c)6_–_Non_Profit_Membership: AUPRC = 0.1900
+      BusinessType_Trust: AUPRC = 0.1900
+      BusinessType_Joint_Venture: AUPRC = 0.1899
+      BusinessType_Qualified_Joint-Venture_(spouses): AUPRC = 0.1899
+      BusinessType_Non-Profit_Childcare_Center: AUPRC = 0.1899
+      BusinessType_Unknown: AUPRC = 0.1899
+      BusinessType_Tenant_in_Common: AUPRC = 0.1899
+      BusinessType_501(c)19_–_Non_Profit_Veterans: AUPRC = 0.1899
+      BusinessType_Employee_Stock_Ownership_Plan(ESOP): AUPRC = 0.1899
+      BusinessType_Housing_Co-op: AUPRC = 0.1899
+      BusinessType_Tribal_Concerns: AUPRC = 0.1899
+      BusinessType_Rollover_as_Business_Start-Ups_(ROB: AUPRC = 0.1899
+      BusinessType_501(c)_–_Non_Profit_except_3,4,6,: AUPRC = 0.1899
+NameLength: AUPRC = 0.2443 (p < 0.05, significant)
+JobsReported: AUPRC = 0.2428 (p < 0.05, significant)
+IsLMI: AUPRC = 0.2403 (p < 0.05, significant)
+IsRoundAmount: AUPRC = 0.2237 (p < 0.05, significant)
+BusinessType_Limited__Liability_Company(LLC): AUPRC = 0.2202 (p >= 0.05, not significant)
+Gender_Female_Owned: AUPRC = 0.2122 (p >= 0.05, not significant)
+  All categories for Gender:
+    **Gender_Female_Owned: AUPRC = 0.2122**
+      Gender_Unanswered: AUPRC = 0.2062
+      Gender_Male_Owned: AUPRC = 0.1910
+BusinessType_Corporation: AUPRC = 0.2118 (p >= 0.05, not significant)
+IsHubzone: AUPRC = 0.2094 (p < 0.05, significant)
+BusinessType_Self-Employed_Individuals: AUPRC = 0.2068 (p >= 0.05, not significant)
+Gender_Unanswered: AUPRC = 0.2062 (p >= 0.05, not significant)
+Race_White: AUPRC = 0.2059 (p >= 0.05, not significant)
+Race_Unanswered: AUPRC = 0.2038 (p >= 0.05, not significant)
+HasResidentialIndicator: AUPRC = 0.2024 (p < 0.05, significant)
+BusinessType_Subchapter_S_Corporation: AUPRC = 0.2004 (p >= 0.05, not significant)
+BusinessType_Independent_Contractors: AUPRC = 0.2003 (p >= 0.05, not significant)
+Ethnicity_Not_Hispanic_or_Latino: AUPRC = 0.1981 (p >= 0.05, not significant)
+  All categories for Ethnicity:
+    **Ethnicity_Not_Hispanic_or_Latino: AUPRC = 0.1981**
+      Ethnicity_Unknown/NotStated: AUPRC = 0.1980
+      Ethnicity_Hispanic_or_Latino: AUPRC = 0.1900
+Ethnicity_Unknown/NotStated: AUPRC = 0.1980 (p >= 0.05, not significant)
+Race_Asian: AUPRC = 0.1927 (p >= 0.05, not significant)
+IsNonProfit: AUPRC = 0.1922 (p < 0.05, significant)
+BusinessType_Non-Profit_Organization: AUPRC = 0.1920 (p >= 0.05, not significant)
+BusinessType_Partnership: AUPRC = 0.1911 (p >= 0.05, not significant)
+Gender_Male_Owned: AUPRC = 0.1910 (p >= 0.05, not significant)
+Race_American_Indian_or_Alaska_Native: AUPRC = 0.1907 (p >= 0.05, not significant)
+BusinessType_Single_Member_LLC: AUPRC = 0.1907 (p >= 0.05, not significant)
+BusinessType_Limited_Liability_Partnership: AUPRC = 0.1904 (p >= 0.05, not significant)
+HasCommercialIndicator: AUPRC = 0.1903 (p < 0.05, significant)
+BusinessType_Professional_Association: AUPRC = 0.1903 (p >= 0.05, not significant)
+BusinessType_501(c)3_–_Non_Profit: AUPRC = 0.1901 (p >= 0.05, not significant)
+BusinessType_Cooperative: AUPRC = 0.1900 (p >= 0.05, not significant)
+Ethnicity_Hispanic_or_Latino: AUPRC = 0.1900 (p >= 0.05, not significant)
+BusinessType_501(c)6_–_Non_Profit_Membership: AUPRC = 0.1900 (p >= 0.05, not significant)
+BusinessType_Trust: AUPRC = 0.1900 (p >= 0.05, not significant)
+BusinessType_Joint_Venture: AUPRC = 0.1899 (p >= 0.05, not significant)
+BusinessType_Qualified_Joint-Venture_(spouses): AUPRC = 0.1899 (p >= 0.05, not significant)
+BusinessType_Non-Profit_Childcare_Center: AUPRC = 0.1899 (p >= 0.05, not significant)
+BusinessType_Unknown: AUPRC = 0.1899 (p >= 0.05, not significant)
+BusinessType_Tenant_in_Common: AUPRC = 0.1899 (p >= 0.05, not significant)
+Race_Puerto_Rican: AUPRC = 0.1899 (p >= 0.05, not significant)
+BusinessType_501(c)19_–_Non_Profit_Veterans: AUPRC = 0.1899 (p >= 0.05, not significant)
+BusinessType_Employee_Stock_Ownership_Plan(ESOP): AUPRC = 0.1899 (p >= 0.05, not significant)
+BusinessType_Housing_Co-op: AUPRC = 0.1899 (p >= 0.05, not significant)
+BusinessType_Tribal_Concerns: AUPRC = 0.1899 (p >= 0.05, not significant)
+BusinessType_Rollover_as_Business_Start-Ups_(ROB: AUPRC = 0.1899 (p >= 0.05, not significant)
+Race_Multi_Group: AUPRC = 0.1899 (p >= 0.05, not significant)
+Race_Eskimo_&_Aleut: AUPRC = 0.1899 (p >= 0.05, not significant)
+BusinessType_501(c)_–_Non_Profit_except_3,4,6,: AUPRC = 0.1899 (p >= 0.05, not significant)
+MissingDemographics: AUPRC = 0.1899 (p >= 0.05, not significant)
+Race_Native_Hawaiian_or_Other_Pacific_Islander: AUPRC = 0.1899 (p >= 0.05, not significant)
+
+Features ranked by AUPRC (discriminative power):
+AmountPerEmployee: AUPRC = 0.4348
+InitialApprovalAmount: AUPRC = 0.3927
+IsExactMaxAmount: AUPRC = 0.3497
+WordCount: AUPRC = 0.2825
+Race_Black_or_African_American: AUPRC = 0.2575
+BusinessType_Sole_Proprietorship: AUPRC = 0.2537
+NameLength: AUPRC = 0.2443
+JobsReported: AUPRC = 0.2428
+IsLMI: AUPRC = 0.2403
+IsRoundAmount: AUPRC = 0.2237
+BusinessType_Limited__Liability_Company(LLC): AUPRC = 0.2202
+Gender_Female_Owned: AUPRC = 0.2122
+BusinessType_Corporation: AUPRC = 0.2118
+IsHubzone: AUPRC = 0.2094
+BusinessType_Self-Employed_Individuals: AUPRC = 0.2068
+Gender_Unanswered: AUPRC = 0.2062
+Race_White: AUPRC = 0.2059
+Race_Unanswered: AUPRC = 0.2038
+HasResidentialIndicator: AUPRC = 0.2024
+BusinessType_Subchapter_S_Corporation: AUPRC = 0.2004
+BusinessType_Independent_Contractors: AUPRC = 0.2003
+Ethnicity_Not_Hispanic_or_Latino: AUPRC = 0.1981
+Ethnicity_Unknown/NotStated: AUPRC = 0.1980
+Race_Asian: AUPRC = 0.1927
+IsNonProfit: AUPRC = 0.1922
+BusinessType_Non-Profit_Organization: AUPRC = 0.1920
+BusinessType_Partnership: AUPRC = 0.1911
+Gender_Male_Owned: AUPRC = 0.1910
+Race_American_Indian_or_Alaska_Native: AUPRC = 0.1907
+BusinessType_Single_Member_LLC: AUPRC = 0.1907
+BusinessType_Limited_Liability_Partnership: AUPRC = 0.1904
+HasCommercialIndicator: AUPRC = 0.1903
+BusinessType_Professional_Association: AUPRC = 0.1903
+BusinessType_501(c)3_–_Non_Profit: AUPRC = 0.1901
+BusinessType_Cooperative: AUPRC = 0.1900
+Ethnicity_Hispanic_or_Latino: AUPRC = 0.1900
+BusinessType_501(c)6_–_Non_Profit_Membership: AUPRC = 0.1900
+BusinessType_Trust: AUPRC = 0.1900
+BusinessType_Joint_Venture: AUPRC = 0.1899
+BusinessType_Qualified_Joint-Venture_(spouses): AUPRC = 0.1899
+BusinessType_Non-Profit_Childcare_Center: AUPRC = 0.1899
+BusinessType_Unknown: AUPRC = 0.1899
+BusinessType_Tenant_in_Common: AUPRC = 0.1899
+Race_Puerto_Rican: AUPRC = 0.1899
+BusinessType_501(c)19_–_Non_Profit_Veterans: AUPRC = 0.1899
+BusinessType_Employee_Stock_Ownership_Plan(ESOP): AUPRC = 0.1899
+BusinessType_Housing_Co-op: AUPRC = 0.1899
+BusinessType_Tribal_Concerns: AUPRC = 0.1899
+BusinessType_Rollover_as_Business_Start-Ups_(ROB: AUPRC = 0.1899
+Race_Multi_Group: AUPRC = 0.1899
+Race_Eskimo_&_Aleut: AUPRC = 0.1899
+BusinessType_501(c)_–_Non_Profit_except_3,4,6,: AUPRC = 0.1899
+MissingDemographics: AUPRC = 0.1899
+Race_Native_Hawaiian_or_Other_Pacific_Islander: AUPRC = 0.1899
+
+Baseline AUPRC (random guessing): 0.1899
+
+________________________________________________________________________________________________________________________
+
+
+Starting Multivariate Analysis analysis...
+
+Enhanced Multivariate Analysis via Logistic Regression
+Preparing enhanced features for multivariate analysis...
+Starting prepare_enhanced_features - Initial shape: (6267512, 22)
+Starting prepare_enhanced_features - Initial shape: (6267512, 22)
+Suspicious LoanNumbers unique count: 1190352
+Full dataset LoanNumbers unique count: 6267512
+Number of matched loan numbers: 1190352
+Class distribution - Suspicious: 1190352, Non-suspicious: 5077160
+Dropping LoanNumber column...
+Creating initial feature matrix X...
+Initial X shape: (6267512, 13), Columns: ['InitialApprovalAmount', 'JobsReported', 'NameLength', 'WordCount', 'AmountPerEmployee', 'HasResidentialIndicator', 'HasCommercialIndicator', 'IsExactMaxAmount', 'IsRoundAmount', 'MissingDemographics', 'IsHubzone', 'IsLMI', 'IsNonProfit']
+
+Diagnosing feature variance and correlations...
+Removing low-variance numerical features: ['MissingDemographics']
+High correlations detected (r > 0.85):
+  NameLength - WordCount: 0.859
+Removing correlated features: {'WordCount'}
+
+Processing categorical feature: BusinessType
+  Unique categories: 26, Min count: 7
+  Concatenating dummies for BusinessType...
+  After concat shape: (6267512, 23)
+
+Final feature matrix shape: (6267512, 23)
+
+Checking for multicollinearity using Correlation Matrix and Targeted VIF...
+Removing IsNonProfit (VIF: 10.12)
+Only one feature remains in targeted set: BusinessType_Non-Profit_Organization. No VIF calculation needed.
+
+Processing categorical feature: Race
+  Unique categories: 9, Min count: 13
+  Removing low-variance dummy columns: ['Race_Other']
+  Concatenating dummies for Race...
+  After concat shape: (6267512, 28)
+
+Final feature matrix shape: (6267512, 28)
+
+Checking for multicollinearity using Correlation Matrix and Targeted VIF...
+
+Processing categorical feature: Gender
+  Unique categories: 3, Min count: 986743
+  Concatenating dummies for Gender...
+  After concat shape: (6267512, 31)
+
+Final feature matrix shape: (6267512, 31)
+
+Checking for multicollinearity using Correlation Matrix and Targeted VIF...
+
+Processing categorical feature: Ethnicity
+  Unique categories: 3, Min count: 207870
+  Concatenating dummies for Ethnicity...
+  After concat shape: (6267512, 34)
+
+Final feature matrix shape: (6267512, 34)
+
+Checking for multicollinearity using Correlation Matrix and Targeted VIF...
+No multicollinearity issues in targeted features (all VIFs ≤ 10).
+Upsampling minority class from 1,190,352 to 5,077,160
+Scaling features...
+Splitting data into training and test sets...
+Fitting Scikit-learn logistic regression (backup model)...
+
+Fitting Statsmodels logistic regression using Newton method...
+Iteration 1: Gradient norm = 943691.466290
+Iteration 2: Gradient norm = 264417.448118
+Iteration 3: Gradient norm = 70244.610580
+Iteration 4: Gradient norm = 22007.883741
+Iteration 5: Gradient norm = 7339.328382
+Iteration 6: Gradient norm = 2245.462557
+Iteration 7: Gradient norm = 703.453685
+Iteration 8: Gradient norm = 386.984111
+Iteration 9: Gradient norm = 491.115542
+Iteration 10: Gradient norm = 347.561501
+Iteration 11: Gradient norm = 109.837634
+Iteration 12: Gradient norm = 10.461674
+Iteration 13: Gradient norm = 0.112662
+Iteration 14: Gradient norm = 0.000013
+Iteration 15: Gradient norm = 0.000000
+Optimization terminated successfully.
+         Current function value: 0.394428
+         Iterations 15
+
+Optimization Results:
+Converged: True
+Number of iterations: 15
+Warning flag: 0
+
+Statsmodels fitting failed: Invalid standard errors in model results.
+Falling back to sklearn model.
+
+Predicting on test set...
+
+Classification Report:
+              precision    recall  f1-score   support
+
+           0      0.868     0.760     0.810   1523148
+           1      0.786     0.884     0.832   1523148
+
+    accuracy                          0.822   3046296
+   macro avg      0.827     0.822     0.821   3046296
+weighted avg      0.827     0.822     0.821   3046296
+
+
+Confusion Matrix:
+[[1157492  365656]
+ [ 176705 1346443]]
+
+Feature Importance (sklearn coefficients):
+  AmountPerEmployee: 2.8989
+  JobsReported: -1.5898
+  InitialApprovalAmount: -1.1565
+  BusinessType_Corporation: -0.8688
+  BusinessType_Subchapter_S_Corporation: -0.5995
+  BusinessType_Non-Profit_Organization: -0.5937
+  BusinessType_Sole_Proprietorship: 0.5208
+  BusinessType_Partnership: -0.4790
+  BusinessType_Self-Employed_Individuals: 0.4309
+  BusinessType_Independent_Contractors: 0.3736
+  IsRoundAmount: -0.3242
+  Race_Black_or_African_American: 0.3205
+  IsLMI: 0.2728
+  Race_White: -0.2486
+  BusinessType_Limited__Liability_Company(LLC): -0.1870
+  Ethnicity_Not_Hispanic_or_Latino: -0.1787
+  HasResidentialIndicator: 0.1494
+  Ethnicity_Unknown/NotStated: 0.1450
+  BusinessType_Professional_Association: -0.1359
+  Gender_Female_Owned: 0.1232
+  NameLength: -0.1223
+  Gender_Unanswered: -0.1068
+  IsExactMaxAmount: 0.1011
+  BusinessType_Limited_Liability_Partnership: -0.0908
+  Ethnicity_Hispanic_or_Latino: 0.0718
+  BusinessType_Other: -0.0632
+  Race_American_Indian_or_Alaska_Native: -0.0545
+  Race_Unanswered: -0.0464
+  Race_Asian: -0.0330
+  IsHubzone: 0.0173
+
+ROC-AUC Score: 0.889
+AUPRC Score: 0.851
+
+________________________________________________________________________________________________________________________
+
+
+Starting XGBoost Analysis analysis...
+
+Enhanced XGBoost Analysis
+Starting prepare_enhanced_features - Initial shape: (6267512, 22)
+After deduplication and index reset - Shape: (6267512, 22)
+InitialApprovalAmount null values: 0
+InitialApprovalAmount type: float32
+BusinessType: 26 total categories, 20 with >= 250 instances
+Race: 9 total categories, 7 with >= 250 instances
+Gender: 3 total categories, 3 with >= 250 instances
+Ethnicity: 3 total categories, 3 with >= 250 instances
+BorrowerState: 58 total categories, 55 with >= 250 instances
+BorrowerCity: 59023 total categories, 3927 with >= 250 instances
+NAICSCode: 1160 total categories, 720 with >= 250 instances
+OriginatingLender: 4865 total categories, 1936 with >= 250 instances
+Prepared feature matrix shape: (6267512, 287), Memory usage: 2.16 GiB
+Index duplicates after preparation: 0
+Full prepared shape after feature prep: (6267512, 287)
+Full prepared index duplicates: 0
+Flagged loans: 1190352, Total: 6267512
+Feature matrix ready. Shape: (6267512, 281), Columns: 281
+Train shape: (4387258, 281), Test shape: (1880254, 281)
+Performing hyperparameter tuning...
+Fitting 2 folds for each of 15 candidates, totalling 30 fits
+[CV] END colsample_bytree=1.0, learning_rate=0.1, max_depth=3, min_child_weight=3, n_estimators=100, scale_pos_weight=4.265259351855586, subsample=0.8; total time=  35.9s
+[CV] END colsample_bytree=1.0, learning_rate=0.1, max_depth=3, min_child_weight=3, n_estimators=100, scale_pos_weight=4.265259351855586, subsample=0.8; total time=  36.6s
+[CV] END colsample_bytree=0.8, learning_rate=0.01, max_depth=3, min_child_weight=1, n_estimators=100, scale_pos_weight=4.265259351855586, subsample=0.8; total time=  41.0s
+[CV] END colsample_bytree=0.8, learning_rate=0.01, max_depth=3, min_child_weight=1, n_estimators=100, scale_pos_weight=4.265259351855586, subsample=0.8; total time=  41.4s
+[CV] END colsample_bytree=0.8, learning_rate=0.01, max_depth=3, min_child_weight=3, n_estimators=100, scale_pos_weight=4.265259351855586, subsample=1.0; total time=  42.3s
+[CV] END colsample_bytree=1.0, learning_rate=0.01, max_depth=5, min_child_weight=3, n_estimators=100, scale_pos_weight=4.265259351855586, subsample=0.8; total time=  48.3s
+[CV] END colsample_bytree=1.0, learning_rate=0.01, max_depth=5, min_child_weight=3, n_estimators=100, scale_pos_weight=4.265259351855586, subsample=0.8; total time=  49.2s
+[CV] END colsample_bytree=1.0, learning_rate=0.1, max_depth=5, min_child_weight=1, n_estimators=200, scale_pos_weight=4.265259351855586, subsample=0.8; total time= 1.1min
+[CV] END colsample_bytree=1.0, learning_rate=0.1, max_depth=5, min_child_weight=1, n_estimators=200, scale_pos_weight=4.265259351855586, subsample=0.8; total time= 1.1min
+[CV] END colsample_bytree=0.8, learning_rate=0.01, max_depth=3, min_child_weight=3, n_estimators=100, scale_pos_weight=4.265259351855586, subsample=1.0; total time=  38.2s
+/home/ubuntu/ppp_loan_fraud_analysis/venv/lib/python3.12/site-packages/joblib/externals/loky/process_executor.py:752: UserWarning: A worker stopped while some jobs were given to the executor. This can be caused by a too short worker timeout or by a memory leak.
+  warnings.warn(
+[CV] END colsample_bytree=1.0, learning_rate=0.01, max_depth=3, min_child_weight=3, n_estimators=100, scale_pos_weight=4.265259351855586, subsample=0.8; total time=  39.1s
+[CV] END colsample_bytree=0.8, learning_rate=0.1, max_depth=3, min_child_weight=1, n_estimators=100, scale_pos_weight=4.265259351855586, subsample=0.8; total time=  35.0s
+[CV] END colsample_bytree=1.0, learning_rate=0.01, max_depth=3, min_child_weight=3, n_estimators=100, scale_pos_weight=4.265259351855586, subsample=0.8; total time=  36.0s
+[CV] END colsample_bytree=0.8, learning_rate=0.1, max_depth=3, min_child_weight=1, n_estimators=100, scale_pos_weight=4.265259351855586, subsample=0.8; total time=  34.7s
+[CV] END colsample_bytree=0.8, learning_rate=0.01, max_depth=5, min_child_weight=3, n_estimators=100, scale_pos_weight=4.265259351855586, subsample=0.8; total time=  48.1s
+[CV] END colsample_bytree=0.8, learning_rate=0.01, max_depth=5, min_child_weight=3, n_estimators=100, scale_pos_weight=4.265259351855586, subsample=0.8; total time=  48.2s
+[CV] END colsample_bytree=0.8, learning_rate=0.1, max_depth=5, min_child_weight=1, n_estimators=100, scale_pos_weight=4.265259351855586, subsample=1.0; total time=  42.6s
+[CV] END colsample_bytree=0.8, learning_rate=0.1, max_depth=5, min_child_weight=1, n_estimators=100, scale_pos_weight=4.265259351855586, subsample=1.0; total time=  40.3s
+[CV] END colsample_bytree=1.0, learning_rate=0.1, max_depth=5, min_child_weight=3, n_estimators=100, scale_pos_weight=4.265259351855586, subsample=1.0; total time=  40.2s
+[CV] END colsample_bytree=1.0, learning_rate=0.1, max_depth=5, min_child_weight=1, n_estimators=100, scale_pos_weight=4.265259351855586, subsample=0.8; total time=  39.8s
+[CV] END colsample_bytree=1.0, learning_rate=0.1, max_depth=5, min_child_weight=3, n_estimators=100, scale_pos_weight=4.265259351855586, subsample=1.0; total time=  41.8s
+[CV] END colsample_bytree=1.0, learning_rate=0.1, max_depth=5, min_child_weight=1, n_estimators=100, scale_pos_weight=4.265259351855586, subsample=0.8; total time=  43.2s
+[CV] END colsample_bytree=0.8, learning_rate=0.01, max_depth=5, min_child_weight=1, n_estimators=100, scale_pos_weight=4.265259351855586, subsample=1.0; total time=  50.6s
+[CV] END colsample_bytree=1.0, learning_rate=0.01, max_depth=5, min_child_weight=1, n_estimators=100, scale_pos_weight=4.265259351855586, subsample=0.8; total time=  47.1s
+[CV] END colsample_bytree=0.8, learning_rate=0.01, max_depth=5, min_child_weight=1, n_estimators=100, scale_pos_weight=4.265259351855586, subsample=1.0; total time=  48.2s
+[CV] END colsample_bytree=1.0, learning_rate=0.01, max_depth=5, min_child_weight=1, n_estimators=100, scale_pos_weight=4.265259351855586, subsample=0.8; total time=  43.0s
+[CV] END colsample_bytree=0.8, learning_rate=0.01, max_depth=5, min_child_weight=3, n_estimators=100, scale_pos_weight=4.265259351855586, subsample=1.0; total time=  42.5s
+[CV] END colsample_bytree=0.8, learning_rate=0.01, max_depth=5, min_child_weight=3, n_estimators=100, scale_pos_weight=4.265259351855586, subsample=1.0; total time=  36.9s
+[CV] END colsample_bytree=1.0, learning_rate=0.01, max_depth=3, min_child_weight=1, n_estimators=200, scale_pos_weight=4.265259351855586, subsample=0.8; total time=  49.6s
+[CV] END colsample_bytree=1.0, learning_rate=0.01, max_depth=3, min_child_weight=1, n_estimators=200, scale_pos_weight=4.265259351855586, subsample=0.8; total time=  51.0s
+Best parameters from tuning: {'subsample': 0.8, 'scale_pos_weight': 4.265259351855586, 'n_estimators': 200, 'min_child_weight': 1, 'max_depth': 5, 'learning_rate': 0.1, 'colsample_bytree': 1.0}
+Fitting final model...
+[0]     validation_0-aucpr:0.69430
+[1]     validation_0-aucpr:0.71474
+[2]     validation_0-aucpr:0.71608
+[3]     validation_0-aucpr:0.72211
+[4]     validation_0-aucpr:0.72160
+[5]     validation_0-aucpr:0.72258
+[6]     validation_0-aucpr:0.72263
+[7]     validation_0-aucpr:0.74334
+[8]     validation_0-aucpr:0.74402
+[9]     validation_0-aucpr:0.74437
+[10]    validation_0-aucpr:0.76550
+[11]    validation_0-aucpr:0.76803
+[12]    validation_0-aucpr:0.77459
+[13]    validation_0-aucpr:0.77316
+[14]    validation_0-aucpr:0.77933
+[15]    validation_0-aucpr:0.78484
+[16]    validation_0-aucpr:0.78420
+[17]    validation_0-aucpr:0.79027
+[18]    validation_0-aucpr:0.79190
+[19]    validation_0-aucpr:0.79674
+[20]    validation_0-aucpr:0.79926
+[21]    validation_0-aucpr:0.80210
+[22]    validation_0-aucpr:0.80330
+[23]    validation_0-aucpr:0.80564
+[24]    validation_0-aucpr:0.80679
+[25]    validation_0-aucpr:0.81022
+[26]    validation_0-aucpr:0.81513
+[27]    validation_0-aucpr:0.81777
+[28]    validation_0-aucpr:0.81814
+[29]    validation_0-aucpr:0.82021
+[30]    validation_0-aucpr:0.82193
+[31]    validation_0-aucpr:0.82430
+[32]    validation_0-aucpr:0.82723
+[33]    validation_0-aucpr:0.82753
+[34]    validation_0-aucpr:0.82942
+[35]    validation_0-aucpr:0.83141
+[36]    validation_0-aucpr:0.83266
+[37]    validation_0-aucpr:0.83612
+[38]    validation_0-aucpr:0.83715
+[39]    validation_0-aucpr:0.83784
+[40]    validation_0-aucpr:0.83896
+[41]    validation_0-aucpr:0.83975
+[42]    validation_0-aucpr:0.84187
+[43]    validation_0-aucpr:0.84264
+[44]    validation_0-aucpr:0.84492
+[45]    validation_0-aucpr:0.84657
+[46]    validation_0-aucpr:0.84797
+[47]    validation_0-aucpr:0.84847
+[48]    validation_0-aucpr:0.84908
+[49]    validation_0-aucpr:0.85081
+[50]    validation_0-aucpr:0.85163
+[51]    validation_0-aucpr:0.85266
+[52]    validation_0-aucpr:0.85354
+[53]    validation_0-aucpr:0.85465
+[54]    validation_0-aucpr:0.85497
+[55]    validation_0-aucpr:0.85596
+[56]    validation_0-aucpr:0.85629
+[57]    validation_0-aucpr:0.85775
+[58]    validation_0-aucpr:0.85798
+[59]    validation_0-aucpr:0.85825
+[60]    validation_0-aucpr:0.85934
+[61]    validation_0-aucpr:0.86009
+[62]    validation_0-aucpr:0.86165
+[63]    validation_0-aucpr:0.86220
+[64]    validation_0-aucpr:0.86242
+[65]    validation_0-aucpr:0.86320
+[66]    validation_0-aucpr:0.86394
+[67]    validation_0-aucpr:0.86416
+[68]    validation_0-aucpr:0.86489
+[69]    validation_0-aucpr:0.86508
+[70]    validation_0-aucpr:0.86538
+[71]    validation_0-aucpr:0.86662
+[72]    validation_0-aucpr:0.86760
+[73]    validation_0-aucpr:0.86769
+[74]    validation_0-aucpr:0.86823
+[75]    validation_0-aucpr:0.86834
+[76]    validation_0-aucpr:0.86860
+[77]    validation_0-aucpr:0.86933
+[78]    validation_0-aucpr:0.86966
+[79]    validation_0-aucpr:0.87030
+[80]    validation_0-aucpr:0.87072
+[81]    validation_0-aucpr:0.87122
+[82]    validation_0-aucpr:0.87134
+[83]    validation_0-aucpr:0.87172
+[84]    validation_0-aucpr:0.87293
+[85]    validation_0-aucpr:0.87338
+[86]    validation_0-aucpr:0.87365
+[87]    validation_0-aucpr:0.87377
+[88]    validation_0-aucpr:0.87394
+[89]    validation_0-aucpr:0.87402
+[90]    validation_0-aucpr:0.87425
+[91]    validation_0-aucpr:0.87471
+[92]    validation_0-aucpr:0.87477
+[93]    validation_0-aucpr:0.87501
+[94]    validation_0-aucpr:0.87516
+[95]    validation_0-aucpr:0.87591
+[96]    validation_0-aucpr:0.87633
+[97]    validation_0-aucpr:0.87654
+[98]    validation_0-aucpr:0.87658
+[99]    validation_0-aucpr:0.87673
+[100]   validation_0-aucpr:0.87697
+[101]   validation_0-aucpr:0.87703
+[102]   validation_0-aucpr:0.87733
+[103]   validation_0-aucpr:0.87752
+[104]   validation_0-aucpr:0.87767
+[105]   validation_0-aucpr:0.87790
+[106]   validation_0-aucpr:0.87805
+[107]   validation_0-aucpr:0.87809
+[108]   validation_0-aucpr:0.87838
+[109]   validation_0-aucpr:0.87845
+[110]   validation_0-aucpr:0.87904
+[111]   validation_0-aucpr:0.87916
+[112]   validation_0-aucpr:0.87930
+[113]   validation_0-aucpr:0.87931
+[114]   validation_0-aucpr:0.87944
+[115]   validation_0-aucpr:0.87964
+[116]   validation_0-aucpr:0.87967
+[117]   validation_0-aucpr:0.88055
+[118]   validation_0-aucpr:0.88060
+[119]   validation_0-aucpr:0.88079
+[120]   validation_0-aucpr:0.88083
+[121]   validation_0-aucpr:0.88111
+[122]   validation_0-aucpr:0.88114
+[123]   validation_0-aucpr:0.88155
+[124]   validation_0-aucpr:0.88184
+[125]   validation_0-aucpr:0.88188
+[126]   validation_0-aucpr:0.88190
+[127]   validation_0-aucpr:0.88214
+[128]   validation_0-aucpr:0.88230
+[129]   validation_0-aucpr:0.88273
+[130]   validation_0-aucpr:0.88280
+[131]   validation_0-aucpr:0.88305
+[132]   validation_0-aucpr:0.88314
+[133]   validation_0-aucpr:0.88316
+[134]   validation_0-aucpr:0.88325
+[135]   validation_0-aucpr:0.88332
+[136]   validation_0-aucpr:0.88347
+[137]   validation_0-aucpr:0.88363
+[138]   validation_0-aucpr:0.88389
+[139]   validation_0-aucpr:0.88407
+[140]   validation_0-aucpr:0.88412
+[141]   validation_0-aucpr:0.88421
+[142]   validation_0-aucpr:0.88434
+[143]   validation_0-aucpr:0.88437
+[144]   validation_0-aucpr:0.88444
+[145]   validation_0-aucpr:0.88446
+[146]   validation_0-aucpr:0.88453
+[147]   validation_0-aucpr:0.88463
+[148]   validation_0-aucpr:0.88469
+[149]   validation_0-aucpr:0.88496
+[150]   validation_0-aucpr:0.88521
+[151]   validation_0-aucpr:0.88522
+[152]   validation_0-aucpr:0.88530
+[153]   validation_0-aucpr:0.88534
+[154]   validation_0-aucpr:0.88539
+[155]   validation_0-aucpr:0.88549
+[156]   validation_0-aucpr:0.88557
+[157]   validation_0-aucpr:0.88558
+[158]   validation_0-aucpr:0.88565
+[159]   validation_0-aucpr:0.88577
+[160]   validation_0-aucpr:0.88586
+[161]   validation_0-aucpr:0.88593
+[162]   validation_0-aucpr:0.88595
+[163]   validation_0-aucpr:0.88598
+[164]   validation_0-aucpr:0.88610
+[165]   validation_0-aucpr:0.88632
+[166]   validation_0-aucpr:0.88636
+[167]   validation_0-aucpr:0.88642
+[168]   validation_0-aucpr:0.88638
+[169]   validation_0-aucpr:0.88639
+[170]   validation_0-aucpr:0.88655
+[171]   validation_0-aucpr:0.88665
+[172]   validation_0-aucpr:0.88672
+[173]   validation_0-aucpr:0.88676
+[174]   validation_0-aucpr:0.88729
+[175]   validation_0-aucpr:0.88755
+[176]   validation_0-aucpr:0.88760
+[177]   validation_0-aucpr:0.88775
+[178]   validation_0-aucpr:0.88794
+[179]   validation_0-aucpr:0.88798
+[180]   validation_0-aucpr:0.88801
+[181]   validation_0-aucpr:0.88803
+[182]   validation_0-aucpr:0.88809
+[183]   validation_0-aucpr:0.88814
+[184]   validation_0-aucpr:0.88867
+[185]   validation_0-aucpr:0.88883
+[186]   validation_0-aucpr:0.88898
+[187]   validation_0-aucpr:0.88900
+[188]   validation_0-aucpr:0.88899
+[189]   validation_0-aucpr:0.88918
+[190]   validation_0-aucpr:0.88932
+[191]   validation_0-aucpr:0.88947
+[192]   validation_0-aucpr:0.88949
+[193]   validation_0-aucpr:0.88956
+[194]   validation_0-aucpr:0.88958
+[195]   validation_0-aucpr:0.88976
+[196]   validation_0-aucpr:0.88982
+[197]   validation_0-aucpr:0.89013
+[198]   validation_0-aucpr:0.89024
+[199]   validation_0-aucpr:0.89025
+Model and feature names saved to xgboost_model_with_features.joblib
+
+Model Performance:
+ROC-AUC Score: 0.975
+Area Under Precision Recall Curve: 0.890
+F1 Score: 0.792
+
+Classification Report:
+              precision    recall  f1-score   support
+
+           0      0.990     0.891     0.938   1523148
+           1      0.673     0.962     0.792    357106
+
+    accuracy                          0.904   1880254
+   macro avg      0.832     0.926     0.865   1880254
+weighted avg      0.930     0.904     0.910   1880254
+
+
+Top Numerical Features:
+  AmountPerEmployee: 0.1371
+  IsExactMaxAmount: 0.0244
+  BusinessesAtAddress: 0.0225
+  WordCount: 0.0155
+  Latitude: 0.0150
+  HasResidentialIndicator: 0.0090
+  IsLMI: 0.0062
+  Longitude: 0.0047
+  InitialApprovalAmount: 0.0032
+  HasCommercialIndicator: 0.0017
+  IsHubzone: 0.0006
+  JobsReported: 0.0006
+  IsRoundAmount: 0.0004
+  HasSuspiciousKeyword: 0.0001
+  NameLength: 0.0001
+
+All Categories for BusinessType:
+    **BusinessType_Limited  Liability Company(LLC): 0.0218**
+      BusinessType_Corporation: 0.0192
+      BusinessType_Self-Employed Individuals: 0.0143
+      BusinessType_Subchapter S Corporation: 0.0093
+      BusinessType_Independent Contractors: 0.0090
+      BusinessType_Sole Proprietorship: 0.0066
+      BusinessType_Single Member LLC: 0.0019
+      BusinessType_501(c)3 – Non Profit: 0.0000
+      BusinessType_501(c)6 – Non Profit Membership: 0.0000
+      BusinessType_Cooperative: 0.0000
+      BusinessType_Joint Venture: 0.0000
+      BusinessType_Limited Liability Partnership: 0.0000
+      BusinessType_Non-Profit Childcare Center: 0.0000
+      BusinessType_Non-Profit Organization: 0.0000
+      BusinessType_Other: 0.0000
+      BusinessType_Partnership: 0.0000
+      BusinessType_Professional Association: 0.0000
+      BusinessType_Qualified Joint-Venture (spouses): 0.0000
+      BusinessType_Tenant in Common: 0.0000
+      BusinessType_Trust: 0.0000
+      BusinessType_Unknown: 0.0000
+
+All Categories for Race:
+  Note: Racial patterns reflect data distribution, not targeted focus.
+    **Race_Black or African American: 0.0044**
+      Race_White: 0.0026
+      Race_Asian: 0.0002
+      Race_Unanswered: 0.0002
+      Race_American Indian or Alaska Native: 0.0000
+      Race_Native Hawaiian or Other Pacific Islander: 0.0000
+      Race_Other: 0.0000
+      Race_Puerto Rican: 0.0000
+
+All Categories for Gender:
+    **Gender_Male Owned: 0.0003**
+      Gender_Unanswered: 0.0002
+      Gender_Female Owned: 0.0001
+
+All Categories for Ethnicity:
+    **Ethnicity_Not Hispanic or Latino: 0.0011**
+      Ethnicity_Unknown/NotStated: 0.0003
+      Ethnicity_Hispanic or Latino: 0.0003
+
+All Categories for BorrowerState:
+    **BorrowerState_IL: 0.0383**
+      BorrowerState_GA: 0.0250
+      BorrowerState_LA: 0.0237
+      BorrowerState_TX: 0.0147
+      BorrowerState_AZ: 0.0117
+      BorrowerState_MS: 0.0089
+      BorrowerState_TN: 0.0085
+      BorrowerState_CA: 0.0080
+      BorrowerState_NC: 0.0074
+      BorrowerState_FL: 0.0074
+      BorrowerState_PA: 0.0056
+      BorrowerState_AL: 0.0049
+      BorrowerState_SD: 0.0037
+      BorrowerState_KY: 0.0037
+      BorrowerState_IN: 0.0034
+      BorrowerState_AR: 0.0033
+      BorrowerState_OK: 0.0029
+      BorrowerState_SC: 0.0028
+      BorrowerState_VA: 0.0025
+      BorrowerState_PR: 0.0025
+      BorrowerState_DC: 0.0025
+      BorrowerState_CO: 0.0023
+      BorrowerState_WI: 0.0022
+      BorrowerState_NV: 0.0021
+      BorrowerState_NM: 0.0020
+      BorrowerState_NJ: 0.0017
+      BorrowerState_WV: 0.0016
+      BorrowerState_DE: 0.0010
+      BorrowerState_ND: 0.0010
+      BorrowerState_KS: 0.0008
+      BorrowerState_IA: 0.0006
+      BorrowerState_MN: 0.0006
+      BorrowerState_NY: 0.0005
+      BorrowerState_OR: 0.0004
+      BorrowerState_OH: 0.0004
+      BorrowerState_WA: 0.0002
+      BorrowerState_CT: 0.0002
+      BorrowerState_MO: 0.0001
+      BorrowerState_MD: 0.0001
+      BorrowerState_AK: 0.0000
+      BorrowerState_GU: 0.0000
+      BorrowerState_HI: 0.0000
+      BorrowerState_ID: 0.0000
+      BorrowerState_MA: 0.0000
+      BorrowerState_ME: 0.0000
+      BorrowerState_MI: 0.0000
+      BorrowerState_MP: 0.0000
+      BorrowerState_MT: 0.0000
+      BorrowerState_NE: 0.0000
+      BorrowerState_NH: 0.0000
+      BorrowerState_Other: 0.0000
+      BorrowerState_RI: 0.0000
+      BorrowerState_UT: 0.0000
+      BorrowerState_VI: 0.0000
+      BorrowerState_VT: 0.0000
+      BorrowerState_WY: 0.0000
+
+All Categories for BorrowerCity:
+    **BorrowerCity_Other_City: 0.0336**
+      BorrowerCity_Philadelphia: 0.0179
+      BorrowerCity_Chicago: 0.0097
+      BorrowerCity_Houston: 0.0089
+      BorrowerCity_Fort Worth: 0.0030
+      BorrowerCity_Orlando: 0.0028
+      BorrowerCity_Jacksonville: 0.0022
+      BorrowerCity_San Antonio: 0.0020
+      BorrowerCity_Austin: 0.0018
+      BorrowerCity_HOUSTON: 0.0017
+      BorrowerCity_ATLANTA: 0.0017
+      BorrowerCity_CHICAGO: 0.0013
+      BorrowerCity_Macon: 0.0011
+      BorrowerCity_San Diego: 0.0010
+      BorrowerCity_Washington: 0.0010
+      BorrowerCity_Miami: 0.0005
+      BorrowerCity_Kissimmee: 0.0005
+      BorrowerCity_Indianapolis: 0.0004
+      BorrowerCity_Memphis: 0.0003
+      BorrowerCity_Detroit: 0.0002
+      BorrowerCity_Birmingham: 0.0002
+      BorrowerCity_Oklahoma City: 0.0002
+      BorrowerCity_Henderson: 0.0002
+      BorrowerCity_Baton Rouge: 0.0001
+      BorrowerCity_Richmond: 0.0001
+      BorrowerCity_Denver: 0.0001
+      BorrowerCity_New York: 0.0001
+      BorrowerCity_Bronx: 0.0001
+      BorrowerCity_LOS ANGELES: 0.0001
+      BorrowerCity_LAS VEGAS: 0.0001
+      BorrowerCity_Atlanta: 0.0001
+      BorrowerCity_Portland: 0.0001
+      BorrowerCity_Springfield: 0.0001
+      BorrowerCity_Toledo: 0.0001
+      BorrowerCity_BROOKLYN: 0.0000
+      BorrowerCity_Jamaica: 0.0000
+      BorrowerCity_Columbus: 0.0000
+      BorrowerCity_Hollywood: 0.0000
+      BorrowerCity_AUSTIN: 0.0000
+      BorrowerCity_Albany: 0.0000
+      BorrowerCity_Alexandria: 0.0000
+      BorrowerCity_Arlington: 0.0000
+      BorrowerCity_Aurora: 0.0000
+      BorrowerCity_Baltimore: 0.0000
+      BorrowerCity_Brooklyn: 0.0000
+      BorrowerCity_Canton: 0.0000
+      BorrowerCity_Charlotte: 0.0000
+      BorrowerCity_Cincinnati: 0.0000
+      BorrowerCity_Cleveland: 0.0000
+      BorrowerCity_Columbia: 0.0000
+      BorrowerCity_Covington: 0.0000
+      BorrowerCity_DALLAS: 0.0000
+      BorrowerCity_Dallas: 0.0000
+      BorrowerCity_Dayton: 0.0000
+      BorrowerCity_Decatur: 0.0000
+      BorrowerCity_Fayetteville: 0.0000
+      BorrowerCity_Fort Lauderdale: 0.0000
+      BorrowerCity_Fresno: 0.0000
+      BorrowerCity_Glendale: 0.0000
+      BorrowerCity_Greenville: 0.0000
+      BorrowerCity_Hialeah: 0.0000
+      BorrowerCity_Jackson: 0.0000
+      BorrowerCity_Jonesboro: 0.0000
+      BorrowerCity_Kansas City: 0.0000
+      BorrowerCity_Katy: 0.0000
+      BorrowerCity_Lafayette: 0.0000
+      BorrowerCity_Lancaster: 0.0000
+      BorrowerCity_Las Vegas: 0.0000
+      BorrowerCity_Lawrenceville: 0.0000
+      BorrowerCity_Lithonia: 0.0000
+      BorrowerCity_Long Beach: 0.0000
+      BorrowerCity_Los Angeles: 0.0000
+      BorrowerCity_Louisville: 0.0000
+      BorrowerCity_MIAMI: 0.0000
+      BorrowerCity_Madison: 0.0000
+      BorrowerCity_Marietta: 0.0000
+      BorrowerCity_Milwaukee: 0.0000
+      BorrowerCity_Minneapolis: 0.0000
+      BorrowerCity_Mobile: 0.0000
+      BorrowerCity_Monroe: 0.0000
+      BorrowerCity_Montgomery: 0.0000
+      BorrowerCity_NEW YORK: 0.0000
+      BorrowerCity_Nashville: 0.0000
+      BorrowerCity_New Orleans: 0.0000
+      BorrowerCity_Newark: 0.0000
+      BorrowerCity_Oakland: 0.0000
+      BorrowerCity_Phoenix: 0.0000
+      BorrowerCity_Raleigh: 0.0000
+      BorrowerCity_Riverdale: 0.0000
+      BorrowerCity_Rochester: 0.0000
+      BorrowerCity_Sacramento: 0.0000
+      BorrowerCity_Saint Louis: 0.0000
+      BorrowerCity_San Francisco: 0.0000
+      BorrowerCity_San Jose: 0.0000
+      BorrowerCity_Seattle: 0.0000
+      BorrowerCity_Shreveport: 0.0000
+      BorrowerCity_Spring: 0.0000
+      BorrowerCity_Stone Mountain: 0.0000
+      BorrowerCity_Tampa: 0.0000
+      BorrowerCity_West Palm Beach: 0.0000
+      BorrowerCity_Wilmington: 0.0000
+
+All Categories for NAICSCode:
+    **NAICSCode_541110: 0.0015**
+      NAICSCode_541990: 0.0011
+      NAICSCode_531210: 0.0008
+      NAICSCode_111150: 0.0007
+      NAICSCode_541611: 0.0006
+      NAICSCode_Unknown: 0.0006
+      NAICSCode_541618: 0.0005
+      NAICSCode_453998: 0.0005
+      NAICSCode_Other_NAICS: 0.0004
+      NAICSCode_541213: 0.0003
+      NAICSCode_238990: 0.0003
+      NAICSCode_812111: 0.0003
+      NAICSCode_531390: 0.0002
+      NAICSCode_541613: 0.0002
+      NAICSCode_621111: 0.0002
+      NAICSCode_485310: 0.0002
+      NAICSCode_812113: 0.0001
+      NAICSCode_621610: 0.0001
+      NAICSCode_112111: 0.0001
+      NAICSCode_484110: 0.0001
+      NAICSCode_111199: 0.0001
+      NAICSCode_448120: 0.0001
+      NAICSCode_561720: 0.0001
+      NAICSCode_541219: 0.0001
+      NAICSCode_236115: 0.0001
+      NAICSCode_812112: 0.0001
+      NAICSCode_812199: 0.0001
+      NAICSCode_999990: 0.0001
+      NAICSCode_236118: 0.0001
+      NAICSCode_813110: 0.0001
+      NAICSCode_492110: 0.0001
+      NAICSCode_722320: 0.0000
+      NAICSCode_541430: 0.0000
+      NAICSCode_812990: 0.0000
+      NAICSCode_524210: 0.0000
+      NAICSCode_561499: 0.0000
+      NAICSCode_492210: 0.0000
+      NAICSCode_621399: 0.0000
+      NAICSCode_111110: 0.0000
+      NAICSCode_238210: 0.0000
+      NAICSCode_238220: 0.0000
+      NAICSCode_446120: 0.0000
+      NAICSCode_484121: 0.0000
+      NAICSCode_484230: 0.0000
+      NAICSCode_561730: 0.0000
+      NAICSCode_624410: 0.0000
+      NAICSCode_711510: 0.0000
+      NAICSCode_713940: 0.0000
+      NAICSCode_722511: 0.0000
+      NAICSCode_722513: 0.0000
+      NAICSCode_811111: 0.0000
+
+All Categories for OriginatingLender:
+    **OriginatingLender_Other_Lender: 0.1595**
+      OriginatingLender_JPMorgan Chase Bank_ National Association: 0.0271
+      OriginatingLender_Bank of America_ National Association: 0.0264
+      OriginatingLender_Itria Ventures LLC: 0.0197
+      OriginatingLender_Wells Fargo Bank_ National Association: 0.0193
+      OriginatingLender_WebBank: 0.0184
+      OriginatingLender_U.S. Bank_ National Association: 0.0173
+      OriginatingLender_Readycap Lending_ LLC: 0.0101
+      OriginatingLender_TD Bank_ National Association: 0.0082
+      OriginatingLender_Customers Bank: 0.0063
+      OriginatingLender_Cross River Bank: 0.0063
+      OriginatingLender_Fountainhead SBF LLC: 0.0057
+      OriginatingLender_PNC Bank_ National Association: 0.0049
+      OriginatingLender_Leader Bank_ National Association: 0.0049
+      OriginatingLender_Kabbage_ Inc.: 0.0045
+      OriginatingLender_Prestamos CDFI_ LLC: 0.0040
+      OriginatingLender_BSD Capital_ LLC dba Lendistry: 0.0036
+      OriginatingLender_Capital Plus Financial_ LLC: 0.0034
+      OriginatingLender_Harvest Small Business Finance_ LLC: 0.0028
+      OriginatingLender_Celtic Bank Corporation: 0.0020
+      OriginatingLender_Benworth Capital: 0.0003
+
+Analyzing feature interactions with SHAP values...
+Using a subsample of 10,000 rows for SHAP analysis (original size: 1,880,254)
+Expected features: ['InitialApprovalAmount', 'JobsReported', 'Latitude', 'Longitude', 'NameLength', 'WordCount', 'IsHubzone', 'IsLMI', 'IsNonProfit', 'AmountPerEmployee', 'IsRoundAmount', 'IsExactMaxAmount', 'HasResidentialIndicator', 'HasCommercialIndicator', 'BusinessesAtAddress', 'HasSuspiciousKeyword', 'MissingDemographics', 'BusinessType_501(c)3 – Non Profit', 'BusinessType_501(c)6 – Non Profit Membership', 'BusinessType_Cooperative', 'BusinessType_Corporation', 'BusinessType_Independent Contractors', 'BusinessType_Joint Venture', 'BusinessType_Limited  Liability Company(LLC)', 'BusinessType_Limited Liability Partnership', 'BusinessType_Non-Profit Childcare Center', 'BusinessType_Non-Profit Organization', 'BusinessType_Other', 'BusinessType_Partnership', 'BusinessType_Professional Association', 'BusinessType_Qualified Joint-Venture (spouses)', 'BusinessType_Self-Employed Individuals', 'BusinessType_Single Member LLC', 'BusinessType_Sole Proprietorship', 'BusinessType_Subchapter S Corporation', 'BusinessType_Tenant in Common', 'BusinessType_Trust', 'BusinessType_Unknown', 'Race_American Indian or Alaska Native', 'Race_Asian', 'Race_Black or African American', 'Race_Native Hawaiian or Other Pacific Islander', 'Race_Other', 'Race_Puerto Rican', 'Race_Unanswered', 'Race_White', 'Gender_Female Owned', 'Gender_Male Owned', 'Gender_Unanswered', 'Ethnicity_Hispanic or Latino', 'Ethnicity_Not Hispanic or Latino', 'Ethnicity_Unknown/NotStated', 'BorrowerState_AK', 'BorrowerState_AL', 'BorrowerState_AR', 'BorrowerState_AZ', 'BorrowerState_CA', 'BorrowerState_CO', 'BorrowerState_CT', 'BorrowerState_DC', 'BorrowerState_DE', 'BorrowerState_FL', 'BorrowerState_GA', 'BorrowerState_GU', 'BorrowerState_HI', 'BorrowerState_IA', 'BorrowerState_ID', 'BorrowerState_IL', 'BorrowerState_IN', 'BorrowerState_KS', 'BorrowerState_KY', 'BorrowerState_LA', 'BorrowerState_MA', 'BorrowerState_MD', 'BorrowerState_ME', 'BorrowerState_MI', 'BorrowerState_MN', 'BorrowerState_MO', 'BorrowerState_MP', 'BorrowerState_MS', 'BorrowerState_MT', 'BorrowerState_NC', 'BorrowerState_ND', 'BorrowerState_NE', 'BorrowerState_NH', 'BorrowerState_NJ', 'BorrowerState_NM', 'BorrowerState_NV', 'BorrowerState_NY', 'BorrowerState_OH', 'BorrowerState_OK', 'BorrowerState_OR', 'BorrowerState_Other', 'BorrowerState_PA', 'BorrowerState_PR', 'BorrowerState_RI', 'BorrowerState_SC', 'BorrowerState_SD', 'BorrowerState_TN', 'BorrowerState_TX', 'BorrowerState_UT', 'BorrowerState_VA', 'BorrowerState_VI', 'BorrowerState_VT', 'BorrowerState_WA', 'BorrowerState_WI', 'BorrowerState_WV', 'BorrowerState_WY', 'BorrowerCity_ATLANTA', 'BorrowerCity_AUSTIN', 'BorrowerCity_Albany', 'BorrowerCity_Alexandria', 'BorrowerCity_Arlington', 'BorrowerCity_Atlanta', 'BorrowerCity_Aurora', 'BorrowerCity_Austin', 'BorrowerCity_BROOKLYN', 'BorrowerCity_Baltimore', 'BorrowerCity_Baton Rouge', 'BorrowerCity_Birmingham', 'BorrowerCity_Bronx', 'BorrowerCity_Brooklyn', 'BorrowerCity_CHICAGO', 'BorrowerCity_Canton', 'BorrowerCity_Charlotte', 'BorrowerCity_Chicago', 'BorrowerCity_Cincinnati', 'BorrowerCity_Cleveland', 'BorrowerCity_Columbia', 'BorrowerCity_Columbus', 'BorrowerCity_Covington', 'BorrowerCity_DALLAS', 'BorrowerCity_Dallas', 'BorrowerCity_Dayton', 'BorrowerCity_Decatur', 'BorrowerCity_Denver', 'BorrowerCity_Detroit', 'BorrowerCity_Fayetteville', 'BorrowerCity_Fort Lauderdale', 'BorrowerCity_Fort Worth', 'BorrowerCity_Fresno', 'BorrowerCity_Glendale', 'BorrowerCity_Greenville', 'BorrowerCity_HOUSTON', 'BorrowerCity_Henderson', 'BorrowerCity_Hialeah', 'BorrowerCity_Hollywood', 'BorrowerCity_Houston', 'BorrowerCity_Indianapolis', 'BorrowerCity_Jackson', 'BorrowerCity_Jacksonville', 'BorrowerCity_Jamaica', 'BorrowerCity_Jonesboro', 'BorrowerCity_Kansas City', 'BorrowerCity_Katy', 'BorrowerCity_Kissimmee', 'BorrowerCity_LAS VEGAS', 'BorrowerCity_LOS ANGELES', 'BorrowerCity_Lafayette', 'BorrowerCity_Lancaster', 'BorrowerCity_Las Vegas', 'BorrowerCity_Lawrenceville', 'BorrowerCity_Lithonia', 'BorrowerCity_Long Beach', 'BorrowerCity_Los Angeles', 'BorrowerCity_Louisville', 'BorrowerCity_MIAMI', 'BorrowerCity_Macon', 'BorrowerCity_Madison', 'BorrowerCity_Marietta', 'BorrowerCity_Memphis', 'BorrowerCity_Miami', 'BorrowerCity_Milwaukee', 'BorrowerCity_Minneapolis', 'BorrowerCity_Mobile', 'BorrowerCity_Monroe', 'BorrowerCity_Montgomery', 'BorrowerCity_NEW YORK', 'BorrowerCity_Nashville', 'BorrowerCity_New Orleans', 'BorrowerCity_New York', 'BorrowerCity_Newark', 'BorrowerCity_Oakland', 'BorrowerCity_Oklahoma City', 'BorrowerCity_Orlando', 'BorrowerCity_Other_City', 'BorrowerCity_Philadelphia', 'BorrowerCity_Phoenix', 'BorrowerCity_Portland', 'BorrowerCity_Raleigh', 'BorrowerCity_Richmond', 'BorrowerCity_Riverdale', 'BorrowerCity_Rochester', 'BorrowerCity_Sacramento', 'BorrowerCity_Saint Louis', 'BorrowerCity_San Antonio', 'BorrowerCity_San Diego', 'BorrowerCity_San Francisco', 'BorrowerCity_San Jose', 'BorrowerCity_Seattle', 'BorrowerCity_Shreveport', 'BorrowerCity_Spring', 'BorrowerCity_Springfield', 'BorrowerCity_Stone Mountain', 'BorrowerCity_Tampa', 'BorrowerCity_Toledo', 'BorrowerCity_Washington', 'BorrowerCity_West Palm Beach', 'BorrowerCity_Wilmington', 'NAICSCode_111110', 'NAICSCode_111150', 'NAICSCode_111199', 'NAICSCode_112111', 'NAICSCode_236115', 'NAICSCode_236118', 'NAICSCode_238210', 'NAICSCode_238220', 'NAICSCode_238990', 'NAICSCode_446120', 'NAICSCode_448120', 'NAICSCode_453998', 'NAICSCode_484110', 'NAICSCode_484121', 'NAICSCode_484230', 'NAICSCode_485310', 'NAICSCode_492110', 'NAICSCode_492210', 'NAICSCode_524210', 'NAICSCode_531210', 'NAICSCode_531390', 'NAICSCode_541110', 'NAICSCode_541213', 'NAICSCode_541219', 'NAICSCode_541430', 'NAICSCode_541611', 'NAICSCode_541613', 'NAICSCode_541618', 'NAICSCode_541990', 'NAICSCode_561499', 'NAICSCode_561720', 'NAICSCode_561730', 'NAICSCode_621111', 'NAICSCode_621399', 'NAICSCode_621610', 'NAICSCode_624410', 'NAICSCode_711510', 'NAICSCode_713940', 'NAICSCode_722320', 'NAICSCode_722511', 'NAICSCode_722513', 'NAICSCode_811111', 'NAICSCode_812111', 'NAICSCode_812112', 'NAICSCode_812113', 'NAICSCode_812199', 'NAICSCode_812990', 'NAICSCode_813110', 'NAICSCode_999990', 'NAICSCode_Other_NAICS', 'NAICSCode_Unknown', 'OriginatingLender_BSD Capital_ LLC dba Lendistry', 'OriginatingLender_Bank of America_ National Association', 'OriginatingLender_Benworth Capital', 'OriginatingLender_Capital Plus Financial_ LLC', 'OriginatingLender_Celtic Bank Corporation', 'OriginatingLender_Cross River Bank', 'OriginatingLender_Customers Bank', 'OriginatingLender_Fountainhead SBF LLC', 'OriginatingLender_Harvest Small Business Finance_ LLC', 'OriginatingLender_Itria Ventures LLC', 'OriginatingLender_JPMorgan Chase Bank_ National Association', 'OriginatingLender_Kabbage_ Inc.', 'OriginatingLender_Leader Bank_ National Association', 'OriginatingLender_Other_Lender', 'OriginatingLender_PNC Bank_ National Association', 'OriginatingLender_Prestamos CDFI_ LLC', 'OriginatingLender_Readycap Lending_ LLC', 'OriginatingLender_TD Bank_ National Association', 'OriginatingLender_U.S. Bank_ National Association', 'OriginatingLender_WebBank', 'OriginatingLender_Wells Fargo Bank_ National Association']
+X_test_sample shape: (10000, 281)
+Error analyzing SHAP values: All dimensions of input must be of equal length
+Error in XGBoost analysis: All dimensions of input must be of equal length
+Traceback (most recent call last):
+  File "/home/ubuntu/ppp_loan_fraud_analysis/analyze_patterns_in_suspicious_loans.py", line 365, in analyze_with_xgboost
+    self._analyze_shap_values(X_test, feature_cols)
+  File "/home/ubuntu/ppp_loan_fraud_analysis/analyze_patterns_in_suspicious_loans.py", line 443, in _analyze_shap_values
+    np.fill_diagonal(interaction_values, 0)
+  File "/home/ubuntu/ppp_loan_fraud_analysis/venv/lib/python3.12/site-packages/numpy/lib/_index_tricks_impl.py", line 942, in fill_diagonal
+    raise ValueError("All dimensions of input must be of equal length")
+ValueError: All dimensions of input must be of equal length
+Error in XGBoost Analysis analysis: All dimensions of input must be of equal length
+
+________________________________________________________________________________________________________________________
+
+
+Overall flagging rate: 18.992% of loans in the $5k-$22k range

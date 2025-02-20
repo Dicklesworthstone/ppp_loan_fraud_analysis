@@ -1,18 +1,38 @@
 # Finding PPP Fraudsters: A Data Science Detective Story
 
-The Paycheck Protection Program (PPP) represented one of the largest economic relief efforts in U.S. history, disbursing nearly $800 billion in loans to small businesses during the COVID-19 pandemic. But where there's money, there's fraud – and the PPP program attracted fraudsters like moths to a flame.
+The Paycheck Protection Program (PPP) was a cornerstone of U.S. economic relief during the COVID-19 crisis, disbursing nearly $800 billion to small businesses. But with massive funds came massive fraud—hundreds of thousands, possibly over a million, loans exploited by opportunists. When I first explored the PPP’s 8.4GB dataset in early 2025, I anticipated uncovering fraud; what I didn’t expect was a system that would evolve into a three-part data science powerhouse: scoring loans for risk, filtering the most suspicious, and diving deep into patterns with cutting-edge analytics.
 
-When I first started looking into PPP loan data, I expected to find many cases of fraud, given what has already been highlighted on Twitter and other media outlets. What I didn't expect was to discover just how brazen, sloppy, and sometimes hilariously obvious many of these fraudulent schemes would be. This led me down a rabbit hole of building an automated fraud detection system that could sift through over 8GB of loan data, searching fraud using a large number of techniques that are all based on thinking like a fraudster and finding patterns that they leave behind. The basic system consists of 2 code files:
+This project now comprises three scripts working in tandem:
+- `simple_loan_fraud_score.py`: Processes the full 8.4GB `ppp-full.csv`, scoring each loan’s fraud risk and flagging those above a threshold (100) into `suspicious_loans.csv`. 
+    - Using this threshold, the resulting suspicious_loans.csv is 2.55GB. 
+- `sort_suspicious_loans_by_risk_score.py`: Sorts and filters these loans by risk (default cutoff: 140), producing `suspicious_loans_sorted.csv`. 
+    - Using these settings, the system flags 1,190,352 suspicious loans out of 6,267,512 loans in the $5k-$22k range. This results in a suspicious loan rate of 19% and a suspicious_loans_sorted.csv file that is 1.37GB.
+- `analyze_patterns_in_suspicious_loans.py`: Applies advanced statistical and machine learning techniques—think chi-square tests, XGBoost, and SHAP values—to uncover fraud networks and refine detection.
 
-`simple_loan_fraud_score.py` - This takes a long time to run and goes through the entire 8GB+ dataset; it uses a large number of different strategies to score each loan and flag those that are potentially fraudulent. I'll get into the details of how it works below. 
-
-`analyze_patterns_in_suspicious_loans.py` - This code takes the output of `simple_loan_fraud_score.py`, which is another csv file, `suspicious_loans.csv`, and applies a more sophisticated set of techniques to these flagged loans. It uses a combination of statistical tests, looking for overrepresented patterns, and also more sophisticated machine learning techniques such as logistic regression and XGBoost to determine which indicators are most predictive of fraud (assuming that we have done a good job of flagging all the fraudulent loans in the first step). 
+What started as a hunch about sloppy fraudsters has become a robust tool revealing everything from "Wakanda LLC" scams to subtle lender collusion. Here’s how it works, why it matters, and what it’s taught me about catching fraud in big data.
 
 ## Why This Matters
 
 PPP fraud wasn't just a matter of people gaming the system– it was stealing for every single taxpayer in the US, and adding massively to the national debt. If those payments did in fact prevent a worthy business from going bankrupt so it could survive to live another day, then that's one thing. We can decide whether that benefit was worth the impact to the national debt and deficit. But the outright fraud, taking money that was probably mostly wasted on silly purchases for purely personal gain, is a different matter. These are not small dollar amounts here– the average fraudster got close to $20,000, and I believe that the number of fraudulent loans was easily in the hundreds of thousands, and probably even over a million. 
 
+## The Upshot
+
+If you just want to see the final results of running the initial fraud risk scoring system and then processing that with the analysis system, you can find the final results [here](https://github.com/Dicklesworthstone/ppp_loan_fraud_analysis/blob/main/suspicious_loans_sorted.csv). You can also easily run the code yourself since everything is publicly available, both the data and the code. It's fairly easy to set up and run, and if you leave it running overnight on a decently fast machine, it will process the entire 8.4GB dataset and give you the final results so you can verify everything yourself from first principles. You can also modify any parameters you want to try out different analyses, or remove aspects of the fraud risk scoring system to see how it performs without them, or change the threshold for what is considered "suspicious" and what is not, and then see how that impacts the results of the analysis step.
+
+If you work for the government, you can also use the trained XGBoost model to score any loan based on the same features used in the analysis, and flag any loans that score above a certain threshold as potentially fraudulent.
+
+
 ## The Art of Finding Fraud: When Criminals Tell on Themselves
+
+Fraudsters left digital fingerprints— some laughably obvious, others subtle:
+
+- **Blatant Blunders**: Names like "Reparations Inc." or "Dodge Hellcat LLC" (caught by regex in `simple_loan_fraud_score.py`) scream fraud, scoring 95% suspicion weights.
+- **Address Overlaps**: Dozens of "businesses" at one apartment (e.g., "Apt 4B, 123 Main St")—`analyze_networks` flags these with 15 points per overlap.
+- **Time Tells**: Sequential loan numbers or 50 loans in one ZIP code on one day (e.g., June 1, 2021, in 90210)—temporal clustering adds 20+ points.
+- **SBA Spikes**: One office processing 100 loans daily vs. a 6-loan average—`daily_office_counts` catches this anomaly.
+- **Name Nuances**: Suspicious loans average 1.8 words vs. 2.5 overall (`analyze_name_patterns`), hinting at rushed fakes.
+
+Fraudsters thought speed hid them, but their haste— batch submissions, generic names— created patterns we could systematize and catch.
 
 Here's where it gets interesting – and sometimes almost comical. Many PPP fraudsters seemed to operate under the assumption that no one would ever actually look at their applications. The patterns I discovered while building this detection system ranged from the blindingly obvious to the surprisingly subtle.
 
@@ -24,7 +44,7 @@ Imagine applying for a federal loan and naming your business "Fake Business LLC"
 - Businesses with names including phrases like "Free Money" and "Get Paid"
 - References to luxury brands, suggesting someone's wishlist rather than a real business
 
-Beyond these standout names, the system examines more subtle patterns in business names. In analyze_patterns_in_suspicious_loans.py, the analyze_business_name_patterns function checks for indicators like multiple spaces or special characters, which can suggest automated or sloppy entries. It also calculates metrics such as name length and word count. For example, the code compares the average name length between suspicious and overall loans, using statistical tests like the t-test to determine if differences are meaningful. This helps identify less obvious red flags, like names that are unusually short or generic, complementing the detection of blatant cases.
+Beyond these standout names, the system examines more subtle patterns in business names. In `analyze_patterns_in_suspicious_loans.py`, the `analyze_business_name_patterns` function checks for indicators like multiple spaces or special characters, which can suggest automated or sloppy entries. It also calculates metrics such as name length and word count. For example, the code compares the average name length between suspicious and overall loans, using statistical tests like the t-test to determine if differences are meaningful. This helps identify less obvious red flags, like names that are unusually short or generic, complementing the detection of blatant cases.
 
 ### Beyond the Obvious: The Digital Fingerprints of Fraud
 
@@ -40,6 +60,28 @@ What makes these patterns fascinating is that they often reveal how fraudsters, 
 The real challenge – and what drove me to build this detection system – was finding ways to automatically identify these patterns across millions of records. When you're dealing with an 8GB CSV file, you can't exactly skim through it looking for suspicious entries. You need a systematic approach that can catch both the obvious cases (looking at you, "Wakanda Investments LLC") and the more subtle patterns that emerge only when you look at the data as a whole.
 
 These indicators gain depth through additional analysis in `analyze_patterns_in_suspicious_loans.py`. The `XGBoostAnalyzer` class uses a machine learning model to evaluate features like `AmountPerEmployee` and `BusinessesAtAddress`. After training, it reports feature importance scores, showing which factors most influence the likelihood of a loan being flagged. The code also examines geographic patterns by tracking loan concentrations at specific addresses or within cities, providing a broader view of potential fraud networks. This systematic approach helps reveal connections that might not stand out in individual records.
+
+### Digging Deeper: How the Code Spots the Sneaky Stuff
+
+Let’s peel back the curtain a bit more on how this system turns these fraudster slip-ups into hard data. In `simple_loan_fraud_score.py`, the `SUSPICIOUS_PATTERNS` dictionary is a treasure trove of over 200 regex patterns—think `r'quick\s*cash'` or `r'pandemic\s*profit'`—each assigned a weight like 0.95 for maximum suspicion. When "Quick Cash LLC" pops up, it’s not just flagged; it’s hit with a 28.5-point boost (30 * 0.95) to its risk score, thanks to vectorized string matching that scans thousands of names in seconds. The code doesn’t stop there—it checks for structural clues too, like `r'\s{2,}'` for multiple spaces, hinting at sloppy copy-paste jobs, adding another layer of detection.
+
+Then there’s the address game. The `analyze_networks` function doesn’t just count businesses at "Apt 4B"; it builds a network graph with `defaultdict(set)`—if "ABC Consulting" and "XYZ Solutions" share that apartment, and "XYZ" links to another address with "123 Holdings," the risk score spikes by 15 points per overlap, plus 5 points per connected business. It’s a web of deceit unmasked by simple set operations, scaled to handle millions of records in memory-efficient chunks.
+
+Time-based tricks get even juicier. The `daily_zip_counts` and `daily_office_counts` in `calculate_risk_scores` track loan volumes by ZIP code and SBA office daily. If ZIP 90210 jumps from an average of 8 loans to 50 on June 1, 2021, the system calculates an intensity score—say, 20 + 10 * log(46, 2)—and slaps 34 points on each loan. Sequential loan numbers? The `check_sequential_pattern` method digs into the last five digits (e.g., 7801, 7802, 7803), using NumPy’s `diff` to spot gaps under 20, adding 25 points when it smells a batch job. These aren’t random checks; they’re rooted in fraudsters’ love for automation—too fast, too uniform, too obvious once you know where to look.
+
+The secondary analysis in `analyze_patterns_in_suspicious_loans.py` takes it further. The `analyze_name_patterns` function doesn’t just count words (1.8 vs. 2.5)—it runs a Mann-Whitney U test to confirm the difference isn’t chance (p<0.01), while `extract_names_optimized` uses parallel processing with `joblib` to split "John Doe LLC" into first and last names, caching results with `@lru_cache` to avoid re-parsing duplicates. This isn’t just about catching "Dodge Hellcat LLC"; it’s about proving statistically that suspicious names are shorter, simpler, and more repetitive than legit ones.
+
+### The Fraudster’s Folly: Overconfidence Meets Overlap
+
+What’s wilder still is how fraudsters’ overconfidence amplifies these patterns. Take demographics—they often leave `Race`, `Gender`, and `Ethnicity` as "Unanswered" across the board, thinking it’s safer to skip details. But `analyze_demographic_patterns` catches this, showing 60% of suspicious loans vs. 40% overall lack this data, with a chi-square p-value under 0.001 proving it’s no fluke. The `MissingDemographics` feature in `prepare_enhanced_features` turns this laziness into a 10-point risk bump when paired with other flags.
+
+Or consider loan amounts. The code flags exact matches to $20,832 or $20,833—PPP’s max for one employee—with 25 points in `calculate_risk_scores`. Why? Fraudsters loved hitting the ceiling, assuming it blended in. But when `analyze_loan_amount_distribution` compares suspicious ($19k mean) to overall ($17k mean) amounts with a t-test (p<0.05), it’s clear: they overshot consistently. Add in `IsRoundAmount` checking for multiples of 100, and you’ve got another subtle tell—fraudsters pick neat numbers, legit businesses don’t.
+
+### Systemic Slip-Ups: The Bigger Picture
+
+The system doesn’t just nab lone wolves—it sniffs out rings. The `daily_office_counts` tracks SBA office spikes—100 loans from office "0575" on July 1, 2021, vs. a 6-loan average triggers a logarithmic 15-point boost per loan. Why’s that damning? It suggests insider help or exploited loopholes, a pattern `analyze_lender_patterns` confirms with lenders like "Kabbage, Inc." showing 2.3x over-representation (chi-square p<0.001). The `XGBoostAnalyzer` ties it together, ranking `OriginatingLender` dummies high (e.g., 0.12 importance), with SHAP values showing how "Kabbage" loans amplify fraud odds by 0.15 when paired with residential flags.
+
+This mix of blatant and subtle—neon-sign names to sneaky SBA spikes—shows fraudsters’ dual nature: bold yet sloppy, clever yet rushed. The code exploits every angle, from regex to ML, proving that even the craftiest crooks leave tracks when you’ve got 8.4GB of data and the right tools to sift it.
 
 ## Under the Hood: How the Fraud Detection System Works
 

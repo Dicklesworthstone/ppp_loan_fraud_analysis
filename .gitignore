@@ -171,3 +171,4 @@ ppp-full.csv
 suspicious_loans.csv
 ppp_fraud-ascii.cast
 suspicious_loans_sorted.csv
+xgboost_model_with_features.joblib
