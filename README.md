@@ -10,7 +10,7 @@ This project is a sophisticated Python-based data analysis tool designed to dete
 
 1. **Scoring**: The `simple_loan_fraud_score.py` script processes the full PPP dataset (`ppp-full.csv`), scoring each loan for fraud risk using heuristics such as business name patterns, address anomalies, and lender behavior. Loans exceeding a risk threshold (default: 100) are flagged and saved to `suspicious_loans.csv`.
 2. **Sorting and Filtering**: The `sort_suspicious_loans_by_risk_score.py` script sorts these flagged loans by risk score in descending order and applies an optional minimum risk cutoff (default: 140.0), producing `suspicious_loans_sorted.csv`.
-3. **Deep Analysis**: The `analyze_patterns_in_suspicious_loans.py` script loads the sorted suspicious loans alongside the full dataset to perform advanced statistical and machine learning analyses (e.g., XGBoost, logistic regression), uncovering patterns and correlations that indicate fraud. Results are detailed in `analysis_report.md`.
+3. **Deep Analysis**: The `analyze_patterns_in_suspicious_loans.py` script loads the sorted suspicious loans alongside the full dataset to perform advanced statistical and machine learning analyses (e.g., XGBoost, logistic regression), uncovering patterns and correlations that indicate fraud. Results are detailed in the console output.
 
 The system is optimized for large-scale data processing and leverages modern data science techniques to provide actionable insights.
 
