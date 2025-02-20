@@ -2,6 +2,10 @@
 
 **By Jeffrey Emanuel (Created 2025-02-20)**
 
+<div align="center">
+  <img src="https://github.com/Dicklesworthstone/ppp_loan_fraud_analysis/raw/main/ppp_illustration.webp" width="1024">
+</div>
+
 ## Overview
 
 This project is a sophisticated Python-based data analysis tool designed to detect potential fraud in Paycheck Protection Program (PPP) loan data, focusing on a large 8.4GB CSV dataset. It employs a three-step process to identify, prioritize, and analyze suspicious loans:
@@ -13,10 +17,6 @@ This project is a sophisticated Python-based data analysis tool designed to dete
 The system is optimized for large-scale data processing and leverages modern data science techniques to provide actionable insights.
 
 Because the system takes a long time to process and score loans, I have saved the final output of the analysis step and included it in the repository. You can find it [here](https://raw.githubusercontent.com/Dicklesworthstone/ppp_loan_fraud_analysis/refs/heads/main/final_output_of_analysis_step_in_ppp_loan_fraud_analysis.txt).
-
-<div align="center">
-  <img src="https://github.com/Dicklesworthstone/ppp_loan_fraud_analysis/raw/main/ppp_illustration.webp" width="1024">
-</div>
 
 ## Project Structure
 
