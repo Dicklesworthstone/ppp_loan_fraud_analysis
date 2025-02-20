@@ -2,9 +2,7 @@
 
 **By Jeffrey Emanuel (Created 2025-02-20)**
 
-<div align="center">
-  <img src="https://github.com/Dicklesworthstone/ppp_loan_fraud_analysis/raw/main/ppp_illustration.webp" width="1024">
-</div>
+![PPP Illustration](https://github.com/Dicklesworthstone/ppp_loan_fraud_analysis/raw/main/ppp_illustration.webp)
 
 ## Overview
 
