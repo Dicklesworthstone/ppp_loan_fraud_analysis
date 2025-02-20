@@ -66,7 +66,7 @@ To run the full fraud analysis pipeline, execute the scripts in order. Ensure th
    ```bash
    python analyze_patterns_in_suspicious_loans.py 
    ```
-   This will print a lot of information to the console containing the results of the analysis. This takes a fairly long time to run (over 20 minutes on a machine with 32 cores and 128gb of ram), so be patient. It is known to complete successfully without any errors or warnings if you don't modify any of the parameters.
+   This will print a lot of information to the console containing the results of the analysis. This takes a fairly long time to run (over 20 minutes on a machine with 32 cores and 128gb of ram), so be patient.
 
 ---
 
