@@ -17,6 +17,7 @@ from joblib import Parallel, delayed, parallel_backend
 from functools import lru_cache
 from multiprocessing import Pool
 import statsmodels.api as sm
+from statsmodels.stats.outliers_influence import variance_inflation_factor
 import dask.dataframe as dd
 
 @lru_cache(maxsize=1000000)
@@ -282,7 +283,7 @@ class XGBoostAnalyzer:
                 eval_metric='aucpr',
                 random_state=42,
                 tree_method='hist',
-                n_jobs=24,
+                n_jobs=12,
                 max_bin=256
             )
             
@@ -293,12 +294,12 @@ class XGBoostAnalyzer:
                 scoring='average_precision',
                 cv=2,
                 random_state=42,
-                n_jobs=24,
+                n_jobs=9,
                 verbose=2,
                 error_score='raise'
             )
             
-            with parallel_backend('loky', n_jobs=2):
+            with parallel_backend('loky', n_jobs=4):
                 print("Performing hyperparameter tuning...")
                 random_search.fit(X_train, y_train)
             
@@ -311,7 +312,7 @@ class XGBoostAnalyzer:
                 eval_metric='aucpr',
                 random_state=42,
                 tree_method='hist',
-                n_jobs=24,
+                n_jobs=12,
                 max_bin=256
             )
             
@@ -1489,24 +1490,20 @@ f"{pname}: {sus_match:.3%} in suspicious vs {full_match:.3%} overall ({ratio:.2f
             print(f"Starting prepare_enhanced_features - Initial shape: {df.shape}")
 
             # Numeric columns
-            print("Processing numeric columns...")
             df['JobsReported'] = pd.to_numeric(df['JobsReported'].replace({pd.NA: np.nan}), errors='coerce').fillna(0)
             df['InitialApprovalAmount'] = pd.to_numeric(df['InitialApprovalAmount'].replace({pd.NA: np.nan}), errors='coerce').fillna(0)
 
             # BorrowerName features
-            print("Processing BorrowerName features...")
             df['BorrowerName'] = df['BorrowerName'].fillna('')
             df['NameLength'] = df['BorrowerName'].astype(str).str.len()
             df['WordCount'] = df['BorrowerName'].str.split().str.len().fillna(0).astype(int)
 
             # Boolean columns
-            print("Processing boolean columns...")
             df['IsHubzone'] = (df['HubzoneIndicator'].fillna('') == 'Y').astype('uint8')
             df['IsLMI'] = (df['LMIIndicator'].fillna('') == 'Y').astype('uint8')
             df['IsNonProfit'] = (df['NonProfit'].fillna('') == 'Y').astype('uint8')
 
             # AmountPerEmployee
-            print("Calculating AmountPerEmployee...")
             df['AmountPerEmployee'] = np.where(
                 df['JobsReported'] > 0,
                 df['InitialApprovalAmount'] / df['JobsReported'],
@@ -1514,7 +1511,6 @@ f"{pname}: {sus_match:.3%} in suspicious vs {full_match:.3%} overall ({ratio:.2f
             )
 
             # IsRoundAmount
-            print("Calculating IsRoundAmount...")
             df['IsRoundAmount'] = (
                 pd.to_numeric(df['InitialApprovalAmount'], errors='coerce')
                 .fillna(0)
@@ -1522,7 +1518,6 @@ f"{pname}: {sus_match:.3%} in suspicious vs {full_match:.3%} overall ({ratio:.2f
             ).astype('uint8')
 
             # Address features
-            print("Processing address features...")
             df['BorrowerAddress'] = df['BorrowerAddress'].fillna('')
             df['BorrowerCity'] = df['BorrowerCity'].fillna('')
             df['BorrowerState'] = df['BorrowerState'].fillna('')
@@ -1538,7 +1533,6 @@ f"{pname}: {sus_match:.3%} in suspicious vs {full_match:.3%} overall ({ratio:.2f
             df['HasCommercialIndicator'] = address_str.str.contains(commercial_pattern, case=False, na=False).astype('uint8')
 
             # HasMultipleBusinesses
-            print("Calculating HasMultipleBusinesses...")
             address_counts = (df.groupby(['BorrowerAddress', 'BorrowerCity', 'BorrowerState'])
                             .size()
                             .reset_index(name='Count'))
@@ -1548,25 +1542,18 @@ f"{pname}: {sus_match:.3%} in suspicious vs {full_match:.3%} overall ({ratio:.2f
             df = df.drop(columns=['Count'])
 
             # Exact maximum amounts
-            print("Calculating IsExactMaxAmount...")
             max_amounts = [20832, 20833, 20834]
             df['IsExactMaxAmount'] = df['InitialApprovalAmount'].apply(lambda x: int(x) in max_amounts).astype(int)
 
             # Categorical variables
-            print("Processing categorical variables...")
             df['BusinessType'] = df['BusinessType'].fillna('Unknown')
             df['Race'] = df['Race'].fillna('Unknown')
             df['Gender'] = df['Gender'].fillna('Unknown')
             df['Ethnicity'] = df['Ethnicity'].fillna('Unknown')
 
             # MissingDemographics
-            print("Calculating MissingDemographics...")
             demographic_fields = ['Race', 'Gender', 'Ethnicity']
             df['MissingDemographics'] = (df[demographic_fields] == 'Unknown').sum(axis=1).astype('uint8')
-            print(f"Final shape: {df.shape}")
-            print(f"Final index duplicates: {df.index.duplicated().sum()}")
-            print(f"Final columns duplicates: {df.columns.duplicated().sum()}")
-            print(f"Final columns: {df.columns.tolist()}")
             df = df.reset_index(drop=True)
             return df
 
@@ -1686,12 +1673,78 @@ f"{pname}: {sus_match:.3%} in suspicious vs {full_match:.3%} overall ({ratio:.2f
                     X = pd.concat([X, dummies], axis=1)
                     print(f"  After concat shape: {X.shape}")
 
-            # Final feature check
-            print(f"\nFinal feature matrix shape: {X.shape}")
-            if X.shape[1] == 0:
-                print("Error: No valid features remain after preprocessing.")
-                return
+                # Final feature matrix check
+                print(f"\nFinal feature matrix shape: {X.shape}")
+                if X.shape[1] == 0:
+                    print("Error: No valid features remain after preprocessing.")
+                    exit()
 
+                # Ensure X is float64 for VIF compatibility
+                X = X.astype(float)
+
+                # Handle NaNs and infinities
+                if X.isna().any().any():
+                    print("Warning: NaNs found in X. Filling with 0.")
+                    X = X.fillna(0)
+                if np.isinf(X).any().any():
+                    print("Warning: Infinities found in X. Replacing with large finite numbers.")
+                    X = X.replace([np.inf, -np.inf], [1e10, -1e10])
+
+                # Remove zero-variance features
+                variances = X.var()
+                zero_variance_cols = variances[variances == 0].index.tolist()
+                if zero_variance_cols:
+                    print(f"Removing zero-variance features: {zero_variance_cols}")
+                    X = X.drop(columns=zero_variance_cols)
+                    # Update feature lists as needed (e.g., numerical_features, category_feature_map)
+
+                print("\nChecking for multicollinearity using Correlation Matrix and Targeted VIF...")
+
+                # Step 1: Compute correlation matrix
+                corr_matrix = X.corr().abs()
+
+                # Step 2: Identify features with high correlations (|corr| > 0.85)
+                high_corr_threshold = 0.85
+                high_corr_features = set()
+                for i in range(len(corr_matrix.columns)):
+                    for j in range(i + 1, len(corr_matrix.columns)):
+                        if corr_matrix.iloc[i, j] > high_corr_threshold:
+                            high_corr_features.add(corr_matrix.columns[i])
+                            high_corr_features.add(corr_matrix.columns[j])
+
+                # Step 3: Targeted VIF calculation
+                vif_threshold = 10
+                features_to_check = list(high_corr_features)
+                while len(features_to_check) > 1:  # Stop if 1 or fewer features remain
+                    X_subset = X[features_to_check]
+                    vif_data = pd.DataFrame()
+                    vif_data["feature"] = features_to_check
+                    vif_data["VIF"] = [variance_inflation_factor(X_subset.values, i) 
+                                    for i in range(len(features_to_check))]
+                    high_vif = vif_data[vif_data["VIF"] > vif_threshold]
+                    
+                    if high_vif.empty:
+                        print("No multicollinearity issues in targeted features (all VIFs ≤ 10).")
+                        break
+                    else:
+                        # Remove feature with highest VIF
+                        feature_to_remove = high_vif.sort_values("VIF", ascending=False).iloc[0]["feature"]
+                        print(f"Removing {feature_to_remove} (VIF: {high_vif[high_vif['feature'] == feature_to_remove]['VIF'].values[0]:.2f})")
+                        X = X.drop(columns=[feature_to_remove])
+                        features_to_check.remove(feature_to_remove)
+                        # Update other feature lists (e.g., numerical_features, category_feature_map) as needed
+
+                # Handle case where only one feature remains
+                if len(features_to_check) == 1:
+                    print(f"Only one feature remains in targeted set: {features_to_check[0]}. No VIF calculation needed.")
+
+                print(f"Feature matrix after multicollinearity check: {X.shape}, Columns: {X.columns.tolist()}")
+
+                # Proceed with scaling and modeling
+                if X.shape[1] == 0:
+                    print("Error: No valid features remain after multicollinearity check.")
+                    return
+                                
             # Handle class imbalance and scaling
             if len(y.unique()) >= 2:
                 df_majority = X[y == 0]
@@ -1725,18 +1778,23 @@ f"{pname}: {sus_match:.3%} in suspicious vs {full_match:.3%} overall ({ratio:.2f
                     
                     # Statsmodels with L2 regularization and increased iterations
                     X_train_sm = sm.add_constant(X_train.astype(float))
+                    print("Fitting Statsmodels logistic regression...")
                     try:
-                        print("Fitting Statsmodels logistic regression...")
                         model_sm = sm.Logit(y_train, X_train_sm).fit(
-                            method='lbfgs',  # Switch to lbfgs for speed
-                            maxiter=500,     # Reduced from 3000 for faster convergence
-                            pgtol=1e-7,      # Projected gradient tolerance for convergence
-                            factr=1e7,       # Moderate precision to balance speed and accuracy
-                            disp=0,          # Suppress default convergence messages
-                        )                        
-                        print("Statsmodels logistic regression converged successfully.")
+                            method='bfgs',        # Limited-memory BFGS, good for large datasets
+                            maxiter=1000,          # Increase iterations for better convergence
+                            pgtol=1e-8,            # Gradient tolerance for convergence
+                            factr=1e6,             # Factor for function value tolerance
+                            disp=0,                # Suppress convergence messages
+                            cov_type='opg'         # Use OPG for covariance estimation
+                        )
+                        # Check convergence explicitly
+                        if model_sm.mle_retvals.get('converged', False) and not model_sm.mle_retvals.get('warnflag', 1) == 0:
+                            print("Statsmodels logistic regression converged successfully.")
+                        else:
+                            raise ValueError("Convergence questionable based on mle_retvals.")
                     except Exception as e:
-                        print(f"Statsmodels failed: {str(e)}. Falling back to sklearn model.")
+                        print(f"Statsmodels failed or convergence unreliable: {str(e)}. Falling back to sklearn model.")
                         model_sm = None
                     
                     print("Predicting on test set...")
@@ -1825,8 +1883,8 @@ f"{pname}: {sus_match:.3%} in suspicious vs {full_match:.3%} overall ({ratio:.2f
                 # ("Risk Flags Count Distribution", lambda s, f: self.analyze_flag_count_distribution(s)),
                 # ("Correlations", lambda s, f: self.analyze_correlations(f)),
                 ("Multivariate Analysis", self.analyze_multivariate),
+                ("Feature Discrimination (AUPRC)", self.analyze_feature_discrimination),
                 ("XGBoost Analysis", lambda s, f: xgb_analyzer.analyze_with_xgboost(s, f, n_iter=15)),
-                ("Feature Discrimination (AUPRC)", self.analyze_feature_discrimination)
             ]
             
             for title, func in analysis_steps:
