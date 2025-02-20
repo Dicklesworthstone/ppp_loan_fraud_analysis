@@ -1,5 +1,9 @@
 # Finding PPP Fraudsters: A Data Science Detective Story
 
+<div align="center">
+  <img src="https://github.com/Dicklesworthstone/ppp_loan_fraud_analysis/raw/main/ppp_illustration.webp" width="1024">
+</div>
+
 The Paycheck Protection Program (PPP) was a cornerstone of U.S. economic relief during the COVID-19 crisis, disbursing nearly $800 billion to small businesses. But with massive funds came massive fraud—hundreds of thousands, possibly over a million, loans exploited by opportunists. When I first explored the PPP’s 8.4GB dataset in early 2025, I anticipated uncovering fraud; what I didn’t expect was a system that would evolve into a three-part data science powerhouse: scoring loans for risk, filtering the most suspicious, and diving deep into patterns with cutting-edge analytics.
 
 This project now comprises three scripts working in tandem:
