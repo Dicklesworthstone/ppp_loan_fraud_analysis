@@ -1,4 +1,4 @@
-# Finding PPP Fraudsters: A Data Science Detective Story
+# PPP Loan Fraud: A Data Science Detective Story
 
 ![PPP Illustration](https://github.com/Dicklesworthstone/ppp_loan_fraud_analysis/raw/main/ppp_illustration.webp)
 
