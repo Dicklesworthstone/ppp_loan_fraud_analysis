@@ -59,8 +59,12 @@ class XGBoostAnalyzer:
     def prepare_enhanced_features(self, df: pd.DataFrame, min_instances: int = 250) -> pd.DataFrame:
         """Prepare enhanced features for XGBoost, including useful categorical columns."""
         try:
-            df = df.copy()
-            
+            # Ensure unique indices and remove duplicates based on LoanNumber
+            print("Starting prepare_enhanced_features - Initial shape:", df.shape)
+            df = df.drop_duplicates(subset=["LoanNumber"], keep='first')
+            df = df.reset_index(drop=True)
+            print("After deduplication and index reset - Shape:", df.shape)
+
             # Basic numerical features with efficient types and proper NA handling
             df['JobsReported'] = (
                 pd.to_numeric(df['JobsReported'].replace({pd.NA: np.nan}), errors='coerce')
@@ -121,17 +125,19 @@ class XGBoostAnalyzer:
                 .apply(lambda x: x % 100 == 0)
             ).astype('uint8')
 
+            # Fix NAType error by ensuring float conversion before int
             max_amounts = {20832, 20833, 20834}
             df['IsExactMaxAmount'] = (
                 pd.to_numeric(df['InitialApprovalAmount'], errors='coerce')
                 .fillna(0)
-                .apply(lambda x: int(x) in max_amounts)
+                .astype(float)  # Explicitly cast to float first
+                .apply(lambda x: int(x) in max_amounts)  # Then convert to int
             ).astype('uint8')
 
-            # Boolean indicators
-            df['IsHubzone'] = (df['HubzoneIndicator'] == 'Y').astype('uint8')
-            df['IsLMI'] = (df['LMIIndicator'] == 'Y').astype('uint8')
-            df['IsNonProfit'] = (df['NonProfit'] == 'Y').astype('uint8')            
+            print("InitialApprovalAmount null values:", df['InitialApprovalAmount'].isna().sum())
+            print("InitialApprovalAmount type:", df['InitialApprovalAmount'].dtype)
+
+            # Boolean indicators (redundant code removed, already defined above)
             
             # Address-based features
             residential_indicators = {'apt', 'unit', 'suite', '#', 'po box', 'residence', 'residential', 'apartment', 'room', 'floor'}
@@ -140,7 +146,7 @@ class XGBoostAnalyzer:
             df['HasResidentialIndicator'] = address_str.apply(lambda x: any(ind in x for ind in residential_indicators)).astype('uint8')
             df['HasCommercialIndicator'] = address_str.apply(lambda x: any(ind in x for ind in commercial_indicators)).astype('uint8')
             
-            # Business concentration with proper string handling
+            # Business concentration
             address_key = (
                 df[['BorrowerAddress', 'BorrowerCity', 'BorrowerState']]
                 .fillna('')
@@ -159,16 +165,10 @@ class XGBoostAnalyzer:
             demographic_fields = ['Race', 'Gender', 'Ethnicity']
             df['MissingDemographics'] = df[demographic_fields].isna().sum(axis=1).astype('uint8')
 
-            # Categorical features with predictive value
+            # Categorical features
             categorical_features = [
-                'BusinessType',      # Business structure
-                'Race',             # Demographic
-                'Gender',           # Demographic
-                'Ethnicity',        # Demographic
-                'BorrowerState',    # State-level geography
-                'BorrowerCity',     # City-level geography
-                'NAICSCode',        # Detailed industry
-                'OriginatingLender' # Lender behavior
+                'BusinessType', 'Race', 'Gender', 'Ethnicity', 'BorrowerState', 
+                'BorrowerCity', 'NAICSCode', 'OriginatingLender'
             ]
             self.categorical_features = categorical_features
             self.category_feature_map = {}
@@ -207,7 +207,6 @@ class XGBoostAnalyzer:
                     ) for col in dummies.columns
                 ]
                 
-                # Check for problematic names
                 for col in dummies.columns:
                     if any(c in col for c in ['[', ']', '<']):
                         print(f"Warning: Sanitized feature name still contains invalid characters: {col}")
@@ -215,36 +214,50 @@ class XGBoostAnalyzer:
                 df = pd.concat([df, dummies], axis=1)
                 df = df.drop(columns=[feature])
 
-            # Drop only truly unnecessary columns
+            # Drop unnecessary columns
             drop_cols = ['BorrowerName', 'BorrowerAddress', 'LoanNumber', 'Location']
             df = df.drop(columns=[col for col in drop_cols if col in df.columns])
             
             self.feature_names = [self._sanitize_feature_name(col) for col in df.columns.tolist()]
-            df.columns = self.feature_names  # Ensure DataFrame columns are sanitized
+            df.columns = self.feature_names
             print(f"Prepared feature matrix shape: {df.shape}, Memory usage: {df.memory_usage().sum() / (1024**3):.2f} GiB")
+            print("Index duplicates after preparation:", df.index.duplicated().sum())
             return df
             
         except Exception as e:
             print(f"Error preparing enhanced features for XGBoost analysis: {str(e)}")
+            import traceback
+            traceback.print_exc()
             return df
-
+    
     def analyze_with_xgboost(self, sus: pd.DataFrame, full: pd.DataFrame, n_iter: int = 10, min_instances: int = 250) -> None:
         try:
             print("\nEnhanced XGBoost Analysis")
             full_prepared = self.prepare_enhanced_features(full.copy(), min_instances=min_instances)
+            print("Full prepared shape after feature prep:", full_prepared.shape)
+            
+            # Debugging checks
+            assert not full.index.duplicated().any(), "full has duplicate indices"
+            assert not full_prepared.index.duplicated().any(), "full_prepared has duplicate indices"
+            full_prepared["LoanNumber"] = full["LoanNumber"].astype(str).str.strip()
+                        
+            # Ensure LoanNumber consistency and reset index
             full_prepared["LoanNumber"] = full["LoanNumber"].astype(str).str.strip()
             sus["LoanNumber"] = sus["LoanNumber"].astype(str).str.strip()
+            full_prepared = full_prepared.reset_index(drop=True)
+            print("Full prepared index duplicates:", full_prepared.index.duplicated().sum())
             
             full_prepared["Flagged"] = full_prepared["LoanNumber"].isin(sus["LoanNumber"]).astype('uint8')
+            print(f"Flagged loans: {full_prepared['Flagged'].sum()}, Total: {len(full_prepared)}")
             
             # Drop LoanNumber after flagging
             full_prepared = full_prepared.drop(columns=["LoanNumber"])
             
-            # Exclude 'Flagged' from features
+            # Filter feature columns
             feature_cols = [col for col in full_prepared.columns 
-                        if col not in ["Flagged", "RiskScore", "RiskFlags"]
-                        and full_prepared[col].dtype in ['int8', 'int16', 'int32', 'uint8', 'float32']]
-                
+                            if col not in ["Flagged", "RiskScore", "RiskFlags"]
+                            and full_prepared[col].dtype in ['int8', 'int16', 'int32', 'uint8', 'float32']]
+                    
             X = full_prepared[feature_cols]
             y = full_prepared["Flagged"]
             print(f"Feature matrix ready. Shape: {X.shape}, Columns: {len(feature_cols)}")
@@ -273,7 +286,6 @@ class XGBoostAnalyzer:
                 max_bin=256
             )
             
-            # Perform hyperparameter tuning without early stopping
             random_search = RandomizedSearchCV(
                 xgb_clf,
                 param_distributions=param_grid,
@@ -283,7 +295,7 @@ class XGBoostAnalyzer:
                 random_state=42,
                 n_jobs=24,
                 verbose=2,
-                error_score='raise'  # Raise errors to debug
+                error_score='raise'
             )
             
             with parallel_backend('loky', n_jobs=2):
@@ -327,6 +339,8 @@ class XGBoostAnalyzer:
             self._analyze_feature_importance(X, feature_cols)
             self._analyze_shap_values(X_test, feature_cols)
             
+            # Reset index before prediction to avoid duplicate label issues
+            full_prepared = full_prepared.reset_index(drop=True)
             full_prepared['PredictedProbability'] = self.model.predict_proba(full_prepared[feature_cols])[:, 1]
             self._analyze_high_probability_patterns(full_prepared)
             
@@ -335,6 +349,8 @@ class XGBoostAnalyzer:
             return
         except Exception as e:
             print(f"Error in XGBoost analysis: {str(e)}")
+            import traceback
+            traceback.print_exc()
             raise
 
     def _analyze_feature_importance(self, X: pd.DataFrame, feature_cols: list) -> None:
@@ -379,29 +395,44 @@ class XGBoostAnalyzer:
             print("\nAnalyzing feature interactions with SHAP values...")
             explainer = shap.TreeExplainer(self.model)
             
+            # Ensure X_test has the same columns as used in training
+            expected_features = self.model.feature_names if self.model.feature_names else feature_cols
+            X_test_aligned = X_test[expected_features]  # Select only the expected features
+            
             # Subsample X_test (e.g., 10,000 rows)
-            sample_size = min(10000, len(X_test))  # Use 10k or total size if smaller
-            X_test_sample = X_test.sample(n=sample_size, random_state=42)
+            sample_size = min(10000, len(X_test_aligned))  # Use 10k or total size if smaller
+            X_test_sample = X_test_aligned.sample(n=sample_size, random_state=42)
             print(f"Using a subsample of {sample_size:,} rows for SHAP analysis (original size: {len(X_test):,})")
             
+            # Debugging output to verify dimensions
+            print(f"Expected features from model: {len(expected_features)}")
+            print(f"X_test_sample shape: {X_test_sample.shape}")
+            print(f"X_test_sample columns: {X_test_sample.columns.tolist()}")
+
+            # Compute SHAP interaction values
             interaction_values = explainer.shap_interaction_values(X_test_sample)
             
+            # Zero out diagonal (self-interactions)
             np.fill_diagonal(interaction_values, 0)
             interaction_sum = np.sum(np.abs(interaction_values), axis=(0, 1))
             
+            # Create DataFrame of interaction strengths
             top_interactions = pd.DataFrame({
-                'Feature': feature_cols,
+                'Feature': expected_features,  # Use the aligned feature names
                 'Interaction_Strength': interaction_sum
             }).sort_values('Interaction_Strength', ascending=False)
             
-            numerical_features = [f for f in feature_cols if f not in self.category_feature_map]
-            categorical_features = [f for f in feature_cols if f in self.category_feature_map]
+            # Separate numerical and categorical features
+            numerical_features = [f for f in expected_features if f not in self.category_feature_map]
+            categorical_features = [f for f in expected_features if f in self.category_feature_map]
             
+            # Print top numerical feature interactions
             print("\nTop Numerical Feature Interactions:")
             num_interactions = top_interactions[top_interactions['Feature'].isin(numerical_features)].head(5)
             for _, row in num_interactions.iterrows():
                 print(f"  {row['Feature']}: {row['Interaction_Strength']:.4f}")
             
+            # Group and print categorical feature interactions
             categorical_by_base = {}
             for f in categorical_features:
                 base = self.category_feature_map[f]
@@ -422,6 +453,7 @@ class XGBoostAnalyzer:
                     
         except Exception as e:
             print(f"Error analyzing SHAP values: {str(e)}")
+            raise  # Re-raise the exception for further debugging if needed
 
     def _analyze_high_probability_patterns(self, df: pd.DataFrame) -> None:
         try:
@@ -547,7 +579,6 @@ class SuspiciousLoanAnalyzer:
                 )
             except ValueError as e:
                 print(f"Warning: Some columns are missing in suspicious loans data: {str(e)}")
-                # Load only available columns
                 available_cols = [col for col in sus_cols if col in pd.read_csv(self.suspicious_file, nrows=0).columns]
                 sus = pd.read_csv(
                     self.suspicious_file,
@@ -555,9 +586,14 @@ class SuspiciousLoanAnalyzer:
                     dtype={col: sus_dtypes[col] for col in available_cols if col in sus_dtypes},
                     usecols=available_cols
                 )
-            
-            print("Loading full loan dataset with Dask...")
-            # Define columns for full dataset (excludes RiskScore and RiskFlags)
+            sus = sus.reset_index(drop=True)  # Ensure unique index
+
+        except Exception as e:
+            print(f"Error loading suspicious data: {str(e)}")
+            raise
+
+        print("Loading full loan dataset with Dask...")
+        try:
             full_cols = [
                 "LoanNumber", "BorrowerName", "BorrowerAddress", "BorrowerCity", "BorrowerState",
                 "BorrowerZip", "Latitude", "Longitude", "Census Tract Code", "OriginatingLender",
@@ -586,36 +622,34 @@ class SuspiciousLoanAnalyzer:
                 "LMIIndicator": str,
                 "NonProfit": str,
             }
-            # Load with Dask
             full_dd = dd.read_csv(
                 self.full_data_file,
                 usecols=full_cols,
                 dtype=full_dtypes,
-                blocksize="64MB"  # Suitable for 256GB RAM
+                blocksize="64MB"
             )
-            # Filter in Dask (lazy evaluation)
             full_dd = full_dd[
                 (full_dd["InitialApprovalAmount"] >= 5000) &
                 (full_dd["InitialApprovalAmount"] < 22000)
             ]
-            # Convert NA in JobsReported to 0
             full_dd["JobsReported"] = full_dd["JobsReported"].fillna(0)
-            # Compute to pandas DataFrame
-            full = full_dd.compute(scheduler='processes', num_workers=32)  # Utilize all 32 cores
+            full = full_dd.compute(scheduler='processes', num_workers=32)
+            full = full.reset_index(drop=True)  # Ensure unique index
 
-            # Debugging checks
-            print(f"Suspicious dataset shape: {sus.shape}")
-            print(f"Full dataset shape after filtering: {full.shape}")
-            print(f"Suspicious LoanNumbers unique: {sus['LoanNumber'].nunique()}")
-            print(f"Full LoanNumbers unique: {full['LoanNumber'].nunique()}")
-
-            self.sus_data = sus.copy()
-            self.full_data = full.copy()
-            print(f"Loaded {len(sus):,} suspicious loans and {len(full):,} total loans in range.")
-            return sus, full
         except Exception as e:
-            print(f"Error loading data: {str(e)}")
+            print(f"Error loading full data: {str(e)}")
             raise
+
+        # Debugging checks
+        print(f"Suspicious dataset shape: {sus.shape}")
+        print(f"Full dataset shape after filtering: {full.shape}")
+        print(f"Suspicious LoanNumbers unique: {sus['LoanNumber'].nunique()}")
+        print(f"Full LoanNumbers unique: {full['LoanNumber'].nunique()}")
+
+        self.sus_data = sus.copy()
+        self.full_data = full.copy()
+        print(f"Loaded {len(sus):,} suspicious loans and {len(full):,} total loans in range.")
+        return sus, full
 
     def safe_divide(self, a: float, b: float, default: float = 0.0) -> float:
         """Safely divide two numbers, handling division by zero."""
@@ -796,12 +830,23 @@ class SuspiciousLoanAnalyzer:
         try:
             print("\nFeature Discrimination Analysis using AUPRC")
             
-            # Prepare enhanced features, keeping LoanNumber initially
+            # Prepare enhanced features with unique indices
             full_prepared = self.prepare_enhanced_features(full.copy())
+            print("Full prepared shape after feature prep:", full_prepared.shape)
+            full_prepared = full_prepared.drop_duplicates(subset=["LoanNumber"], keep='first')
+            full_prepared = full_prepared.reset_index(drop=True)
+            print("After deduplication and index reset - Shape:", full_prepared.shape)
+            
+            # Debugging checks
+            assert not full.index.duplicated().any(), "full has duplicate indices"
+            assert not full_prepared.index.duplicated().any(), "full_prepared has duplicate indices"
+            full_prepared["LoanNumber"] = full["LoanNumber"].astype(str).str.strip()
+                        
             full_prepared["LoanNumber"] = full["LoanNumber"].astype(str).str.strip()
             sus["LoanNumber"] = sus["LoanNumber"].astype(str).str.strip()
             
             full_prepared["Flagged"] = full_prepared["LoanNumber"].isin(sus["LoanNumber"]).astype(int)
+            print(f"Flagged loans: {full_prepared['Flagged'].sum()}, Total: {len(full_prepared)}")
             
             # Drop LoanNumber after flagging
             full_prepared = full_prepared.drop(columns=["LoanNumber"])
@@ -825,37 +870,32 @@ class SuspiciousLoanAnalyzer:
                     continue
                     
                 if feature in ['BusinessType', 'Race', 'Gender', 'Ethnicity']:
-                    # Use original column from 'full' to get raw categorical values
                     original_col = full[feature].fillna('Unknown').astype(str)
                     value_counts = original_col.value_counts()
                     common_categories = value_counts[value_counts >= 5].index
                     temp_df = original_col.apply(lambda x: x if x in common_categories else 'Other')
                     
-                    # One-hot encode with meaningful names
                     X = pd.get_dummies(temp_df)
                     X.columns = [f"{feature}_{col.replace(' ', '_')}" for col in X.columns]
+                    X = X.reset_index(drop=True)  # Ensure X has unique indices
                     
                     if X.shape[1] > 1:
-                        # Compute AUPRC for each category individually
                         for col in X.columns:
                             single_feature = X[[col]]
                             model = LogisticRegression(max_iter=1000, random_state=42)
                             model.fit(single_feature, y_true)
                             y_scores = model.predict_proba(single_feature)[:, 1]
                             auprc = average_precision_score(y_true, y_scores)
-                            # T-test for significance
                             p_val = stats.ttest_ind(
                                 single_feature[col][y_true == 1],
                                 single_feature[col][y_true == 0],
                                 equal_var=False
                             ).pvalue
                             feature_auprc[col] = (auprc, p_val)
-                            # Store for detailed breakdown
                             if feature not in category_auprc_dict:
                                 category_auprc_dict[feature] = {}
                             category_auprc_dict[feature][col] = auprc
                     else:
-                        # Single category case
                         y_scores = X.iloc[:, 0]
                         auprc = average_precision_score(y_true, y_scores)
                         p_val = stats.ttest_ind(
@@ -865,8 +905,8 @@ class SuspiciousLoanAnalyzer:
                         ).pvalue
                         feature_auprc[feature] = (auprc, p_val)
                 else:
-                    # Numerical features from prepared dataframe
                     X = full_prepared[[feature]].fillna(0)
+                    X = X.reset_index(drop=True)  # Ensure X has unique indices
                     model = LogisticRegression(max_iter=1000, random_state=42)
                     model.fit(X, y_true)
                     y_scores = model.predict_proba(X)[:, 1]
@@ -878,21 +918,17 @@ class SuspiciousLoanAnalyzer:
                     ).pvalue
                     feature_auprc[feature] = (auprc, p_val)
             
-            # Sort features by AUPRC
+            # Sort and display results
             sorted_features = sorted(feature_auprc.items(), key=lambda x: x[1][0], reverse=True)
             
-            # Display detailed feature analysis
             print("\nDetailed Feature Analysis:")
             print("Note: Patterns reflect data distribution and statistical significance, not targeted focus on any group.")
             
-            # Track which categorical features have been displayed to avoid repetition
             displayed_categories = set()
-            
             for feature, (auprc, p_val) in sorted_features:
                 sig_note = " (p < 0.05, significant)" if p_val < 0.05 else " (p >= 0.05, not significant)"
                 print(f"{feature}: AUPRC = {auprc:.4f}{sig_note}")
                 
-                # Check if it's a categorical feature and display breakdown only once
                 base_feature = feature.split('_')[0] if '_' in feature else feature
                 if base_feature in category_auprc_dict and base_feature not in displayed_categories:
                     print(f"  All categories for {base_feature}:")
@@ -909,17 +945,18 @@ class SuspiciousLoanAnalyzer:
                         print(f"    {prefix}{cat}: AUPRC = {cat_auprc:.4f}{suffix}")
                     displayed_categories.add(base_feature)
             
-            # Overall feature ranking
             print("\nFeatures ranked by AUPRC (discriminative power):")
             for feature, (auprc, _) in sorted_features:
                 print(f"{feature}: AUPRC = {auprc:.4f}")
             
-            # Baseline
             baseline_auprc = y_true.mean()
             print(f"\nBaseline AUPRC (random guessing): {baseline_auprc:.4f}")
             
         except Exception as e:
             print(f"Error in feature discrimination analysis: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            raise
 
     def analyze_geographic_clusters(self, sus: pd.DataFrame, full: pd.DataFrame) -> None:
         """Analyze geographic clusters with proper error handling."""
@@ -1446,114 +1483,117 @@ f"{pname}: {sus_match:.3%} in suspicious vs {full_match:.3%} overall ({ratio:.2f
             return df
 
     def prepare_enhanced_features(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Prepare enhanced features for multivariate logit analysis with safe NA handling (not as many features as XGBoost analysis)."""
+        """Prepare enhanced features for multivariate logit analysis with safe NA handling."""
         try:
             df = df.copy()
-            
-            # Ensure numeric columns never see pd.NA
-            df['JobsReported'] = (
-                pd.to_numeric(df['JobsReported'].replace({pd.NA: np.nan}), errors='coerce')
-                .fillna(0)
-            )
-            df['InitialApprovalAmount'] = (
-                pd.to_numeric(df['InitialApprovalAmount'].replace({pd.NA: np.nan}), errors='coerce')
-                .fillna(0)
-            )
-            
-            # Safely handle BorrowerName
+            print(f"Starting prepare_enhanced_features - Initial shape: {df.shape}")
+
+            # Numeric columns
+            print("Processing numeric columns...")
+            df['JobsReported'] = pd.to_numeric(df['JobsReported'].replace({pd.NA: np.nan}), errors='coerce').fillna(0)
+            df['InitialApprovalAmount'] = pd.to_numeric(df['InitialApprovalAmount'].replace({pd.NA: np.nan}), errors='coerce').fillna(0)
+
+            # BorrowerName features
+            print("Processing BorrowerName features...")
             df['BorrowerName'] = df['BorrowerName'].fillna('')
             df['NameLength'] = df['BorrowerName'].astype(str).str.len()
-            df['WordCount'] = df['BorrowerName'].astype(str).apply(lambda x: len(x.split()))
-            df['IsHubzone'] = (
-                (df['HubzoneIndicator'].fillna('') == 'Y')
-                .astype('uint8')
-            )
-            df['IsLMI'] = (
-                (df['LMIIndicator'].fillna('') == 'Y')
-                .astype('uint8')
-            )
-            df['IsNonProfit'] = (
-                (df['NonProfit'].fillna('') == 'Y')
-                .astype('uint8')
+            df['WordCount'] = df['BorrowerName'].str.split().str.len().fillna(0).astype(int)
+
+            # Boolean columns
+            print("Processing boolean columns...")
+            df['IsHubzone'] = (df['HubzoneIndicator'].fillna('') == 'Y').astype('uint8')
+            df['IsLMI'] = (df['LMIIndicator'].fillna('') == 'Y').astype('uint8')
+            df['IsNonProfit'] = (df['NonProfit'].fillna('') == 'Y').astype('uint8')
+
+            # AmountPerEmployee
+            print("Calculating AmountPerEmployee...")
+            df['AmountPerEmployee'] = np.where(
+                df['JobsReported'] > 0,
+                df['InitialApprovalAmount'] / df['JobsReported'],
+                df['InitialApprovalAmount']
             )
 
-            # Calculate amount per employee
-            df['AmountPerEmployee'] = df.apply(
-                lambda x: x['InitialApprovalAmount'] / x['JobsReported']
-                if x['JobsReported'] > 0 else x['InitialApprovalAmount'],
-                axis=1
-            )
-            
+            # IsRoundAmount
+            print("Calculating IsRoundAmount...")
             df['IsRoundAmount'] = (
                 pd.to_numeric(df['InitialApprovalAmount'], errors='coerce')
                 .fillna(0)
                 .apply(lambda x: x % 100 == 0)
             ).astype('uint8')
-                        
-            # Fill missing address pieces so .groupby won't see NAType
+
+            # Address features
+            print("Processing address features...")
             df['BorrowerAddress'] = df['BorrowerAddress'].fillna('')
             df['BorrowerCity'] = df['BorrowerCity'].fillna('')
             df['BorrowerState'] = df['BorrowerState'].fillna('')
 
-            # Address-based features
             residential_indicators = {'apt', 'unit', 'suite', '#', 'po box', 'residence', 'residential', 'apartment', 'room', 'floor'}
             commercial_indicators = {'plaza', 'building', 'tower', 'office', 'complex', 'center', 'mall', 'commercial', 'industrial', 'park'}
-            
             address_str = df['BorrowerAddress'].astype(str).str.lower()
-            df['HasResidentialIndicator'] = address_str.apply(
-                lambda x: any(ind in x for ind in residential_indicators)
-            ).astype('uint8')
 
-            df['HasCommercialIndicator'] = address_str.apply(
-                lambda x: any(ind in x for ind in commercial_indicators)
-            ).astype('uint8')
-            
-            # Multiple businesses at same address
-            address_counts = df.groupby(
-                ['BorrowerAddress', 'BorrowerCity', 'BorrowerState']
-            )['BorrowerName'].count()
-            df['HasMultipleBusinesses'] = df.apply(
-                lambda x: address_counts.get(
-                    (x['BorrowerAddress'], x['BorrowerCity'], x['BorrowerState']), 0
-                ) > 1,
-                axis=1
-            ).astype(int)
-            
+            residential_pattern = '|'.join(map(re.escape, residential_indicators))
+            commercial_pattern = '|'.join(map(re.escape, commercial_indicators))
+
+            df['HasResidentialIndicator'] = address_str.str.contains(residential_pattern, case=False, na=False).astype('uint8')
+            df['HasCommercialIndicator'] = address_str.str.contains(commercial_pattern, case=False, na=False).astype('uint8')
+
+            # HasMultipleBusinesses
+            print("Calculating HasMultipleBusinesses...")
+            address_counts = (df.groupby(['BorrowerAddress', 'BorrowerCity', 'BorrowerState'])
+                            .size()
+                            .reset_index(name='Count'))
+            df = df.merge(address_counts, on=['BorrowerAddress', 'BorrowerCity', 'BorrowerState'], how='left')
+            df['Count'] = df['Count'].fillna(0).astype(int)
+            df['HasMultipleBusinesses'] = (df['Count'] > 1).astype(int)
+            df = df.drop(columns=['Count'])
+
             # Exact maximum amounts
+            print("Calculating IsExactMaxAmount...")
             max_amounts = [20832, 20833, 20834]
-            df['IsExactMaxAmount'] = df['InitialApprovalAmount'].apply(
-                lambda x: int(x) in max_amounts
-            ).astype(int)
-            
-            # Handle categorical variables: replace NA with 'Unknown'
+            df['IsExactMaxAmount'] = df['InitialApprovalAmount'].apply(lambda x: int(x) in max_amounts).astype(int)
+
+            # Categorical variables
+            print("Processing categorical variables...")
             df['BusinessType'] = df['BusinessType'].fillna('Unknown')
             df['Race'] = df['Race'].fillna('Unknown')
             df['Gender'] = df['Gender'].fillna('Unknown')
             df['Ethnicity'] = df['Ethnicity'].fillna('Unknown')
-            
-            # Demographic completeness features
+
+            # MissingDemographics
+            print("Calculating MissingDemographics...")
             demographic_fields = ['Race', 'Gender', 'Ethnicity']
-            df['MissingDemographics'] = df[demographic_fields].apply(
-                lambda row: sum(val == 'Unknown' for val in row),
-                axis=1
-            ).astype('uint8')
+            df['MissingDemographics'] = (df[demographic_fields] == 'Unknown').sum(axis=1).astype('uint8')
+            print(f"Final shape: {df.shape}")
+            print(f"Final index duplicates: {df.index.duplicated().sum()}")
+            print(f"Final columns duplicates: {df.columns.duplicated().sum()}")
+            print(f"Final columns: {df.columns.tolist()}")
+            df = df.reset_index(drop=True)
             return df
-            
+
         except Exception as e:
             print(f"Error preparing enhanced features for multivariate logit analysis: {str(e)}")
-            return df
+            import traceback
+            traceback.print_exc()
+            raise
 
     def analyze_multivariate(self, sus: pd.DataFrame, full: pd.DataFrame) -> None:
         """Perform multivariate analysis using logistic regression with meaningful category names."""
         try:
             print("\nEnhanced Multivariate Analysis via Logistic Regression")
             
-            # Prepare dataset with enhanced features, keeping LoanNumber initially
-            print("Preparing enhanced features...")
+            print("Preparing enhanced features for multivariate analysis...")
             full_prepared = self.prepare_enhanced_features(full.copy())
+
+            # Remove duplicates
+            full_prepared = full_prepared.drop_duplicates(subset=["LoanNumber"], keep='first')
+
+            # Fix: Reset index of full to ensure no duplicates and proper alignment
+            full = full.reset_index(drop=True)
             full_prepared["LoanNumber"] = full["LoanNumber"].astype(str).str.strip()
             sus["LoanNumber"] = sus["LoanNumber"].astype(str).str.strip()
-            
+
+            full_prepared = self.prepare_enhanced_features(full.copy()).reset_index(drop=True)
+
             # Debugging output
             print(f"Suspicious LoanNumbers unique count: {sus['LoanNumber'].nunique()}")
             print(f"Full dataset LoanNumbers unique count: {full_prepared['LoanNumber'].nunique()}")
@@ -1563,7 +1603,7 @@ f"{pname}: {sus_match:.3%} in suspicious vs {full_match:.3%} overall ({ratio:.2f
             full_prepared["Flagged"] = full_prepared["LoanNumber"].isin(matched_loans).astype(int)
             print(f"Class distribution - Suspicious: {full_prepared['Flagged'].sum()}, "
                 f"Non-suspicious: {len(full_prepared) - full_prepared['Flagged'].sum()}")
-            
+
             if full_prepared["Flagged"].sum() == 0:
                 print("Error: No suspicious loans found in the full dataset after flagging.")
                 return
@@ -1583,14 +1623,14 @@ f"{pname}: {sus_match:.3%} in suspicious vs {full_match:.3%} overall ({ratio:.2f
 
             # Drop LoanNumber now that flagging is complete
             if "LoanNumber" in full_prepared.columns:
+                print("Dropping LoanNumber column...")
                 full_prepared = full_prepared.drop(columns=["LoanNumber"])
 
             # Initial feature matrix with numerical features
+            print("Creating initial feature matrix X...")
             X = full_prepared[numerical_features].copy()
             y = full_prepared["Flagged"]
-
-            # No interaction features to keep feature count low
-            # Removed: X['Jobs_X_Amount'], X['Address_X_AmtPerEmp']
+            print(f"Initial X shape: {X.shape}, Columns: {X.columns.tolist()}")
 
             # Diagnose and clean numerical features
             print("\nDiagnosing feature variance and correlations...")
@@ -1642,7 +1682,9 @@ f"{pname}: {sus_match:.3%} in suspicious vs {full_match:.3%} overall ({ratio:.2f
                         category_feature_map[col] = feature
                 
                 if dummies.shape[1] > 0:
+                    print(f"  Concatenating dummies for {feature}...")
                     X = pd.concat([X, dummies], axis=1)
+                    print(f"  After concat shape: {X.shape}")
 
             # Final feature check
             print(f"\nFinal feature matrix shape: {X.shape}")
@@ -1686,8 +1728,12 @@ f"{pname}: {sus_match:.3%} in suspicious vs {full_match:.3%} overall ({ratio:.2f
                     try:
                         print("Fitting Statsmodels logistic regression...")
                         model_sm = sm.Logit(y_train, X_train_sm).fit(
-                            method='newton', maxiter=3000, disp=0
-                        )
+                            method='lbfgs',  # Switch to lbfgs for speed
+                            maxiter=500,     # Reduced from 3000 for faster convergence
+                            pgtol=1e-7,      # Projected gradient tolerance for convergence
+                            factr=1e7,       # Moderate precision to balance speed and accuracy
+                            disp=0,          # Suppress default convergence messages
+                        )                        
                         print("Statsmodels logistic regression converged successfully.")
                     except Exception as e:
                         print(f"Statsmodels failed: {str(e)}. Falling back to sklearn model.")
@@ -1749,9 +1795,12 @@ f"{pname}: {sus_match:.3%} in suspicious vs {full_match:.3%} overall ({ratio:.2f
                     print("No suspicious loans found for modeling.")
             else:
                 print("Not enough classes for logistic regression.")
-                                        
+                                            
         except Exception as e:
             print(f"Error in multivariate analysis: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            raise
             
     def run_analysis(self) -> None:
         try:
